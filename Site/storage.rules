@@ -1,0 +1,13 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // Allow public read access to all files
+      allow read: if true;
+      
+      // Allow write access only to authenticated users
+      // You can add more specific checks here (e.g. file size, type)
+      allow write: if request.auth != null;
+    }
+  }
+}

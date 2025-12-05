@@ -1,0 +1,68 @@
+"use client";
+
+import React, { createContext, useContext, useState, ReactNode } from "react";
+
+export type RightSidebarView = "notifications" | "comments" | "details" | "attendance";
+
+interface RightSidebarContextType {
+    isVisible: boolean;
+    view: RightSidebarView;
+    data: any;
+    sidebarWidth: number;
+    setSidebarWidth: (width: number) => void;
+    toggle: () => void;
+    openView: (view: RightSidebarView, data?: any) => void;
+    close: () => void;
+    showNotifications: () => void;
+}
+
+const RightSidebarContext = createContext<RightSidebarContextType | undefined>(undefined);
+
+export function RightSidebarProvider({ children }: { children: ReactNode }) {
+    const [isVisible, setIsVisible] = useState(true);
+    const [view, setView] = useState<RightSidebarView>("notifications");
+    const [data, setData] = useState<any>(null);
+    const [sidebarWidth, setSidebarWidth] = useState(300);
+
+    const toggle = () => setIsVisible((prev) => !prev);
+
+    const openView = (newView: RightSidebarView, newData?: any) => {
+        setView(newView);
+        if (newData !== undefined) setData(newData);
+        setIsVisible(true);
+    };
+
+    const close = () => setIsVisible(false);
+
+    const showNotifications = () => {
+        setView("notifications");
+        setData(null);
+        setIsVisible(true);
+    };
+
+    return (
+        <RightSidebarContext.Provider
+            value={{
+                isVisible,
+                view,
+                data,
+                sidebarWidth,
+                setSidebarWidth,
+                toggle,
+                openView,
+                close,
+                showNotifications,
+            }}
+        >
+            {children}
+        </RightSidebarContext.Provider>
+    );
+}
+
+export function useRightSidebar() {
+    const context = useContext(RightSidebarContext);
+    if (context === undefined) {
+        throw new Error("useRightSidebar must be used within a RightSidebarProvider");
+    }
+    return context;
+}

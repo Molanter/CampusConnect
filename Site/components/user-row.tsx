@@ -1,0 +1,99 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { doc, getDoc } from "firebase/firestore/lite";
+import { db } from "../lib/firebase";
+
+type UserRowProps = {
+    uid?: string;
+    userData?: {
+        displayName?: string;
+        username?: string;
+        photoURL?: string;
+    };
+    subtitle?: string;
+    onlyAvatar?: boolean;
+};
+
+export function UserRow({ uid, userData, subtitle, onlyAvatar = false }: UserRowProps) {
+    const [profile, setProfile] = useState<{
+        displayName?: string;
+        username?: string;
+        photoURL?: string;
+    } | null>(userData || null);
+    const [loading, setLoading] = useState(!userData && !!uid);
+
+    useEffect(() => {
+        if (userData) {
+            setProfile(userData);
+            setLoading(false);
+            return;
+        }
+
+        if (!uid) return;
+
+        const fetchUser = async () => {
+            try {
+                setLoading(true);
+                const ref = doc(db, "users", uid);
+                const snap = await getDoc(ref);
+                if (snap.exists()) {
+                    const data = snap.data();
+                    // Map different possible field names
+                    setProfile({
+                        displayName: data.displayName || data.name || data.fullName,
+                        username: data.username,
+                        photoURL: data.photoURL || data.profilePicture || data.avatarUrl
+                    });
+                }
+            } catch (err) {
+                console.error("Error fetching user row", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUser();
+    }, [uid, userData]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center gap-3 py-1">
+                <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
+                {!onlyAvatar && (
+                    <div className="flex flex-col gap-1">
+                        <div className="h-3 w-24 animate-pulse rounded bg-white/10" />
+                        <div className="h-2 w-16 animate-pulse rounded bg-white/10" />
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    const displayName = profile?.displayName || "Unknown User";
+    const username = profile?.username;
+    const photoURL = profile?.photoURL;
+    const initials = displayName.charAt(0).toUpperCase();
+
+    return (
+        <div className="flex items-center gap-3 py-1">
+            <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10">
+                {photoURL ? (
+                    <img src={photoURL} alt={displayName} className="h-full w-full object-cover" />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
+                        {initials}
+                    </div>
+                )}
+            </div>
+            {!onlyAvatar && (
+                <div className="flex flex-col leading-tight">
+                    <span className="text-sm font-semibold text-white">{displayName}</span>
+                    <span className="text-xs text-neutral-400">
+                        {subtitle || (username ? `@${username}` : "")}
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+}
