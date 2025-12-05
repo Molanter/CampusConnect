@@ -262,7 +262,7 @@ export function CommentMessage({
                   onClick={() => onReply(comment)}
                 >
                   <ArrowUturnLeftIcon className="h-3.5 w-3.5 transition-transform group-active:-translate-x-0.5" />
-                  {replyCount > 0 ? `${replyCount} replies` : "Reply"}
+                  <span>{replyCount}</span>
                 </button>
               )}
 
@@ -285,7 +285,7 @@ export function CommentMessage({
                     likeAnimating && "animate-like-pop"
                   )}
                 />
-                {likeCount > 0 && <span>{likeCount}</span>}
+                <span>{likeCount}</span>
               </button>
 
               {canEdit && (
@@ -295,9 +295,7 @@ export function CommentMessage({
                   onClick={() => setIsEditing((prev) => !prev)}
                 >
                   <PencilIcon className="h-3.5 w-3.5" />
-                  {comment.editCount && comment.editCount > 0 ? (
-                    <span>Edited</span>
-                  ) : null}
+                  <span>{comment.editCount || 0}</span>
                 </button>
               )}
             </div>
@@ -306,7 +304,7 @@ export function CommentMessage({
 
         {/* Nested Replies with Connector Line */}
         {comment.replies && comment.replies.length > 0 && (
-          <div className="mt-2 pl-3 border-l border-white/10 space-y-3 animate-reply-expand origin-top">
+          <div className="mt-2 ml-[-29px] pl-[29px] border-l-2 border-white/10 space-y-3 animate-reply-expand origin-top">
             {comment.replies.map((reply) => (
               <CommentMessage
                 key={reply.id}

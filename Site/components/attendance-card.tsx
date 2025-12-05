@@ -101,9 +101,11 @@ export function AttendanceCard({
                     let authorPhotoURL = data.authorPhotoURL ?? null;
                     let authorUsername = data.authorUsername ?? null;
 
-                    if (data.authorUid) {
+                    const targetUid = data.authorUid || data.uid;
+
+                    if (targetUid) {
                         try {
-                            const userDoc = await getDoc(doc(dbFull, "users", data.authorUid));
+                            const userDoc = await getDoc(doc(dbFull, "users", targetUid));
                             if (userDoc.exists()) {
                                 const userData = userDoc.data();
                                 authorName = userData.displayName || userData.username || "Someone";
@@ -152,9 +154,14 @@ export function AttendanceCard({
                             createdAt: replyData.createdAt?.toDate ? replyData.createdAt.toDate() : null,
                             updatedAt: replyData.updatedAt?.toDate ? replyData.updatedAt.toDate() : null,
                             likes: replyData.likes ?? [],
+                            parentPath: [docSnap.id],
                             replies: [], // Can load nested if needed
                         });
                     }
+
+                    // Sort replies by likes (descending) and take only the top 1
+                    replies.sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0));
+                    const topReply = replies.slice(0, 1);
 
                     const score = (data.likes?.length || 0) + (repliesSnapshot.size * 2);
 
@@ -170,7 +177,7 @@ export function AttendanceCard({
                             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
                             updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : null,
                             likes: data.likes ?? [],
-                            replies,
+                            replies: topReply,
                             replyCount: repliesSnapshot.size,
                         };
                     }
@@ -400,8 +407,21 @@ export function AttendanceCard({
         }
     };
 
+    const [likeAnimating, setLikeAnimating] = useState(false);
+
     const handleToggleLike = async () => {
         if (!id || !currentUser) return;
+
+        // Trigger animation
+        setLikeAnimating(true);
+        setTimeout(() => setLikeAnimating(false), 140);
+
+        // Optimistic update
+        const originalIsLiked = isLiked;
+        const originalLikesCount = likesCount;
+
+        setIsLiked(!isLiked);
+        setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
 
         try {
             const dbFull = getFirestore();
@@ -412,6 +432,9 @@ export function AttendanceCard({
             });
         } catch (error) {
             console.error("Error toggling like:", error);
+            // Revert on error
+            setIsLiked(originalIsLiked);
+            setLikesCount(originalLikesCount);
         }
     };
 
@@ -446,22 +469,78 @@ export function AttendanceCard({
         if (!id || !currentUser) return;
         try {
             const dbFull = getFirestore();
-            const commentPath = comment.parentPath?.length > 0
-                ? `events/${id}/comments/${comment.parentPath.join('/replies/')}/replies/${comment.id}`
-                : `events/${id}/comments/${comment.id}`;
+
+            // Build path correctly for nested replies
+            let commentPath: string;
+            const parentPath = comment.parentPath || [];
+
+            if (parentPath.length === 0) {
+                // Top-level comment
+                commentPath = `events/${id}/comments/${comment.id}`;
+            } else {
+                // Nested reply - build path incrementally
+                commentPath = `events/${id}/comments/${parentPath[0]}`;
+                for (let i = 1; i < parentPath.length; i++) {
+                    commentPath += `/replies/${parentPath[i]}`;
+                }
+                commentPath += `/replies/${comment.id}`;
+            }
+
+            console.log("DEBUG: handleCommentLike", {
+                id,
+                commentId: comment.id,
+                parentPath: comment.parentPath,
+                generatedPath: commentPath
+            });
 
             const pathSegments = commentPath.split('/');
             const commentRef = doc(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
             const isLiked = comment.likes?.includes(currentUser.uid);
 
-            await updateDoc(commentRef, {
-                likes: isLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
-            });
+            // Optimistic update
+            const originalPreviewComment = { ...previewComment };
+            const updatedPreviewComment = { ...previewComment };
 
-            // Reload comment
-            loadPreviewComment();
+            // Helper to toggle like in a comment object
+            const toggleLikeInObj = (obj: any) => {
+                const currentLikes = obj.likes || [];
+                if (isLiked) {
+                    obj.likes = currentLikes.filter((uid: string) => uid !== currentUser.uid);
+                } else {
+                    obj.likes = [...currentLikes, currentUser.uid];
+                }
+                return obj;
+            };
+
+            if (updatedPreviewComment.id === comment.id) {
+                // Updating the main preview comment
+                toggleLikeInObj(updatedPreviewComment);
+            } else if (updatedPreviewComment.replies) {
+                // Updating a reply
+                updatedPreviewComment.replies = updatedPreviewComment.replies.map((r: any) => {
+                    if (r.id === comment.id) {
+                        return toggleLikeInObj({ ...r });
+                    }
+                    return r;
+                });
+            }
+
+            setPreviewComment(updatedPreviewComment);
+
+            try {
+                await updateDoc(commentRef, {
+                    likes: isLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+                });
+                // No need to reload, we already updated optimistically
+                // But we can reload silently to ensure consistency if needed
+                // loadPreviewComment(); 
+            } catch (error) {
+                console.error("Error toggling comment like:", error);
+                // Revert on error
+                setPreviewComment(originalPreviewComment);
+            }
         } catch (error) {
-            console.error("Error toggling comment like:", error);
+            console.error("Error in handleCommentLike wrapper:", error);
         }
     };
 
@@ -574,10 +653,10 @@ export function AttendanceCard({
                         <img
                             src={firstImage}
                             alt=""
-                            className="h-full w-full rounded-2xl border border-white/10 object-cover"
+                            className="h-full w-full rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] object-cover transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]"
                         />
                     ) : (
-                        <div className="flex h-full w-full items-center justify-center rounded-2xl border border-white/10 bg-neutral-900 text-[11px] text-neutral-300">
+                        <div className="flex h-full w-full items-center justify-center rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] text-[11px] text-neutral-300 transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             More
                         </div>
                     )}
@@ -593,7 +672,7 @@ export function AttendanceCard({
     const renderImages = () => {
         if (mediaItems.length === 0) {
             return (
-                <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl bg-[#2C2C2E] text-neutral-600">
+                <div className="flex aspect-[4/3] w-full items-center justify-center rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] text-neutral-600 transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                     <span className="text-sm">No Image or Location</span>
                 </div>
             );
@@ -601,7 +680,7 @@ export function AttendanceCard({
 
         if (mediaItems.length === 1) {
             return (
-                <div className="w-full overflow-hidden rounded-2xl border border-white/10">
+                <div className="w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                     {typeof mediaItems[0] === 'string' ? (
                         <img
                             src={mediaItems[0]}
@@ -620,10 +699,10 @@ export function AttendanceCard({
         if (mediaItems.length === 2) {
             return (
                 <div className="grid aspect-[4/3] w-full grid-cols-2 gap-3">
-                    <div className="h-full w-full overflow-hidden rounded-2xl border border-white/10">
+                    <div className="h-full w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[0], 0, "h-full w-full object-cover")}
                     </div>
-                    <div className="h-full w-full overflow-hidden rounded-2xl border border-white/10">
+                    <div className="h-full w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[1], 1, "h-full w-full object-cover")}
                     </div>
                 </div>
@@ -634,14 +713,14 @@ export function AttendanceCard({
             return (
                 <div className="grid w-full grid-cols-2 gap-3">
                     <div className="flex flex-col gap-3">
-                        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[0], 0, "absolute inset-0 h-full w-full object-cover")}
                         </div>
-                        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[1], 1, "absolute inset-0 h-full w-full object-cover")}
                         </div>
                     </div>
-                    <div className="relative h-full w-full overflow-hidden rounded-2xl border border-white/10">
+                    <div className="relative h-full w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[2], 2, "absolute inset-0 h-full w-full object-cover")}
                     </div>
                 </div>
@@ -654,18 +733,18 @@ export function AttendanceCard({
             return (
                 <div className="grid w-full grid-cols-2 gap-3">
                     <div className="flex flex-col gap-3">
-                        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[0], 0, "absolute inset-0 h-full w-full object-cover")}
                         </div>
-                        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[2], 2, "absolute inset-0 h-full w-full object-cover")}
                         </div>
                     </div>
                     <div className="flex flex-col gap-3">
-                        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[1], 1, "absolute inset-0 h-full w-full object-cover")}
                         </div>
-                        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[3], 3, "absolute inset-0 h-full w-full object-cover")}
                         </div>
                     </div>
@@ -686,18 +765,18 @@ export function AttendanceCard({
             return (
                 <div className="grid w-full grid-cols-2 gap-3">
                     <div className="flex flex-col gap-3">
-                        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {primaryNonMap[0] &&
                                 renderMediaItem(primaryNonMap[0], 0, "absolute inset-0 h-full w-full object-cover")}
                         </div>
-                        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {primaryNonMap[1] &&
                                 renderMediaItem(primaryNonMap[1], 1, "absolute inset-0 h-full w-full object-cover")}
                         </div>
                     </div>
                     <div className="flex flex-col gap-3">
                         {/* Map pinned to top-right */}
-                        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[mapIndex], mapIndex, "absolute inset-0 h-full w-full object-cover")}
                         </div>
                         {/* Bottom-right: bubbles for remaining images */}
@@ -713,15 +792,15 @@ export function AttendanceCard({
         return (
             <div className="grid w-full grid-cols-2 gap-3">
                 <div className="flex flex-col gap-3">
-                    <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                    <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[0], 0, "absolute inset-0 h-full w-full object-cover")}
                     </div>
-                    <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                    <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[2], 2, "absolute inset-0 h-full w-full object-cover")}
                     </div>
                 </div>
                 <div className="flex flex-col gap-3">
-                    <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10">
+                    <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[1], 1, "absolute inset-0 h-full w-full object-cover")}
                     </div>
                     {/* Bottom-right: bubbles for images that didn't fit */}
@@ -912,9 +991,9 @@ export function AttendanceCard({
                                     }`}
                             >
                                 {isLiked ? (
-                                    <HeartIcon className="h-4 w-4" />
+                                    <HeartIcon className={`h-4 w-4 ${likeAnimating ? "animate-like-pop" : ""}`} />
                                 ) : (
-                                    <HeartIconOutline className="h-4 w-4" />
+                                    <HeartIconOutline className={`h-4 w-4 ${likeAnimating ? "animate-like-pop" : ""}`} />
                                 )}
                                 <span>{likesCount}</span>
                             </button>

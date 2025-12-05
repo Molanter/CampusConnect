@@ -60,7 +60,12 @@ service cloud.firestore {
         allow create: if request.auth != null;
         // Only comment author can update/delete their own comment
         // Check both 'authorUid' and 'uid' for backwards compatibility
-        allow update, delete: if
+        // However, anyone can update just the 'likes' field
+        allow update: if
+          request.auth != null &&
+          ((request.auth.uid == resource.data.authorUid || request.auth.uid == resource.data.uid) ||
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']));
+        allow delete: if
           request.auth != null &&
           (request.auth.uid == resource.data.authorUid || request.auth.uid == resource.data.uid);
 
@@ -70,42 +75,30 @@ service cloud.firestore {
           allow create: if request.auth != null;
           allow update, delete: if false; // Only admins via console
         }
-
-        // First level of nested replies
-        match /replies/{replyId} {
-          allow read: if request.auth != null;
-          allow create: if request.auth != null;
-          allow update, delete: if
-            request.auth != null &&
-            (request.auth.uid == resource.data.authorUid || request.auth.uid == resource.data.uid);
-
-          // Reports subcollection for first-level replies
-          match /reports/{reportId} {
-            allow read: if request.auth != null;
-            allow create: if request.auth != null;
-            allow update, delete: if false;
-          }
-
-          // Second level of nested replies (max depth)
-          match /replies/{nestedReplyId} {
-            allow read: if request.auth != null;
-            allow create: if request.auth != null;
-            allow update, delete: if
-              request.auth != null &&
-              (request.auth.uid == resource.data.authorUid || request.auth.uid == resource.data.uid);
-
-            // Reports subcollection for second-level replies
-            match /reports/{reportId} {
-              allow read: if request.auth != null;
-              allow create: if request.auth != null;
-              allow update, delete: if false;
-            }
-          }
-        }
       }
     }
 
-    // Comment reports collection
+    // Recursive rule for ALL replies (at any nesting level)
+    match /{path=**}/replies/{replyId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if
+        request.auth != null &&
+        ((request.auth.uid == resource.data.authorUid || request.auth.uid == resource.data.uid) ||
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']));
+      allow delete: if
+        request.auth != null &&
+        (request.auth.uid == resource.data.authorUid || request.auth.uid == resource.data.uid);
+    }
+
+    // Recursive rule for ALL reports (comments, replies, etc)
+    match /{path=**}/reports/{reportId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false; // Only admins via console
+    }
+
+    // Comment reports collection (legacy/top-level if used)
     match /commentReports/{reportId} {
       // Any authenticated user can create a report
       allow create: if request.auth != null;
