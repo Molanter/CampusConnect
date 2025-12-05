@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "../../lib/firebase";
-import { 
+import {
   ChevronRightIcon,
   UserCircleIcon,
   UserIcon,
@@ -226,7 +226,10 @@ export default function SettingsPage() {
       <section className="space-y-3">
         <h2 className="px-4 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">About</h2>
         <div className="overflow-hidden rounded-2xl bg-[#1C1C1E]">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
+          <Link
+            href="/help-support"
+            className="flex items-center gap-3 px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors"
+          >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600">
               <QuestionMarkCircleIcon className="h-5 w-5 text-white" />
             </div>
@@ -234,7 +237,7 @@ export default function SettingsPage() {
               <p className="text-[15px] font-normal text-white">Help & Support</p>
             </div>
             <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
-          </div>
+          </Link>
           <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-lime-500 to-lime-600">
               <DocumentTextIcon className="h-5 w-5 text-white" />

@@ -31,7 +31,7 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
     }, []);
 
     const width = viewportWidth ?? 1024;
-    const leftSidebarClass = sidebarVisible && width > 1024 ? "md:pl-72" : "";
+    const leftSidebarClass = sidebarVisible && width > 768 ? "md:pl-[312px]" : "";
 
     // Calculate right padding based on sidebar width + margins (12px on each side = 24px total)
     // Apply for tablet (769-1024) and desktop (>1024) to prevent overlay
