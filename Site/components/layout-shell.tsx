@@ -37,6 +37,9 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
     // Apply for tablet (769-1024) and desktop (>1024) to prevent overlay
     const rightPadding = isRightSidebarVisible && width > 768 ? sidebarWidth + 24 : 0;
 
+    // Header is shown if screen is small OR sidebar is explicitly hidden
+    const showHeader = width <= 1024 || !sidebarVisible;
+
     return (
         <div className="flex h-full flex-col overflow-hidden">
             <Navbar
@@ -52,7 +55,7 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
                 {children}
             </main>
 
-            <RightSidebar />
+            <RightSidebar headerVisible={showHeader} />
         </div>
     );
 }

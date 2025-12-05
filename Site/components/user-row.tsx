@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore/lite";
-import { db } from "../lib/firebase";
+import { doc, onSnapshot, getFirestore } from "firebase/firestore";
+// import { db } from "../lib/firebase"; // db from lib/firebase might be lite.
+// Let's check lib/firebase.ts to see what 'db' is.
+// Actually, profile/page.tsx uses getFirestore().
+// Let's use getFirestore() to be safe and consistent with profile page real-time logic.
+
 
 type UserRowProps = {
     uid?: string;
@@ -32,28 +36,24 @@ export function UserRow({ uid, userData, subtitle, onlyAvatar = false }: UserRow
 
         if (!uid) return;
 
-        const fetchUser = async () => {
-            try {
-                setLoading(true);
-                const ref = doc(db, "users", uid);
-                const snap = await getDoc(ref);
-                if (snap.exists()) {
-                    const data = snap.data();
-                    // Map different possible field names
-                    setProfile({
-                        displayName: data.displayName || data.name || data.fullName,
-                        username: data.username,
-                        photoURL: data.photoURL || data.profilePicture || data.avatarUrl
-                    });
-                }
-            } catch (err) {
-                console.error("Error fetching user row", err);
-            } finally {
-                setLoading(false);
+        const db = getFirestore();
+        const unsubscribe = onSnapshot(doc(db, "users", uid), (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                // Map different possible field names
+                setProfile({
+                    displayName: data.name || data.fullName || data.preferredName || data.displayName,
+                    username: data.username,
+                    photoURL: data.photoURL || data.profilePicture || data.avatarUrl
+                });
             }
-        };
+            setLoading(false);
+        }, (err: any) => {
+            console.error("Error fetching user row", err);
+            setLoading(false);
+        });
 
-        fetchUser();
+        return () => unsubscribe();
     }, [uid, userData]);
 
     if (loading) {

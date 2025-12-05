@@ -87,7 +87,7 @@ export default function ProfilePage() {
           const data = snap.data();
           setProfile({
             username: data.username || "",
-            displayName: data.preferredName || user.displayName || "",
+            displayName: data.name || data.preferredName || data.displayName || user.displayName || "",
             photoURL: data.photoURL || user.photoURL || "",
             campus: data.campus || "",
             campusLocation: data.campusLocation || "",

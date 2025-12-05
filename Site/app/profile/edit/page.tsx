@@ -184,7 +184,7 @@ export default function EditProfilePage() {
 
             // Update profile in Firestore
             await setDoc(userDocRef, {
-                displayName: displayName.trim() || user.displayName || "",
+                name: displayName.trim() || user.displayName || "",
                 username: username.trim() || "",
                 photoURL: photoURL || user.photoURL || "",
                 campus: universityName.trim() || "",

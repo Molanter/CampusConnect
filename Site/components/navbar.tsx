@@ -7,6 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore/lite";
 import { auth, db } from "../lib/firebase";
 import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon } from "@heroicons/react/24/outline";
+import { UserRow } from "./user-row";
 
 function RadarIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -67,26 +68,20 @@ export function Navbar({
   setSidebarVisible,
   viewportWidth,
 }: NavbarProps) {
-  const [accountName, setAccountName] = useState<string | null>(null);
-  const [accountUsername, setAccountUsername] = useState<string | null>(null);
-  const [accountPhotoUrl, setAccountPhotoUrl] = useState<string | null>(null);
+  const [uid, setUid] = useState<string | null>(null);
 
   const pathname = usePathname();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        setAccountName(null);
-        setAccountUsername(null);
-        setAccountPhotoUrl(null);
+        setUid(null);
         return;
       }
 
-      // Basic name from auth
-      setAccountName(user.displayName || user.email || "");
-      setAccountPhotoUrl(user.photoURL || null);
+      setUid(user.uid);
 
-      // Try to load username from Firestore profile and save Google photo if not already saved
+      // Try to load username and profile photo from Firestore
       try {
         const userDocRef = doc(db, "users", user.uid);
         const snap = await getDoc(userDocRef);
@@ -94,15 +89,8 @@ export function Navbar({
         if (snap.exists()) {
           const data = snap.data() as any;
 
-          // Load username
-          if (data && typeof data.username === "string") {
-            setAccountUsername(data.username);
-          } else {
-            setAccountUsername(null);
-          }
-
           // Save Google profile photo if user doesn't have one stored
-          if (user.photoURL && !data.photoURL) {
+          if (user.photoURL && !data.photoURL && !data.profilePhotoURL) {
             try {
               const { setDoc } = await import("firebase/firestore");
               await setDoc(userDocRef, {
@@ -114,8 +102,6 @@ export function Navbar({
             }
           }
         } else {
-          setAccountUsername(null);
-
           // Create user document with Google photo if this is first login
           if (user.photoURL) {
             try {
@@ -133,7 +119,6 @@ export function Navbar({
         }
       } catch (err) {
         console.error("Error loading navbar user profile", err);
-        setAccountUsername(null);
       }
     });
 
@@ -161,129 +146,105 @@ export function Navbar({
     sidebarLayoutClasses = "inset-0 w-full";
   } else if (width <= 768) {
     // Overlay panel, narrower and anchored to the left (not full width)
-    sidebarLayoutClasses = "inset-y-3 left-3 w-64";
+    sidebarLayoutClasses = "inset-y-3 left-3 w-72";
   } else {
     // Desktop: primary sidebar panel
-    sidebarLayoutClasses = "inset-y-3 left-3 w-64";
+    sidebarLayoutClasses = "inset-y-3 left-3 w-72";
   }
 
   const showHeader = width <= 1024 || !sidebarVisible;
 
-  const initials = (accountName || accountUsername || "U")
-    .toString()
-    .trim()
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  // Constants for iPadOS style
+  const navItemBase =
+    "group flex items-center gap-3 rounded-full px-4 py-3.5 text-[17px] font-medium transition-all duration-200 ease-out";
+  const navItemInactive =
+    "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100 hover:scale-[1.02] active:scale-95";
+  const navItemActive = "bg-[#ffb200] text-black shadow-md shadow-[#ffb200]/20 font-semibold";
 
   return (
     <>
       {/* iPadOS-style sidebar (md and up) */}
       <aside
-        className={`fixed z-30 flex-col rounded-none md:rounded-[1.8rem] border border-white/8 bg-[#121212] px-4 py-4 text-[14px] text-slate-200 shadow-[0_30px_80px_rgba(0,0,0,0.9)] backdrop-blur-2xl transition-all duration-300 ${sidebarLayoutClasses} ${sidebarVisible ? "flex" : "hidden"
+        className={`fixed z-30 flex-col rounded-none md:rounded-[1.8rem] border border-white/5 bg-gradient-to-b from-[#111111] to-[#151515] px-5 py-6 shadow-[0_30px_80px_rgba(0,0,0,0.5)] transition-all duration-300 ${sidebarLayoutClasses} ${sidebarVisible ? "flex" : "hidden"
           }`}
       >
         {/* App name + sidebar toggle */}
-        <div className="mb-3 flex items-center justify-between px-1">
-          <span className="font-display text-[18px] font-semibold tracking-tight text-slate-50">
+        <div className="mb-8 flex items-center justify-between px-2">
+          <span className="font-display text-[21px] font-semibold tracking-tight text-white/90">
             Campus Connect
           </span>
           <button
             onClick={() => setSidebarVisible(false)}
-            className="flex h-11 w-11 items-center justify-center text-[24px] font-semibold text-gray-300"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-100 transition-colors"
           >
             <SidebarIcon className="h-6 w-6 rotate-180" />
           </button>
         </div>
 
         {/* Navigation list */}
-        <nav className="flex flex-1 flex-col gap-1">
+        <nav className="flex flex-1 flex-col gap-2">
           {/* Feed */}
           <Link
             href="/"
             onClick={handleSidebarLinkClick}
-            className="flex items-center gap-2 rounded-2xl px-3 py-3 text-[14px] text-slate-100 hover:bg-white/5"
+            className={`${navItemBase} ${pathname === "/" ? navItemActive : navItemInactive
+              }`}
           >
-            <HomeIcon className="h-7 w-7 text-slate-200" />
-            <div className="flex flex-1 items-center justify-between">
-              <span className="text-[16px]">Feed</span>
-            </div>
+            <HomeIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+            <span>Feed</span>
           </Link>
 
           {/* Explore */}
           <Link
             href="/events"
             onClick={handleSidebarLinkClick}
-            className="flex items-center gap-2 rounded-2xl px-3 py-3 text-[14px] text-slate-100 hover:bg-white/5"
+            className={`${navItemBase} ${pathname === "/events" ? navItemActive : navItemInactive
+              }`}
           >
-            <RadarIcon className="h-7 w-7 text-slate-200" />
-            <div className="flex flex-1 items-center justify-between">
-              <span className="text-[16px]">Explore</span>
-            </div>
+            <RadarIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+            <span>Explore</span>
           </Link>
 
           {/* Profile */}
           <Link
             href="/profile"
             onClick={handleSidebarLinkClick}
-            className="flex items-center gap-2 rounded-2xl px-3 py-3 text-[14px] text-slate-200 hover:bg-white/5"
+            className={`${navItemBase} ${pathname === "/profile" ? navItemActive : navItemInactive
+              }`}
           >
-            <UserIcon className="h-7 w-7 text-slate-200" />
-            <div className="flex flex-1 items-center justify-between">
-              <span className="text-[16px]">Profile</span>
-            </div>
+            <UserIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+            <span>Profile</span>
           </Link>
 
           {/* Settings */}
           <Link
             href="/settings"
             onClick={handleSidebarLinkClick}
-            className="flex items-center gap-2 rounded-2xl px-3 py-3 text-[14px] text-slate-200 hover:bg-white/5"
+            className={`${navItemBase} ${pathname === "/settings" ? navItemActive : navItemInactive
+              }`}
           >
-            <Cog6ToothIcon className="h-7 w-7 text-slate-200" />
-            <div className="flex flex-1 items-center justify-between">
-              <span className="text-[16px]">Settings</span>
-            </div>
+            <Cog6ToothIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+            <span>Settings</span>
           </Link>
         </nav>
 
-        {/* Signed-in account (clickable to open profile) */}
-        <Link
-          href="/profile"
-          onClick={handleSidebarLinkClick}
-          className="mt-4 block"
-        >
-          <div className="flex items-center gap-4 rounded-3xl border border-white/10 bg-gray-800/70 px-3.5 py-3 shadow-[0_0_20px_rgba(0,0,0,0.35)] backdrop-blur transition hover:bg-gray-700/70 hover:border-white/20">
-            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-gray-800 text-[14px] font-semibold text-slate-50">
-              {accountPhotoUrl ? (
-                <img
-                  src={accountPhotoUrl}
-                  alt={accountName || "Profile"}
-                  className="h-full w-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <span>{initials}</span>
-              )}
-            </div>
-            <div className="flex flex-col text-[14px]">
-              <span className="font-medium text-[16px] text-slate-200">
-                {accountName || "Student Name"}
-              </span>
-              <span className="text-[13px] text-slate-400">
-                {accountUsername ? `@${accountUsername}` : ""}
-              </span>
-            </div>
-          </div>
-        </Link>
+        {/* Signed-in account - Natural list row style */}
+        <div className="mt-auto pt-4">
+          <Link
+            href="/profile"
+            onClick={handleSidebarLinkClick}
+            className={`flex items-center gap-3 rounded-xl px-2 py-3 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] active:scale-95 group ${pathname === "/profile" ? "bg-white/[0.04]" : ""
+              }`}
+          >
+            <UserRow uid={uid || undefined} />
+          </Link>
+        </div>
       </aside>
 
       {/* Top navbar / tab bar */}
       <header
-        className={`fixed top-0 left-0 right-0 z-20 flex justify-center py-3 text-sm text-slate-100 pointer-events-none ${showHeader ? "block" : "hidden"}`}
+        className={`fixed top-0 left-0 right-0 z-20 flex justify-center py-3 text-sm text-slate-100 pointer-events-none ${showHeader ? "block" : "hidden"
+          }`}
       >
         <div className="w-full max-w-6xl flex items-center justify-center gap-3 px-4 pointer-events-auto">
           {/* Centered capsule tab bar */}
@@ -301,7 +262,9 @@ export function Navbar({
               {/* Feed tab */}
               <Link
                 href="/"
-                className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/" ? "bg-slate-50 text-slate-900 shadow-sm" : "text-slate-200 hover:bg-white/10"
+                className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/"
+                  ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                  : "text-slate-200 hover:bg-white/10"
                   }`}
               >
                 <HomeIcon className="mr-1 h-4 w-4" />
@@ -312,7 +275,7 @@ export function Navbar({
               <Link
                 href="/events"
                 className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/events"
-                  ? "bg-slate-50 text-slate-900 shadow-sm"
+                  ? "bg-[#ffb200] text-black shadow-sm font-medium"
                   : "text-slate-200 hover:bg-white/10"
                   }`}
               >
@@ -324,7 +287,7 @@ export function Navbar({
               <Link
                 href="/profile"
                 className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/profile"
-                  ? "bg-slate-50 text-slate-900 shadow-sm"
+                  ? "bg-[#ffb200] text-black shadow-sm font-medium"
                   : "text-slate-200 hover:bg-white/10"
                   }`}
               >
@@ -336,7 +299,7 @@ export function Navbar({
               <Link
                 href="/settings"
                 className={`hidden sm:inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/settings"
-                  ? "bg-slate-50 text-slate-900 shadow-sm"
+                  ? "bg-[#ffb200] text-black shadow-sm font-medium"
                   : "text-slate-200 hover:bg-white/10"
                   }`}
               >

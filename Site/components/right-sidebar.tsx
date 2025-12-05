@@ -44,7 +44,7 @@ import { ReportSheet } from "./report-sheet";
 
 // ... existing code ...
 
-export function RightSidebar() {
+export function RightSidebar({ headerVisible = false }: { headerVisible?: boolean }) {
     const { isVisible, view, data, toggle, showNotifications, sidebarWidth, setSidebarWidth } = useRightSidebar();
     const [mounted, setMounted] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
@@ -182,8 +182,7 @@ export function RightSidebar() {
                 <div className="fixed inset-0 z-50 cursor-ew-resize" />
             )}
             <aside
-                className={`fixed bottom-3 right-3 z-40 flex flex-col rounded-[1.8rem] border border-white/10 bg-[#121212] shadow-[0_30px_80px_rgba(0,0,0,0.9)] backdrop-blur-2xl ${isTablet ? 'top-[72px]' : 'top-3'
-                    }`}
+                className={`fixed bottom-3 right-3 z-40 flex flex-col rounded-[1.8rem] border border-white/10 bg-[#121212] shadow-[0_30px_80px_rgba(0,0,0,0.9)] backdrop-blur-2xl ${headerVisible ? 'top-[80px]' : 'top-3'}`}
                 style={{ width: `${sidebarWidth}px` }}
             >
                 {/* Resize Handle */}
