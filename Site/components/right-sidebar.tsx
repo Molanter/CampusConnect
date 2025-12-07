@@ -889,10 +889,10 @@ function EventDetailsView({ data }: { data: any }) {
         <div className="flex flex-col gap-6">
             {/* Event Title */}
             <div>
-                <h3 className="text-2xl font-bold text-white mb-2">{data.title || "Event Title"}</h3>
-                {data.description && (
+                <h3 className="text-2xl font-bold text-white mb-2">{data.title || (data.isEvent ? "Event Title" : "Post Details")}</h3>
+                {(data.description || data.content) && (
                     <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">
-                        {data.description}
+                        {data.description || data.content}
                     </p>
                 )}
             </div>
@@ -958,22 +958,24 @@ function EventDetailsView({ data }: { data: any }) {
                 </div>
             )}
 
-            {/* Host */}
-            {(data.hostUserId || data.hostDisplayName) && (
+            {/* Host / Author */}
+            {(data.hostUserId || data.hostDisplayName || data.authorId || data.authorName) && (
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        {data.hostUserId ? (
-                            <UserRow uid={data.hostUserId} />
+                        {data.hostUserId || data.authorId ? (
+                            <UserRow uid={data.hostUserId || data.authorId} />
                         ) : (
                             <UserRow
                                 userData={{
-                                    displayName: data.hostDisplayName,
-                                    username: data.hostUsername,
-                                    photoURL: data.hostPhotoURL
+                                    displayName: data.hostDisplayName || data.authorName,
+                                    username: data.hostUsername || data.authorUsername,
+                                    photoURL: data.hostPhotoURL || data.authorAvatarUrl
                                 }}
                             />
                         )}
-                        <span className="text-xs font-semibold uppercase tracking-wider text-purple-400">Host</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-purple-400">
+                            {data.isEvent ? "Host" : "Author"}
+                        </span>
                     </div>
                 </div>
             )}

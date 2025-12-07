@@ -6,7 +6,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore/lite";
 import { auth, db } from "../lib/firebase";
-import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { UserRow } from "./user-row";
 
 function RadarIcon(props: SVGProps<SVGSVGElement>) {
@@ -226,6 +226,16 @@ export function Navbar({
             <Cog6ToothIcon className="h-[22px] w-[22px]" strokeWidth={2} />
             <span>Settings</span>
           </Link>
+
+          {/* Create Post Button (Sidebar Only) */}
+          <Link
+            href="/posts/new"
+            onClick={handleSidebarLinkClick}
+            className={`${navItemBase} ${navItemInactive}`}
+          >
+            <PlusIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+            <span>Create Post</span>
+          </Link>
         </nav>
 
         {/* Signed-in account - Natural list row style */}
@@ -273,13 +283,13 @@ export function Navbar({
 
               {/* Explore tab */}
               <Link
-                href="/events"
-                className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/events"
+                href="/explore"
+                className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/explore"
                   ? "bg-[#ffb200] text-black shadow-sm font-medium"
                   : "text-slate-200 hover:bg-white/10"
                   }`}
               >
-                <RadarIcon className="mr-1 h-4 w-4" />
+                <MagnifyingGlassIcon className="mr-1 h-4 w-4" />
                 Explore
               </Link>
 

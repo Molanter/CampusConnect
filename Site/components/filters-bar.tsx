@@ -8,7 +8,7 @@ import {
   Mood,
   TimeFilter,
   moodFilters,
-} from "../lib/events";
+} from "../lib/explore-types";
 
 type FiltersBarProps = {
   activeMood: Mood | "Any";

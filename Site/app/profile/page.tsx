@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, signInWithPopup, type User } from "firebase/auth";
-import { doc, getDoc, collection, getDocs, query, where, getFirestore, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, where, getFirestore, onSnapshot, orderBy } from "firebase/firestore";
 import { auth, provider } from "../../lib/firebase";
 import { ProfileTabs, type Tab } from "@/components/profile-tabs";
-import { MiniEventCard } from "@/components/mini-event-card";
+import { PostCard } from "@/components/post-card";
+import { CompactPostCard } from "@/components/compact-post-card";
 import { useRightSidebar } from "@/components/right-sidebar-context";
 import { UserRow } from "@/components/user-row";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRightOnRectangleIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
+import { Post } from "@/lib/posts";
 
 type UserProfile = {
   username?: string;
@@ -24,27 +26,12 @@ type UserProfile = {
   role?: string;
 };
 
-type Event = {
-  id: string;
-  title: string;
-  description?: string | null;
-  date?: string | null;
-  startTime?: string | null;
-  endTime?: string | null;
-  locationLabel?: string | null;
-  hostDisplayName?: string | null;
-  hostUsername?: string | null;
-  hostPhotoURL?: string | null;
-  imageUrls?: string[] | null;
-  coordinates?: { lat: number; lng: number } | null;
-};
-
 type Comment = {
   id: string;
   text: string;
   uid: string;
   createdAt: any;
-  eventId: string;
+  eventId: string; // keeping eventId for now as it matches firestore path segments
   eventTitle: string;
 };
 
@@ -55,10 +42,10 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<Tab>("my-events");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [myEvents, setMyEvents] = useState<Event[]>([]);
-  const [myEventsLoading, setMyEventsLoading] = useState(false);
+  const [myPosts, setMyPosts] = useState<Post[]>([]);
+  const [myPostsLoading, setMyPostsLoading] = useState(false);
 
-  const [attendedEvents, setAttendedEvents] = useState<Event[]>([]);
+  const [attendedPosts, setAttendedPosts] = useState<Post[]>([]);
   const [attendedLoading, setAttendedLoading] = useState(false);
 
   const [comments, setComments] = useState<Comment[]>([]);
@@ -110,50 +97,58 @@ export default function ProfilePage() {
     void loadProfile();
   }, [user]);
 
-  // Load My Events
+  // Load My Posts (formerly My Events)
   useEffect(() => {
     if (!user || activeTab !== "my-events") return;
 
-    setMyEventsLoading(true);
+    setMyPostsLoading(true);
     const dbFull = getFirestore();
     const q = query(
-      collection(dbFull, "events"),
+      collection(dbFull, "events"), // Still using "events" collection
       where("hostUserId", "==", user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: Event[] = snapshot.docs.map((doc) => {
+      const items: Post[] = snapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,
-          title: data.title || "Untitled",
-          description: data.description || null,
-          date: data.date || null,
-          startTime: data.startTime || null,
-          endTime: data.endTime || null,
-          locationLabel: data.locationLabel || null,
-          hostDisplayName: data.hostDisplayName || null,
-          hostUsername: data.hostUsername || null,
-          hostPhotoURL: data.hostPhotoURL || null,
-          imageUrls: data.imageUrls || null,
-          coordinates: data.coordinates || null,
+          title: data.title,
+          content: data.content ?? data.description ?? "",
+          isEvent: data.isEvent ?? true,
+          date: data.date,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          locationLabel: data.locationLabel,
+          authorId: data.authorId ?? data.hostUserId ?? "",
+          authorName: data.authorName ?? data.hostDisplayName ?? "Unknown",
+          authorUsername: data.authorUsername ?? data.hostUsername,
+          authorAvatarUrl: data.authorAvatarUrl ?? data.hostPhotoURL,
+          imageUrls: data.imageUrls || (data.imageUrl ? [data.imageUrl] : []),
+          coordinates: data.coordinates,
+          likes: data.likes || [],
+          goingUids: data.goingUids || [],
+          maybeUids: data.maybeUids || [],
+          notGoingUids: data.notGoingUids || [],
         };
       });
 
-      // Sort client-side by date descending
+      // Sort client-side by createdAt or date descending
       items.sort((a, b) => {
-        if (!a.date || !b.date) return 0;
-        return b.date.localeCompare(a.date);
+        // If both have date, sort by date
+        if (a.date && b.date) return b.date.localeCompare(a.date);
+        // Fallback to ID or created (not strictly reliable without real timestamp field in type but okay for now)
+        return 0;
       });
 
-      setMyEvents(items);
-      setMyEventsLoading(false);
+      setMyPosts(items);
+      setMyPostsLoading(false);
     });
 
     return () => unsubscribe();
   }, [user, activeTab]);
 
-  // Load Attended Events
+  // Load Attended Events (Posts user is going to)
   useEffect(() => {
     if (!user || activeTab !== "attended") return;
 
@@ -165,31 +160,37 @@ export default function ProfilePage() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: Event[] = snapshot.docs.map((doc) => {
+      const items: Post[] = snapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,
-          title: data.title || "Untitled",
-          description: data.description || null,
-          date: data.date || null,
-          startTime: data.startTime || null,
-          endTime: data.endTime || null,
-          locationLabel: data.locationLabel || null,
-          hostDisplayName: data.hostDisplayName || null,
-          hostUsername: data.hostUsername || null,
-          hostPhotoURL: data.hostPhotoURL || null,
-          imageUrls: data.imageUrls || null,
-          coordinates: data.coordinates || null,
+          title: data.title,
+          content: data.content ?? data.description ?? "",
+          isEvent: data.isEvent ?? true,
+          date: data.date,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          locationLabel: data.locationLabel,
+          authorId: data.authorId ?? data.hostUserId ?? "",
+          authorName: data.authorName ?? data.hostDisplayName ?? "Unknown",
+          authorUsername: data.authorUsername ?? data.hostUsername,
+          authorAvatarUrl: data.authorAvatarUrl ?? data.hostPhotoURL,
+          imageUrls: data.imageUrls || (data.imageUrl ? [data.imageUrl] : []),
+          coordinates: data.coordinates,
+          likes: data.likes || [],
+          goingUids: data.goingUids || [],
+          maybeUids: data.maybeUids || [],
+          notGoingUids: data.notGoingUids || [],
         };
       });
 
-      // Sort client-side by date ascending
+      // Sort client-side by date ascending for attended (upcoming)
       items.sort((a, b) => {
         if (!a.date || !b.date) return 0;
         return a.date.localeCompare(b.date);
       });
 
-      setAttendedEvents(items);
+      setAttendedPosts(items);
       setAttendedLoading(false);
     });
 
@@ -203,9 +204,6 @@ export default function ProfilePage() {
     setCommentsLoading(true);
     const dbFull = getFirestore();
 
-    // We need to query all events and then their comments subcollections
-    // Since we can't do a collection group query easily with where clause in lite,
-    // we'll fetch events first and then their comments
     const loadComments = async () => {
       try {
         const eventsSnap = await getDocs(collection(dbFull, "events"));
@@ -226,12 +224,11 @@ export default function ProfilePage() {
               uid: data.uid || "",
               createdAt: data.createdAt,
               eventId: eventDoc.id,
-              eventTitle: eventDoc.data().title || "Untitled Event",
+              eventTitle: eventDoc.data().title || "Untitled Post",
             });
           });
         }
 
-        // Sort by createdAt descending
         allComments.sort((a, b) => {
           if (!a.createdAt || !b.createdAt) return 0;
           return b.createdAt.seconds - a.createdAt.seconds;
@@ -283,7 +280,6 @@ export default function ProfilePage() {
   const photoURL = profile?.photoURL || user.photoURL || "";
   const initials = displayName.charAt(0).toUpperCase();
 
-  // Check if profile is complete
   const isProfileComplete = !!(profile?.username && profile?.campus);
 
   return (
@@ -462,43 +458,38 @@ export default function ProfilePage() {
 
         {/* Tab Content */}
         <div className="space-y-6">
-          {/* My Events Tab */}
+          {/* My Posts Tab */}
           {activeTab === "my-events" && (
             <>
-              {myEventsLoading && (
+              {myPostsLoading && (
                 <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
-                  Loading your events...
+                  Loading your posts...
                 </div>
               )}
-              {!myEventsLoading && myEvents.length === 0 && (
+              {!myPostsLoading && myPosts.length === 0 && (
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-12 text-center">
                   <p className="text-sm text-neutral-400 mb-4">
-                    You haven't created any events yet.
+                    You haven't posted anything yet.
                   </p>
                   <Link
-                    href="/events/new"
+                    href="/"
                     className="rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm text-white hover:bg-white/20 transition"
                   >
-                    Create your first event
+                    Create a post
                   </Link>
                 </div>
               )}
-              {!myEventsLoading && myEvents.length > 0 && (
+              {!myPostsLoading && myPosts.length > 0 && (
                 <div className="grid grid-cols-2 gap-4">
-                  {myEvents.map((event) => (
-                    <MiniEventCard
-                      key={event.id}
-                      id={event.id}
-                      title={event.title}
-                      description={event.description || ""}
-                      image={(event.imageUrls && event.imageUrls[0]) || undefined}
-                      date={event.date || "Date"}
-                      time={event.startTime || "Time"}
-                      coordinates={event.coordinates}
-                      onCommentsClick={() => openView("comments", event)}
-                      onAttendanceClick={() => openView("attendance", event)}
-                      onClick={() => router.push(`/events/${event.id}`)}
-                    />
+                  {myPosts.map((post) => (
+                    <div key={post.id} className="relative">
+                      <CompactPostCard
+                        post={post}
+                        onCommentsClick={() => openView("comments", post)}
+                        onAttendanceClick={() => openView("attendance", post)}
+                        onClick={() => router.push(post.isEvent ? `/events/${post.id}` : `/posts/${post.id}`)}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
@@ -513,29 +504,24 @@ export default function ProfilePage() {
                   Loading attended events...
                 </div>
               )}
-              {!attendedLoading && attendedEvents.length === 0 && (
+              {!attendedLoading && attendedPosts.length === 0 && (
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-12 text-center">
                   <p className="text-sm text-neutral-400">
                     You haven't marked any events as "Going" yet.
                   </p>
                 </div>
               )}
-              {!attendedLoading && attendedEvents.length > 0 && (
+              {!attendedLoading && attendedPosts.length > 0 && (
                 <div className="grid grid-cols-2 gap-4">
-                  {attendedEvents.map((event) => (
-                    <MiniEventCard
-                      key={event.id}
-                      id={event.id}
-                      title={event.title}
-                      description={event.description || ""}
-                      image={(event.imageUrls && event.imageUrls[0]) || undefined}
-                      date={event.date || "Date"}
-                      time={event.startTime || "Time"}
-                      coordinates={event.coordinates}
-                      onCommentsClick={() => openView("comments", event)}
-                      onAttendanceClick={() => openView("attendance", event)}
-                      onClick={() => router.push(`/events/${event.id}`)}
-                    />
+                  {attendedPosts.map((post) => (
+                    <div key={post.id} className="relative">
+                      <CompactPostCard
+                        post={post}
+                        onCommentsClick={() => openView("comments", post)}
+                        onAttendanceClick={() => openView("attendance", post)}
+                        onClick={() => router.push(`/events/${post.id}`)}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
@@ -553,7 +539,7 @@ export default function ProfilePage() {
               {!commentsLoading && comments.length === 0 && (
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-12 text-center">
                   <p className="text-sm text-neutral-400">
-                    You haven't commented on any events yet.
+                    You haven't commented on anything yet.
                   </p>
                 </div>
               )}
@@ -577,7 +563,7 @@ export default function ProfilePage() {
                     href={`/events/${comment.eventId}`}
                     className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-400 hover:border-amber-400/50 hover:bg-amber-500/20 hover:text-amber-300 transition font-medium"
                   >
-                    <span>View Event: {comment.eventTitle}</span>
+                    <span>View Post: {comment.eventTitle}</span>
                   </Link>
                 </div>
               ))}

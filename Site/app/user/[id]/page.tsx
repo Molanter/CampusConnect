@@ -7,8 +7,10 @@ import { doc, getDoc, getFirestore, collection, query, where, getDocs } from "fi
 import { auth } from "@/lib/firebase";
 import Link from "next/link";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
-import { MiniEventCard } from "@/components/mini-event-card";
+import { PostCard } from "@/components/post-card";
+import { CompactPostCard } from "@/components/compact-post-card";
 import { useRightSidebar } from "@/components/right-sidebar-context";
+import { Post } from "@/lib/posts";
 
 type UserProfile = {
   username?: string;
@@ -22,21 +24,6 @@ type UserProfile = {
   role?: string;
 };
 
-type Event = {
-  id: string;
-  title: string;
-  description?: string | null;
-  date?: string | null;
-  startTime?: string | null;
-  endTime?: string | null;
-  locationLabel?: string | null;
-  hostDisplayName?: string | null;
-  hostUsername?: string | null;
-  hostPhotoURL?: string | null;
-  imageUrls?: string[] | null;
-  coordinates?: { lat: number; lng: number } | null;
-};
-
 export default function UserProfilePage() {
   const params = useParams();
   const targetUid = params.id as string;
@@ -44,8 +31,8 @@ export default function UserProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userEvents, setUserEvents] = useState<Event[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(false);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
   const { openView } = useRightSidebar();
 
   useEffect(() => {
@@ -93,48 +80,54 @@ export default function UserProfilePage() {
   useEffect(() => {
     if (!targetUid) return;
 
-    const loadEvents = async () => {
+    const loadPosts = async () => {
       try {
-        setEventsLoading(true);
+        setPostsLoading(true);
         const db = getFirestore();
         const q = query(
-          collection(db, "events"),
+          collection(db, "events"), // Still using "events" collection
           where("hostUserId", "==", targetUid)
         );
         const snap = await getDocs(q);
-        const items: Event[] = snap.docs.map((doc) => {
+        const items: Post[] = snap.docs.map((doc) => {
           const data = doc.data();
           return {
             id: doc.id,
-            title: data.title || "Untitled",
-            description: data.description || null,
-            date: data.date || null,
-            startTime: data.startTime || null,
-            endTime: data.endTime || null,
-            locationLabel: data.locationLabel || null,
-            hostDisplayName: data.hostDisplayName || null,
-            hostUsername: data.hostUsername || null,
-            hostPhotoURL: data.hostPhotoURL || null,
-            imageUrls: data.imageUrls || null,
-            coordinates: data.coordinates || null,
+            title: data.title,
+            content: data.content ?? data.description ?? "",
+            isEvent: data.isEvent ?? true,
+            date: data.date,
+            startTime: data.startTime,
+            endTime: data.endTime,
+            locationLabel: data.locationLabel,
+            authorId: data.authorId ?? data.hostUserId ?? "",
+            authorName: data.authorName ?? data.hostDisplayName ?? "Unknown",
+            authorUsername: data.authorUsername ?? data.hostUsername,
+            authorAvatarUrl: data.authorAvatarUrl ?? data.hostPhotoURL,
+            imageUrls: data.imageUrls || (data.imageUrl ? [data.imageUrl] : []),
+            coordinates: data.coordinates,
+            likes: data.likes || [],
+            goingUids: data.goingUids || [],
+            maybeUids: data.maybeUids || [],
+            notGoingUids: data.notGoingUids || [],
           };
         });
 
         // Sort client-side
         items.sort((a, b) => {
-          if (!a.date || !b.date) return 0;
-          return b.date.localeCompare(a.date);
+          if (a.date && b.date) return b.date.localeCompare(a.date);
+          return 0;
         });
 
-        setUserEvents(items);
+        setUserPosts(items);
       } catch (err) {
-        console.error("Error loading user events", err);
+        console.error("Error loading user posts", err);
       } finally {
-        setEventsLoading(false);
+        setPostsLoading(false);
       }
     };
 
-    void loadEvents();
+    void loadPosts();
   }, [targetUid]);
 
   if (loading) {
@@ -226,40 +219,35 @@ export default function UserProfilePage() {
           )}
         </div>
 
-        {/* User's Events */}
+        {/* User's Posts */}
         <div className="space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">
-            Events hosted by {displayName}
+            Posts by {displayName}
           </h2>
-          
-          {eventsLoading && (
+
+          {postsLoading && (
             <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
-              Loading events...
-            </div>
-          )}
-          
-          {!eventsLoading && userEvents.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-8 text-center text-sm text-neutral-400">
-              No events hosted yet.
+              Loading posts...
             </div>
           )}
 
-          {!eventsLoading && userEvents.length > 0 && (
+          {!postsLoading && userPosts.length === 0 && (
+            <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-8 text-center text-sm text-neutral-400">
+              No posts yet.
+            </div>
+          )}
+
+          {!postsLoading && userPosts.length > 0 && (
             <div className="grid grid-cols-2 gap-4">
-              {userEvents.map((event) => (
-                <MiniEventCard
-                  key={event.id}
-                  id={event.id}
-                  title={event.title}
-                  description={event.description || ""}
-                  image={(event.imageUrls && event.imageUrls[0]) || undefined}
-                  date={event.date || "Date"}
-                  time={event.startTime || "Time"}
-                  coordinates={event.coordinates}
-                  onCommentsClick={() => openView("comments", event)}
-                  onAttendanceClick={() => openView("attendance", event)}
-                  onClick={() => router.push(`/events/${event.id}`)}
-                />
+              {userPosts.map((post) => (
+                <div key={post.id} className="relative">
+                  <CompactPostCard
+                    post={post}
+                    onCommentsClick={() => openView("comments", post)}
+                    onAttendanceClick={() => openView("attendance", post)}
+                    onClick={() => router.push(post.isEvent ? `/events/${post.id}` : `/posts/${post.id}`)}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -268,4 +256,3 @@ export default function UserProfilePage() {
     </div>
   );
 }
-

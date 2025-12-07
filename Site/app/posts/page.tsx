@@ -2,20 +2,20 @@
 
 import { useEffect, useState } from "react";
 import {
-  Event,
+  SuggestedEvent,
   Mood,
   BudgetFilter,
   TimeFilter,
   DistanceFilter,
-  mockEvents,
-} from "../../lib/events";
-import { collection, getDocs, query, orderBy } from "firebase/firestore/lite";
+} from "../../lib/explore-types";
+import { Post } from "../../lib/posts";
+import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { FiltersBar } from "../../components/filters-bar";
 
 import { useRightSidebar } from "../../components/right-sidebar-context";
 
-import { ExploreEventCard } from "../../components/explore-event-card";
+import { ExplorePostCard } from "../../components/explore-post-card";
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 
 const mapContainerStyle = {
@@ -26,8 +26,8 @@ const mapContainerStyle = {
 const libraries: ("places" | "geometry" | "drawing" | "visualization")[] = ["places"];
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<Event[]>(mockEvents);
-  const [campusEvents, setCampusEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<SuggestedEvent[]>([]);
+  const [campusEvents, setCampusEvents] = useState<Post[]>([]);
   const [campusEventsLoading, setCampusEventsLoading] = useState(false);
   const [activeMood, setActiveMood] = useState<Mood | "Any">("Chill");
   const [activeBudget, setActiveBudget] = useState<BudgetFilter>("Any");
@@ -47,7 +47,7 @@ export default function EventsPage() {
 
   useEffect(() => {
     if (!("geolocation" in navigator)) {
-      setError("Location is not available in this browser. Showing demo spots.");
+      setError("Location is not available in this browser.");
       return;
     }
 
@@ -78,61 +78,61 @@ export default function EventsPage() {
           if (res.ok && Array.isArray(data.events) && data.events.length > 0) {
             setEvents(data.events);
             setError(null);
-          } else if (res.ok) {
-            setError("No live suggestions from API, showing demo spots.");
-            setEvents(mockEvents);
           } else {
-            setError(data.error || "Failed to fetch suggestions. Showing demo spots.");
-            setEvents(mockEvents);
+            // Fallback or empty
+            setEvents([]);
+            if (!res.ok) setError("Failed to fetch suggestions.");
           }
         } catch (err: any) {
           console.error("Error fetching suggestions:", err);
-          setError("Something went wrong while fetching suggestions. Showing demo spots.");
-          setEvents(mockEvents);
+          setError("Something went wrong while fetching suggestions.");
         } finally {
           setLoading(false);
         }
       },
       (geoError) => {
-        setError(geoError.message || "Location permission denied. Showing demo spots.");
+        setError(geoError.message || "Location permission denied.");
         setLoading(false);
-        setEvents(mockEvents);
       }
     );
   }, []);
 
-  // Fetch campus events from Firestore
+  // Fetch campus events (Posts) from Firestore
   useEffect(() => {
     const fetchCampusEvents = async () => {
       try {
         setCampusEventsLoading(true);
         const eventsRef = collection(db, "events");
+        // Query for actual events/posts. 
+        // We can filter by isEvent=true if we strictly want events only.
         const q = query(eventsRef, orderBy("date", "asc"));
         const snap = await getDocs(q);
 
-        const items = snap.docs.map((doc) => {
+        const items: Post[] = snap.docs.map((doc) => {
           const data = doc.data();
           return {
             id: doc.id,
-            title: data.title || "Untitled event",
-            description: data.description || "",
-            venue: data.locationLabel || "Location",
-            lat: data.coordinates?.lat,
-            lng: data.coordinates?.lng,
-            images: data.imageUrls || [],
-            date: data.date || "Date",
-            timeWindow: data.startTime ? `${data.startTime}${data.endTime ? ` - ${data.endTime}` : ""}` : "Time",
-            hostName: data.hostDisplayName || "Host",
-            hostAvatarUrl: data.hostPhotoURL,
-            // Add required fields for Event type
-            mood: ["Social"] as Mood[],
-            priceLevel: "$" as const,
-            isLiveNow: false,
-            distanceMinutesWalk: 10,
-            endsInMinutes: 120,
+            title: data.title ?? "Untitled",
+            content: data.content ?? data.description ?? "",
+            isEvent: data.isEvent ?? true, // Assume mostly events in "events" collection for now
+            date: data.date,
+            startTime: data.startTime,
+            endTime: data.endTime,
+            locationLabel: data.locationLabel,
+            authorId: data.authorId ?? data.hostUserId ?? "",
+            authorName: data.authorName ?? data.hostDisplayName ?? "Unknown",
+            authorUsername: data.authorUsername ?? data.hostUsername,
+            authorAvatarUrl: data.authorAvatarUrl ?? data.hostPhotoURL,
+            imageUrls: data.imageUrls || (data.imageUrl ? [data.imageUrl] : []),
+            coordinates: data.coordinates,
+            likes: data.likes || [],
+            goingUids: data.goingUids || [],
+            maybeUids: data.maybeUids || [],
+            notGoingUids: data.notGoingUids || [],
           };
         });
 
+        // Store client-side mostly
         setCampusEvents(items);
       } catch (err) {
         console.error("Error loading campus events:", err);
@@ -175,16 +175,21 @@ export default function EventsPage() {
     return moodOk && budgetOk && timeOk && distanceOk;
   });
 
-  // Filter out past campus events
-  const activeCampusEvents = campusEvents.filter((event) => {
-    if (!event.date || !event.timeWindow) return true;
+  //  title: "Posts | Campus Connect",
+  // description: "Discover local campus posts and activities.",
+  const activeCampusEvents = campusEvents.filter((post) => {
+    if (!post.date) return false;
 
-    // Try to extract end time from timeWindow
-    const timeParts = event.timeWindow.split('-').map((t: string) => t.trim());
-    const endTime = timeParts.length > 1 ? timeParts[1] : timeParts[0];
+    // Simple date check
+    // If we have time, we could be more precise
+    const eventDate = new Date(`${post.date}T${post.startTime || "00:00"}:00`);
+    if (isNaN(eventDate.getTime())) return true; // Keep if invalid date to avoid hiding
 
-    const eventEnd = new Date(`${event.date}T${endTime}:00`);
-    return eventEnd.getTime() > Date.now();
+    // Keep events from today onwards (simple check)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    return eventDate > yesterday;
   });
 
   // Calculate map center - prioritize user location
@@ -201,7 +206,7 @@ export default function EventsPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-[11px] uppercase tracking-[0.2em] text-amber-400/80 font-bold">
-                Explore
+                Posts
               </p>
               <p className="mt-1 text-xl font-bold text-white tracking-tight">
                 What&apos;s happening
@@ -236,7 +241,7 @@ export default function EventsPage() {
       {/* Map Section */}
       <section className="w-full">
         <div className="rounded-3xl overflow-hidden border border-white/10 bg-neutral-900 shadow-xl">
-          {isLoaded && filteredEvents.some(e => e.lat && e.lng) ? (
+          {isLoaded && (filteredEvents.some(e => e.lat && e.lng) || activeCampusEvents.some(e => e.coordinates)) ? (
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
               center={mapCenter}
@@ -379,11 +384,11 @@ export default function EventsPage() {
               }}
             >
               {/* Campus events markers */}
-              {campusEvents.map((event) =>
-                event.lat && event.lng ? (
+              {activeCampusEvents.map((event) =>
+                event.coordinates ? (
                   <Marker
                     key={`campus-${event.id}`}
-                    position={{ lat: event.lat, lng: event.lng }}
+                    position={{ lat: event.coordinates.lat, lng: event.coordinates.lng }}
                     title={event.title}
                   />
                 ) : null
@@ -403,7 +408,7 @@ export default function EventsPage() {
           ) : (
             <div className="h-[400px] flex items-center justify-center bg-neutral-900">
               <p className="text-neutral-500 text-sm">
-                {!isLoaded ? "Loading map..." : "No locations to display"}
+                {!isLoaded ? "Loading map..." : "No items to display"}
               </p>
             </div>
           )}
@@ -420,17 +425,49 @@ export default function EventsPage() {
               <span className="text-xs text-slate-400">{activeCampusEvents.length} event{activeCampusEvents.length === 1 ? "" : "s"}</span>
             </div>
             <div className="space-y-3">
-              {activeCampusEvents.map((event) => (
-                <ExploreEventCard
-                  key={`campus-${event.id}`}
-                  id={event.id}
+              {activeCampusEvents.map((post) => (
+                <ExplorePostCard
+                  key={`campus-${post.id}`}
+                  id={post.id}
+                  title={post.title || "Untitled Event"}
+                  description={post.content || ""}
+                  image={(post.imageUrls && post.imageUrls[0]) || undefined}
+                  date={post.date || "Date"}
+                  time={post.startTime ? `${post.startTime}${post.endTime ? ` - ${post.endTime}` : ""}` : "Time"}
+                  location={post.locationLabel || "Location"}
+                  coordinates={post.coordinates}
+                  onCommentsClick={() => openView("comments", post)}
+                  onAttendanceClick={() => openView("attendance", post)}
+                  onDetailsClick={() => openView("details", post)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Found Nearby */}
+        {filteredEvents.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between px-2 py-2 mb-2">
+              <h3 className="text-sm font-semibold text-emerald-400">Found Nearby</h3>
+              <span className="text-xs text-slate-400">
+                {filteredEvents.length} result{filteredEvents.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {filteredEvents.map((event) => (
+                <ExplorePostCard
+                  key={event.id}
+                  id={event.id.toString()}
                   title={event.title}
                   description={event.description || ""}
                   image={(event.images && event.images[0]) || undefined}
-                  date={event.date}
+                  date="Today"
                   time={event.timeWindow}
                   location={event.venue}
                   coordinates={event.lat && event.lng ? { lat: event.lat, lng: event.lng } : null}
+                  showOpenLabel={true}
                   onCommentsClick={() => openView("comments", event)}
                   onAttendanceClick={() => openView("attendance", event)}
                   onDetailsClick={() => openView("details", event)}
@@ -440,52 +477,11 @@ export default function EventsPage() {
           </div>
         )}
 
-        {/* Found Nearby */}
-        <div>
-          <div className="flex items-center justify-between px-2 py-2 mb-2">
-            <h3 className="text-sm font-semibold text-emerald-400">Found Nearby</h3>
-            <span className="text-xs text-slate-400">
-              {filteredEvents.length} result{filteredEvents.length === 1 ? "" : "s"}
-            </span>
+        {filteredEvents.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <p className="text-slate-500">No suggestions found.</p>
           </div>
-
-          <div className="space-y-3">
-            {filteredEvents.map((event) => (
-              <ExploreEventCard
-                key={event.id}
-                id={event.id.toString()}
-                title={event.title}
-                description={event.description || ""}
-                image={(event.images && event.images[0]) || undefined}
-                date="Today"
-                time={event.timeWindow}
-                location={event.venue}
-                coordinates={event.lat && event.lng ? { lat: event.lat, lng: event.lng } : null}
-                showOpenLabel={true}
-                onCommentsClick={() => openView("comments", event)}
-                onAttendanceClick={() => openView("attendance", event)}
-                onDetailsClick={() => openView("details", event)}
-              />
-            ))}
-          </div>
-
-          {filteredEvents.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <p className="text-slate-500">No events found matching your filters.</p>
-              <button
-                onClick={() => {
-                  setActiveMood("Any");
-                  setActiveBudget("Any");
-                  setActiveTime("Any");
-                  setActiveDistance("Any");
-                }}
-                className="mt-4 text-amber-400 hover:text-amber-300 text-sm font-medium"
-              >
-                Clear all filters
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </section>
     </div>
   );

@@ -1,0 +1,47 @@
+export type Mood = "Chill" | "Social" | "Date night" | "Party" | "Outdoors" | "Food";
+export type BudgetFilter = "Any" | "Free" | "$" | "$$" | "$$$";
+export type TimeFilter = "Any" | "Now" | "Next 2h" | "Tonight";
+export type DistanceFilter = "Any" | "Walkable" | "Short ride";
+
+export type Post = {
+    id: string; // Changed to string to match Firestore ID
+    // Core Post fields
+    authorId: string;
+    authorName: string;
+    authorUsername?: string;
+    authorAvatarUrl?: string | null;
+    content?: string;
+    imageUrls?: string[];
+    likes?: string[]; // Array of user IDs
+    createdAt?: any; // Timestamp
+
+    // Event specific fields (optional)
+    isEvent: boolean;
+    title?: string; // Event title
+    venue?: string; // or locationLabel
+    locationLabel?: string;
+    locationUrl?: string; // Link to map
+    coordinates?: { lat: number; lng: number };
+
+    date?: string; // yyyy-mm-dd
+    startTime?: string; // hh:mm
+    endTime?: string; // hh:mm
+
+    distanceMinutesWalk?: number; // legacy? maybe keep for now
+    mood?: Mood[];
+    priceLevel?: "Free" | "$" | "$$" | "$$$";
+
+    // Attendance
+    goingUids?: string[];
+    maybeUids?: string[];
+    notGoingUids?: string[];
+};
+
+export const moodFilters: Mood[] = [
+    "Chill",
+    "Social",
+    "Date night",
+    "Party",
+    "Outdoors",
+    "Food",
+];

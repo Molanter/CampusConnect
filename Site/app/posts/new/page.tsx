@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore/lite";
 import { auth, db } from "../../../lib/firebase";
 import Toast, { ToastData } from "@/components/Toast";
-import { AttendanceCard } from "@/components/attendance-card";
+import { PostCard } from "@/components/post-card";
 
 type UserProfile = {
   preferredName?: string;
@@ -26,6 +26,7 @@ type UserProfile = {
   campusLocation?: string;
   campusLocationId?: string;
   role?: "student" | "staff";
+  photoURL?: string;
 };
 
 type University = {
@@ -365,45 +366,46 @@ export default function CreateEventPage() {
       setUploading(true);
 
       // 1. Upload images if any
-      const uploadedImageUrls: string[] = [];
+      const imageUrls: string[] = [];
       if (selectedFiles.length > 0) {
         const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
         const { storage } = await import("../../../lib/firebase");
 
         for (const file of selectedFiles) {
-          const storageRef = ref(storage, `events/${Date.now()}_${file.name}`);
+          const storageRef = ref(storage, `posts/${Date.now()}_${file.name}`);
           await uploadBytes(storageRef, file);
           const url = await getDownloadURL(storageRef);
-          uploadedImageUrls.push(url);
+          imageUrls.push(url);
         }
       }
 
-      // 2. Create Firestore doc
-      const eventDoc = {
+      // 2. Create post document in "events" collection (keeping collection name for data continuity)
+      const postData = {
         title: title.trim(),
         description: description.trim(),
-        imageUrls: uploadedImageUrls,
         date: eventDate, // yyyy-mm-dd
         startTime, // hh:mm
         endTime, // hh:mm
-        locationUrl: locationUrl.trim(),
         locationLabel: locationLabel.trim(),
         coordinates: coordinates,
-        dressCode: dressCode.trim() || null,
-        extraNotes: extraNotes.trim() || null,
-
-        campusId: profile?.campusId || null,
-
-        hostUserId: user.uid,
-        hostRole: profile?.role || null,
-
+        imageUrls: imageUrls,
+        authorId: user.uid,
+        authorName: profile?.preferredName || user.displayName || "Anonymous",
+        authorUsername: profile?.username || null,
+        authorAvatarUrl: profile?.photoURL || user.photoURL,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        likes: [],
+        goingUids: [],
+        maybeUids: [],
+        notGoingUids: [],
+        isEvent: true, // Still flagging as event for now as it has event fields
       };
 
-      await addDoc(collection(db, "events"), eventDoc);
+      await addDoc(collection(db, "events"), postData);
 
-      setToast({ type: "success", message: "Event created." });
+      // 3. Redirect to posts list
+      router.push("/posts");
+      setToast({ type: "success", message: "Post created." });
       // Reset form
       setTitle("");
       setDescription("");
@@ -414,9 +416,6 @@ export default function CreateEventPage() {
       setEndTime("");
       setLocationUrl("");
       setLocationLabel("");
-      setCoordinates(null);
-      setDressCode("");
-      setExtraNotes("");
 
       router.push("/events");
     } catch (err) {
@@ -462,25 +461,25 @@ export default function CreateEventPage() {
         <div className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-neutral-800/20 blur-[100px]" />
       </div>
 
-      <div className="min-h-screen px-4 py-8 text-neutral-200 md:px-8 md:py-12">
-        <div className="mx-auto w-full max-w-3xl lg:max-w-4xl xl:max-w-5xl">
+      <div className="min-h-screen px-4 py-8 text-neutral-200 md:px-8 md:py-12 @container">
+        <div className="mx-auto w-full max-w-3xl lg:max-w-4xl xl:max-w-5xl @min-[1100px]:max-w-[1600px]">
 
           {/* Header */}
-          <header className="mb-8 text-center md:text-left w-full max-w-xl mx-auto xl:max-w-none xl:mx-0">
+          <header className="mb-8 text-center md:text-left w-full max-w-xl mx-auto @min-[1100px]:max-w-none @min-[1100px]:mx-0">
             <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-              Create Event
+              Create Post
             </h1>
-            <p className="mt-1 text-base text-neutral-400">
+            <p className="mt-2 text-neutral-400">
               Share what's happening on campus.
             </p>
           </header>
 
-          <form onSubmit={handleCreateEvent} className="grid gap-8 xl:grid-cols-12">
+          <form onSubmit={handleCreateEvent} className="grid gap-8 @min-[1100px]:grid-cols-12">
 
             {/* Left Column: Main Form Inputs */}
-            <div className="space-y-6 xl:col-span-7 w-full max-w-xl mx-auto xl:max-w-none xl:mx-0">
+            <div className="space-y-6 @min-[1100px]:col-span-7 w-full max-w-xl mx-auto @min-[1100px]:max-w-none @min-[1100px]:mx-0">
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-500">
-                Event Details
+                Post Details
               </h2>
 
               {/* Section: Basic Info */}
@@ -491,7 +490,7 @@ export default function CreateEventPage() {
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       className="peer w-full bg-transparent px-4 py-3 text-base text-white placeholder:text-neutral-500 focus:outline-none"
-                      placeholder="Event Name"
+                      placeholder="Post Title"
                       required
                     />
                   </div>
@@ -665,44 +664,59 @@ export default function CreateEventPage() {
             </div>
 
             {/* Right Column: Preview / Actions */}
-            <div className="space-y-6 xl:col-span-5 xl:sticky xl:top-8 xl:h-fit w-full max-w-xl mx-auto xl:max-w-none xl:mx-0">
+            <div className="space-y-6 @min-[1100px]:col-span-5 @min-[1100px]:sticky @min-[1100px]:top-8 @min-[1100px]:h-fit w-full max-w-xl mx-auto @min-[1100px]:max-w-none @min-[1100px]:mx-0">
               <div>
-                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-500">
+                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-500 text-center">
                   Preview
                 </h2>
-                <AttendanceCard
-                  title={title}
-                  description={description}
-                  images={previewUrls}
-                  date={eventDate}
-                  time={startTime}
-                  location={locationLabel}
-                  hostName={profile?.preferredName || user.displayName || "You"}
-                  hostUsername={profile?.username}
-                  hostAvatarUrl={user?.photoURL}
-                  coordinates={showMapPreview ? coordinates : null}
-                />
+
+                <div className="flex flex-col gap-4 mx-auto w-full max-w-md">
+                  {/* Details Card with integrated Media Grid (PostCard handles it all) */}
+                  <PostCard
+                    post={{
+                      id: "preview",
+                      title: title || "Post Title",
+                      content: description || "Post description will appear here.",
+                      imageUrls: previewUrls,
+                      date: eventDate,
+                      startTime: startTime,
+                      endTime: endTime,
+                      locationLabel: locationLabel,
+                      authorId: user?.uid || "current",
+                      authorName: profile?.preferredName || user?.displayName || "You",
+                      authorUsername: profile?.username,
+                      authorAvatarUrl: profile?.photoURL || user?.photoURL,
+                      coordinates: showMapPreview ? coordinates : undefined,
+                      isEvent: true,
+                      likes: [],
+                      goingUids: [],
+                      maybeUids: [],
+                      notGoingUids: [],
+                    }}
+                    previewMode={true}
+                  />
+                </div>
               </div>
 
               {formError && (
-                <div className="w-full min-w-[400px] rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
+                <div className="w-full rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
                   {formError}
                 </div>
               )}
 
               {authError && (
-                <div className="w-full min-w-[400px] rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
+                <div className="w-full rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
                   {authError}
                 </div>
               )}
 
-              <div className="flex w-full min-w-[400px] flex-col gap-3">
+              <div className="flex w-full flex-col gap-3">
                 <button
                   type="submit"
                   disabled={saving || uploading}
-                  className="w-full rounded-full bg-white py-3 text-sm font-bold text-black shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
+                  className="w-full rounded-full bg-[#ffb200] py-3 text-sm font-bold text-black shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
                 >
-                  {saving ? "Creating..." : "Create Event"}
+                  {saving ? "Creating..." : "Create Post"}
                 </button>
                 <button
                   type="button"

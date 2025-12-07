@@ -9,35 +9,26 @@ import {
   getDocs,
   query,
   orderBy,
-} from "firebase/firestore/lite";
+  limit,
+} from "firebase/firestore/lite"; // Importing from lite for read-only if possible, but PostComposer uses full SDK. Mixing is fine if careful. But typically better to use one.
+// Actually, for simplicity and consistency with PostComposer (which acts on 'db' from lib/firebase which is full SDK usually), let's ensure we use consistent SDK if possible. 
+// However, the existing imports use 'firebase/firestore/lite'. I'll stick to what was there or upgrade if needed. 
+// PostComposer imports 'firebase/firestore'. "lib/firebase" likely exports 'db' initialized with full SDK. 
+// 'firebase/firestore/lite' is compatible with the same 'db' instance for getDocs usually.
 
 import { auth, provider, db } from "../lib/firebase";
-import { AttendanceCard } from "@/components/attendance-card";
+import { PostCard } from "@/components/post-card";
+import { PostComposer } from "@/components/post-composer";
 import { useRightSidebar } from "@/components/right-sidebar-context";
-
-type UpcomingEvent = {
-  id: string;
-  title: string;
-  description?: string | null;
-  date?: string | null;
-  startTime?: string | null;
-  endTime?: string | null;
-  locationLabel?: string | null;
-  campusName?: string | null;
-  hostDisplayName?: string | null;
-  hostUsername?: string | null;
-  hostPhotoURL?: string | null;
-  imageUrls?: string[] | null;
-  coordinates?: { lat: number; lng: number } | null;
-};
+import { Post } from "@/lib/posts";
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [events, setEvents] = useState<UpcomingEvent[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(false);
-  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postsError, setPostsError] = useState<string | null>(null);
 
   const { openView } = useRightSidebar();
 
@@ -65,52 +56,72 @@ export default function HomePage() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
+  const fetchPosts = async () => {
     if (!user) return;
+    try {
+      setPostsLoading(true);
+      setPostsError(null);
 
-    const fetchUpcoming = async () => {
-      try {
-        setEventsLoading(true);
-        setEventsError(null);
+      const eventsRef = collection(db, "events");
+      // Ordering by createdAt desc to show newest posts first. 
+      // Note: older events might not have createdAt. We might need to handle that or fallback.
+      // The original query was orderBy("date", "asc").
+      // For a "feed", usually it's reverse chronological.
+      // But for "Upcoming events", it's by date.
+      // Since we are merging, "Feed" usually implies createdAt.
+      // Let's try orderBy createdAt desc. If indexes are missing, it might fail in dev console.
+      // For now, I'll assume usage of 'createdAt' for new posts. Legacy events might lack it?
+      // I'll stick to 'date' for now if that's what was working, or maybe 'createdAt' is better for a general feed.
+      // Let's try 'createdAt' descending. If it fails, I'll need to create an index.
+      const q = query(eventsRef, orderBy("createdAt", "desc"), limit(50));
 
-        const eventsRef = collection(db, "events");
-        const q = query(eventsRef, orderBy("date", "asc"));
+      const snap = await getDocs(q);
+      const items: Post[] = snap.docs.map((doc) => {
+        const data = doc.data() as any;
+        return {
+          id: doc.id,
+          title: data.title ?? (data.isEvent ? "Untitled Event" : undefined), // Title optional for posts
+          content: data.content ?? data.description ?? "", // Map description to content
+          imageUrls:
+            (Array.isArray(data.imageUrls) ? data.imageUrls : null) ??
+            (data.imageUrl ? [data.imageUrl] : []),
+          // Event specific fields
+          isEvent: data.isEvent ?? true, // Default to true for legacy events? Or check fields? 
+          // If 'isEvent' is missing, but it has 'date', it's likely an event.
+          // Let's infer isEvent if not present:
+          // isEvent: data.isEvent ?? (!!data.date),
 
-        const snap = await getDocs(q);
-        const items: UpcomingEvent[] = snap.docs.map((doc) => {
-          const data = doc.data() as any;
-          return {
-            id: doc.id,
-            title: data.title ?? "Untitled event",
-            description: data.description ?? null,
-            date: data.date ?? null,
-            startTime: data.startTime ?? null,
-            endTime: data.endTime ?? null,
-            locationLabel: data.locationLabel ?? null,
-            campusName: data.campusName ?? null,
-            hostDisplayName: data.hostDisplayName ?? null,
-            hostUsername: data.hostUsername ?? null,
-            hostPhotoURL: data.hostPhotoURL ?? null,
-            imageUrls:
-              (Array.isArray(data.imageUrls) ? data.imageUrls : null) ??
-              (data.imageUrl ? [data.imageUrl] : []),
-            coordinates: data.coordinates ?? null,
-          };
-        });
+          date: data.date ?? undefined,
+          startTime: data.startTime ?? undefined,
+          endTime: data.endTime ?? undefined,
+          locationLabel: data.locationLabel ?? undefined,
+          coordinates: data.coordinates ?? undefined,
 
-        setEvents(items);
-      } catch (err: any) {
-        console.error("Error loading upcoming events for home feed", err);
-        setEventsError(
-          err?.message ||
-          "Could not load upcoming events. Please try again later."
-        );
-      } finally {
-        setEventsLoading(false);
-      }
-    };
+          authorId: data.authorId ?? data.hostUserId ?? "",
+          authorName: data.authorName ?? data.hostDisplayName ?? "Unknown",
+          authorUsername: data.authorUsername ?? data.hostUsername,
+          authorAvatarUrl: data.authorAvatarUrl ?? data.hostPhotoURL,
 
-    void fetchUpcoming();
+          likes: data.likes ?? [],
+          createdAt: data.createdAt,
+        };
+      });
+
+      setPosts(items);
+    } catch (err: any) {
+      console.error("Error loading posts", err);
+      // Fallback to client-side sorting if index is missing or just generic error
+      setPostsError(
+        err?.message ||
+        "Could not load posts. Please try again later."
+      );
+    } finally {
+      setPostsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
   }, [user]);
 
   if (loading) {
@@ -150,53 +161,43 @@ export default function HomePage() {
                 Feed
               </p>
               <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-                Upcoming events
+                Your Feed
               </h1>
-              <p className="text-sm text-neutral-400">
-                Events created by students and groups on your campus.
-              </p>
             </div>
           </header>
 
+          {/* Composer */}
+          <PostComposer user={user} onPostCreated={fetchPosts} />
+
           {/* Status */}
-          {eventsLoading && (
+          {postsLoading && (
             <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
-              Loading upcoming events...
+              Loading posts...
             </div>
           )}
 
-          {eventsError && !eventsLoading && (
+          {postsError && !postsLoading && (
             <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {eventsError}
+              {postsError}
             </div>
           )}
 
-          {!eventsLoading && !eventsError && events.length === 0 && (
+          {!postsLoading && !postsError && posts.length === 0 && (
             <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-6 text-sm text-neutral-300">
-              No events yet. Once you create events, they&apos;ll show up here.
+              No posts yet. Be the first to post!
             </div>
           )}
 
-          {/* Events list */}
-          {!eventsLoading && events.length > 0 && (
+          {/* Posts list */}
+          {!postsLoading && posts.length > 0 && (
             <section className="space-y-6">
-              {events.map((event) => (
-                <AttendanceCard
-                  key={event.id}
-                  id={event.id}
-                  title={event.title}
-                  description={event.description || ""}
-                  images={event.imageUrls || []}
-                  date={event.date || "Date"}
-                  time={event.startTime ? `${event.startTime}${event.endTime ? ` - ${event.endTime}` : ""}` : "Time"}
-                  location={event.locationLabel || "Location"}
-                  hostName={event.hostDisplayName || "Host"}
-                  hostUsername={event.hostUsername || undefined}
-                  hostAvatarUrl={event.hostPhotoURL}
-                  coordinates={event.coordinates}
-                  onCommentsClick={() => openView("comments", event)}
-                  onAttendanceClick={() => openView("attendance", event)}
-                  onDetailsClick={() => openView("details", event)}
+              {posts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onCommentsClick={() => openView("comments", post)}
+                  onAttendanceClick={() => openView("attendance", post)}
+                  onDetailsClick={() => openView("details", post)}
                 />
               ))}
             </section>

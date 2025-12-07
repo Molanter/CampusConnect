@@ -7,6 +7,7 @@ import { doc, updateDoc, arrayUnion, arrayRemove, getFirestore, onSnapshot, coll
 import Link from "next/link";
 import { CommentMessage } from "./comment-message";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "../lib/admin-utils";
+import { Post } from "../lib/posts";
 
 // Using full firestore SDK for real-time listeners as established in RightSidebar
 // If this causes issues with "lite" usage elsewhere, we might need to consolidate.
@@ -15,22 +16,14 @@ import { fetchGlobalAdminEmails, isGlobalAdmin } from "../lib/admin-utils";
 
 type AttendanceStatus = "going" | "maybe" | "not_going" | null;
 
-interface AttendanceCardProps {
-    id?: string;
-    title: string;
-    description: string;
-    images?: string[];
-    date: string;
-    time: string;
-    location: string;
-    hostName?: string;
-    hostUsername?: string;
-    hostAvatarUrl?: string | null;
-    coordinates?: { lat: number; lng: number } | null;
+interface PostCardProps {
+    post: Post;
     compact?: boolean;
     onCommentsClick?: () => void;
     onAttendanceClick?: () => void;
     onDetailsClick?: () => void;
+    previewMode?: boolean;
+    hideMediaPlaceholder?: boolean;
 }
 
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
@@ -42,30 +35,39 @@ const mapContainerStyle = {
 
 const libraries: ("places" | "geometry" | "drawing" | "visualization")[] = ["places"];
 
-export function AttendanceCard({
-    id,
-    title,
-    description,
-    images = [],
-    date,
-    time,
-    location,
-    hostName = "You",
-    hostUsername,
-    hostAvatarUrl,
-    coordinates,
+export function PostCard({
+    post,
     compact = false,
     onCommentsClick,
     onAttendanceClick,
     onDetailsClick,
-}: AttendanceCardProps) {
+    previewMode = false,
+    hideMediaPlaceholder = false,
+}: PostCardProps) {
+    // Deconstruct fields for easier access and backward compatibility logic
+    const {
+        id,
+        title,
+        content: description, // mapping content to description for now if description is missing
+        imageUrls: images = [],
+        date,
+        startTime: time = "", // assuming startTime is the main time
+        locationLabel: location,
+        authorName: hostName = "You",
+        authorUsername: hostUsername,
+        authorAvatarUrl: hostAvatarUrl,
+        coordinates,
+        likes = [],
+        isEvent,
+    } = post;
+
     const [status, setStatus] = useState<AttendanceStatus>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [stats, setStats] = useState({ going: 0, maybe: 0, notGoing: 0, comments: 0 });
     const [previewComment, setPreviewComment] = useState<any>(null);
     const [hasMoreComments, setHasMoreComments] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
-    const [likesCount, setLikesCount] = useState(0);
+    const [likesCount, setLikesCount] = useState(likes.length);
     const [hostPhotoUrl, setHostPhotoUrl] = useState<string | null>(hostAvatarUrl || null);
     const [canDeleteComments, setCanDeleteComments] = useState(false);
     const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -239,7 +241,7 @@ export function AttendanceCard({
 
                 if (eventSnap.exists()) {
                     const eventData = eventSnap.data();
-                    const hostId = eventData.hostUserId;
+                    const hostId = eventData?.hostUserId || eventData?.authorId; // supporting both for safe migration
 
                     if (hostId) {
                         const userRef = doc(dbFull, "users", hostId);
@@ -671,6 +673,7 @@ export function AttendanceCard({
 
     const renderImages = () => {
         if (mediaItems.length === 0) {
+            if (hideMediaPlaceholder) return null;
             return (
                 <div className="flex aspect-[4/3] w-full items-center justify-center rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] text-neutral-600 transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                     <span className="text-sm">No Image or Location</span>
@@ -900,18 +903,23 @@ export function AttendanceCard({
                 className={`bg-[#1C1C1E] ring-1 ring-white/5 ${compact ? "rounded-[28px] p-4" : "rounded-[32px] p-5"
                     }`}
             >
-                {/* Title and Date/Time */}
+                {/* Title and Date/Time - Only Title for normal posts if they have one, actually posts might not have titles? 
+                    The mock data suggests "title" is generic. Let's keep title for both. 
+                    Date/Time is definitely event only.
+                */}
                 <div className={`flex items-start justify-between gap-4 ${compact ? "mb-1.5" : "mb-2"}`}>
                     <h3
                         onClick={onDetailsClick}
                         className={`font-bold leading-tight text-white ${compact ? "text-[20px]" : "text-[22px]"
                             } ${onDetailsClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
                     >
-                        {title || "Event Title"}
+                        {title || "Untitled Post"}
                     </h3>
-                    <span className="text-xs font-medium text-neutral-400">
-                        {date && time ? `${date} • ${time}` : (date || time || "Date & Time")}
-                    </span>
+                    {isEvent && (
+                        <span className="text-xs font-medium text-neutral-400">
+                            {date && time ? `${date} • ${time}` : (date || time || "Date & Time")}
+                        </span>
+                    )}
                 </div>
 
                 {/* Description */}
@@ -934,9 +942,11 @@ export function AttendanceCard({
                         {hostPhotoUrl ? (
                             <img src={hostPhotoUrl} alt={hostName} className="h-full w-full object-cover" />
                         ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
-                                {hostName ? hostName.charAt(0).toUpperCase() : "U"}
-                            </div>
+                            !hideMediaPlaceholder && (
+                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
+                                    {hostName ? hostName.charAt(0).toUpperCase() : "U"}
+                                </div>
+                            )
                         )}
                     </div>
 
@@ -965,20 +975,22 @@ export function AttendanceCard({
                                 <span>{stats.comments}</span>
                             </button>
 
-                            {/* Attendees */}
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onAttendanceClick?.();
-                                }}
-                                className="flex items-center gap-1 text-neutral-400 hover:text-neutral-100"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                                    <path d="M1 8.25a1.25 1.25 0 112.5 0v7.5a1.25 1.25 0 11-2.5 0v-7.5zM11 3V1.7c0-.268.14-.526.395-.607A2 2 0 0114 3c0 .995-.182 1.948-.514 2.826-.204.54.166 1.174.744 1.174h2.52c1.243 0 2.261 1.01 2.146 2.247a23.864 23.864 0 01-1.341 5.974C17.153 16.323 16.072 17 14.9 17h-3.192a3 3 0 01-1.341-.317l-2.734-1.366A3 3 0 006.292 15H5V8h.963c.685 0 1.258-.483 1.612-1.068a4.011 4.011 0 012.166-1.73c.432-.143.853-.386 1.011-.814.16-.432.248-.9.248-1.388z" />
-                                </svg>
-                                <span>{stats.going + stats.maybe}</span>
-                            </button>
+                            {/* Attendees - Only for Events */}
+                            {isEvent && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onAttendanceClick?.();
+                                    }}
+                                    className="flex items-center gap-1 text-neutral-400 hover:text-neutral-100"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                                        <path d="M1 8.25a1.25 1.25 0 112.5 0v7.5a1.25 1.25 0 11-2.5 0v-7.5zM11 3V1.7c0-.268.14-.526.395-.607A2 2 0 0114 3c0 .995-.182 1.948-.514 2.826-.204.54.166 1.174.744 1.174h2.52c1.243 0 2.261 1.01 2.146 2.247a23.864 23.864 0 01-1.341 5.974C17.153 16.323 16.072 17 14.9 17h-3.192a3 3 0 01-1.341-.317l-2.734-1.366A3 3 0 006.292 15H5V8h.963c.685 0 1.258-.483 1.612-1.068a4.011 4.011 0 012.166-1.73c.432-.143.853-.386 1.011-.814.16-.432.248-.9.248-1.388z" />
+                                    </svg>
+                                    <span>{stats.going + stats.maybe}</span>
+                                </button>
+                            )}
 
                             {/* Likes */}
                             <button
@@ -987,7 +999,7 @@ export function AttendanceCard({
                                     e.stopPropagation();
                                     handleToggleLike();
                                 }}
-                                className={`flex items-center gap-1 transition-colors ${isLiked ? 'text-amber-400' : 'text-neutral-400 hover:text-amber-400'
+                                className={`flex items-center gap-1 transition-colors ${isLiked ? 'text-[#ffb200]' : 'text-neutral-400 hover:text-[#ffb200]'
                                     }`}
                             >
                                 {isLiked ? (
@@ -998,127 +1010,133 @@ export function AttendanceCard({
                                 <span>{likesCount}</span>
                             </button>
 
-                            {/* Time Left */}
-                            <div className="flex items-center gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
-                                </svg>
-                                <span>{timeUntilLabel}</span>
-                            </div>
+                            {/* Time Left - Only for Events */}
+                            {isEvent && (
+                                <div className="flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>{timeUntilLabel}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Attendance Picker */}
-                    {/* Small screens: Menu button */}
-                    <div className="sm:hidden relative">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setAttendanceMenuOpen(!attendanceMenuOpen);
-                            }}
-                            className={`flex items-center justify-center rounded-full bg-[#2C2C2E] p-2 transition-colors ${attendanceStatus.color}`}
-                        >
-                            {attendanceStatus.icon}
-                        </button>
+                    {/* Attendance Picker - Only for Events */}
+                    {isEvent && (
+                        <>
+                            {/* Small screens OR Preview Mode: Menu button */}
+                            <div className={`${previewMode ? "relative" : "sm:hidden relative"}`}>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAttendanceMenuOpen(!attendanceMenuOpen);
+                                    }}
+                                    className={`flex items-center justify-center rounded-full bg-[#2C2C2E] p-2 transition-colors ${attendanceStatus.color}`}
+                                >
+                                    {attendanceStatus.icon}
+                                </button>
 
-                        {/* Dropdown Menu */}
-                        {attendanceMenuOpen && (
-                            <>
-                                <div
-                                    className="fixed inset-0 z-30"
-                                    onClick={() => setAttendanceMenuOpen(false)}
-                                />
-                                <div className="absolute right-0 top-full mt-2 z-40 w-36 rounded-xl border border-white/10 bg-[#1C1C1E] shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-                                    <div className="py-1">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleStatusChange("going");
-                                                setAttendanceMenuOpen(false);
-                                            }}
-                                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
-                                        >
-                                            <HandThumbUpIcon className="h-4 w-4 text-green-400" />
-                                            <span>Going</span>
-                                            {status === "going" && (
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-auto text-amber-400">
-                                                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-                                                </svg>
-                                            )}
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleStatusChange("maybe");
-                                                setAttendanceMenuOpen(false);
-                                            }}
-                                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
-                                        >
-                                            <QuestionMarkCircleIcon className="h-4 w-4 text-yellow-400" />
-                                            <span>Maybe</span>
-                                            {status === "maybe" && (
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-auto text-amber-400">
-                                                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-                                                </svg>
-                                            )}
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleStatusChange("not_going");
-                                                setAttendanceMenuOpen(false);
-                                            }}
-                                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
-                                        >
-                                            <HandThumbDownIcon className="h-4 w-4 text-red-400" />
-                                            <span>Not Going</span>
-                                            {status === "not_going" && (
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-auto text-amber-400">
-                                                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-                                                </svg>
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                                {/* Dropdown Menu */}
+                                {attendanceMenuOpen && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-30"
+                                            onClick={() => setAttendanceMenuOpen(false)}
+                                        />
+                                        <div className="absolute right-0 top-full mt-2 z-40 w-36 rounded-xl border border-white/10 bg-[#1C1C1E] shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+                                            <div className="py-1">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleStatusChange("going");
+                                                        setAttendanceMenuOpen(false);
+                                                    }}
+                                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+                                                >
+                                                    <HandThumbUpIcon className="h-4 w-4 text-green-400" />
+                                                    <span>Going</span>
+                                                    {status === "going" && (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-auto text-amber-400">
+                                                            <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleStatusChange("maybe");
+                                                        setAttendanceMenuOpen(false);
+                                                    }}
+                                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+                                                >
+                                                    <QuestionMarkCircleIcon className="h-4 w-4 text-yellow-400" />
+                                                    <span>Maybe</span>
+                                                    {status === "maybe" && (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-auto text-amber-400">
+                                                            <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleStatusChange("not_going");
+                                                        setAttendanceMenuOpen(false);
+                                                    }}
+                                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+                                                >
+                                                    <HandThumbDownIcon className="h-4 w-4 text-red-400" />
+                                                    <span>Not Going</span>
+                                                    {status === "not_going" && (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-auto text-amber-400">
+                                                            <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
 
-                    {/* Large screens: Full picker */}
-                    <div className="hidden sm:flex shrink-0 rounded-full bg-[#2C2C2E] p-1">
-                        <button
-                            onClick={() => handleStatusChange("going")}
-                            className={`flex flex-1 items-center justify-center rounded-full px-3 py-2 transition-all ${status === "going"
-                                ? "bg-[#3A3A3C] text-white shadow-sm"
-                                : "text-neutral-400 hover:text-white"
-                                }`}
-                            title="Going"
-                        >
-                            <HandThumbUpIcon className="h-4 w-4" />
-                        </button>
-                        <div className="w-[1px] bg-white/5 my-2" />
-                        <button
-                            onClick={() => handleStatusChange("maybe")}
-                            className={`flex flex-1 items-center justify-center rounded-full px-3 py-2 transition-all ${status === "maybe"
-                                ? "bg-[#3A3A3C] text-white shadow-sm"
-                                : "text-neutral-400 hover:text-white"
-                                }`}
-                            title="Maybe"
-                        >
-                            <QuestionMarkCircleIcon className="h-4 w-4" />
-                        </button>
-                        <div className="w-[1px] bg-white/5 my-2" />
-                        <button
-                            onClick={() => handleStatusChange("not_going")}
-                            className={`flex flex-1 items-center justify-center rounded-full px-3 py-2 transition-all ${status === "not_going"
-                                ? "bg-[#3A3A3C] text-white shadow-sm"
-                                : "text-neutral-400 hover:text-white"
-                                }`}
-                            title="No"
-                        >
-                            <HandThumbDownIcon className="h-4 w-4" />
-                        </button>
-                    </div>
+                            {/* Large screens & Normal Mode: Full picker */}
+                            <div className={`${previewMode ? "hidden" : "hidden sm:flex"} shrink-0 rounded-full bg-[#2C2C2E] p-1`}>
+                                <button
+                                    onClick={() => handleStatusChange("going")}
+                                    className={`flex flex-1 items-center justify-center rounded-full px-3 py-2 transition-all ${status === "going"
+                                        ? "bg-[#3A3A3C] text-white shadow-sm"
+                                        : "text-neutral-400 hover:text-white"
+                                        }`}
+                                    title="Going"
+                                >
+                                    <HandThumbUpIcon className="h-4 w-4" />
+                                </button>
+                                <div className="w-[1px] bg-white/5 my-2" />
+                                <button
+                                    onClick={() => handleStatusChange("maybe")}
+                                    className={`flex flex-1 items-center justify-center rounded-full px-3 py-2 transition-all ${status === "maybe"
+                                        ? "bg-[#3A3A3C] text-white shadow-sm"
+                                        : "text-neutral-400 hover:text-white"
+                                        }`}
+                                    title="Maybe"
+                                >
+                                    <QuestionMarkCircleIcon className="h-4 w-4" />
+                                </button>
+                                <div className="w-[1px] bg-white/5 my-2" />
+                                <button
+                                    onClick={() => handleStatusChange("not_going")}
+                                    className={`flex flex-1 items-center justify-center rounded-full px-3 py-2 transition-all ${status === "not_going"
+                                        ? "bg-[#3A3A3C] text-white shadow-sm"
+                                        : "text-neutral-400 hover:text-white"
+                                        }`}
+                                    title="No"
+                                >
+                                    <HandThumbDownIcon className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Comment Preview */}
@@ -1179,7 +1197,7 @@ export function AttendanceCard({
                             className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white hover:bg-white/5 transition-colors"
                         >
                             {isLiked ? (
-                                <HeartIcon className="h-5 w-5 text-amber-400" />
+                                <HeartIcon className="h-5 w-5 text-[#ffb200]" />
                             ) : (
                                 <HeartIconOutline className="h-5 w-5" />
                             )}
@@ -1207,14 +1225,14 @@ export function AttendanceCard({
                                     e.stopPropagation();
                                     closeContextMenu();
                                     // Navigate to edit page
-                                    window.location.href = `/events/${id}/edit`;
+                                    window.location.href = isEvent ? `/posts/${id}/edit` : `/posts/${id}/edit`; // Unified to /posts for editing
                                 }}
                                 className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white hover:bg-white/5 transition-colors"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                                 </svg>
-                                <span>Edit Event</span>
+                                <span>{isEvent ? 'Edit Event' : 'Edit Post'}</span>
                             </button>
                         )}
 
@@ -1241,7 +1259,7 @@ export function AttendanceCard({
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (confirm('Are you sure you want to delete this event?')) {
+                                        if (confirm(`Are you sure you want to delete this ${isEvent ? 'event' : 'post'}?`)) {
                                             // Delete event logic
                                             closeContextMenu();
                                         }
@@ -1251,7 +1269,7 @@ export function AttendanceCard({
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                                     </svg>
-                                    <span>Delete Event</span>
+                                    <span>{isEvent ? 'Delete Event' : 'Delete Post'}</span>
                                 </button>
                             </>
                         )}

@@ -5,7 +5,7 @@ import { auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, updateDoc, arrayUnion, arrayRemove, getFirestore, onSnapshot, collection, query, getDocs } from "firebase/firestore";
 
-interface ExploreEventCardProps {
+interface ExplorePostCardProps {
     id?: string;
     title: string;
     description: string;
@@ -20,7 +20,7 @@ interface ExploreEventCardProps {
     onDetailsClick?: () => void;
 }
 
-export function ExploreEventCard({
+export function ExplorePostCard({
     id,
     title,
     description,
@@ -33,7 +33,7 @@ export function ExploreEventCard({
     onCommentsClick,
     onAttendanceClick,
     onDetailsClick,
-}: ExploreEventCardProps) {
+}: ExplorePostCardProps) {
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [stats, setStats] = useState({ going: 0, maybe: 0, notGoing: 0, comments: 0 });
     const [imgError, setImgError] = useState(false);
@@ -73,19 +73,19 @@ export function ExploreEventCard({
         if (!id) return;
 
         const dbFull = getFirestore();
-        
+
         const countRepliesRecursively = async (commentPath: string, depth: number): Promise<number> => {
             if (depth >= 2) return 0;
             try {
                 const repliesRef = collection(dbFull, commentPath, "replies");
                 const repliesSnapshot = await getDocs(repliesRef);
                 let count = repliesSnapshot.size;
-                
+
                 for (const replyDoc of repliesSnapshot.docs) {
                     const nestedPath = `${commentPath}/replies/${replyDoc.id}`;
                     count += await countRepliesRecursively(nestedPath, depth + 1);
                 }
-                
+
                 return count;
             } catch (error) {
                 console.error("Error counting replies:", error);
@@ -98,12 +98,12 @@ export function ExploreEventCard({
                 const commentsRef = collection(dbFull, "events", id, "comments");
                 const commentsSnapshot = await getDocs(commentsRef);
                 let totalCount = commentsSnapshot.size;
-                
+
                 for (const commentDoc of commentsSnapshot.docs) {
                     const commentPath = `events/${id}/comments/${commentDoc.id}`;
                     totalCount += await countRepliesRecursively(commentPath, 0);
                 }
-                
+
                 setStats(prev => ({
                     ...prev,
                     comments: totalCount
