@@ -123,31 +123,34 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
     if (!user) return null;
 
     return (
-        <div className="mb-6 rounded-[24px] border border-white/10 bg-[#1C1C1E] p-5 ring-1 ring-white/5 shadow-soft">
-            <div className="flex gap-4">
-                {/* User Avatar */}
-                <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-2 ring-white/5">
-                    {avatarUrl ? (
-                        <img
-                            src={avatarUrl}
-                            alt={user.displayName || "User"}
-                            className="h-full w-full object-cover"
-                        />
-                    ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-600 to-neutral-700 text-sm font-bold text-white">
-                            {(user.displayName || "U").charAt(0).toUpperCase()}
-                        </div>
-                    )}
+        <div className="mb-6 rounded-[24px] border border-white/10 bg-[#1C1C1E] px-3 py-5 ring-1 ring-white/5 shadow-soft relative mx-auto w-full max-w-[600px]">
+            {/* Wrapper to control layout relative to padding */}
+            <div className="relative flex gap-3">
+                {/* User Avatar - Absolute on Desktop to Match PostCard */}
+                <div className="shrink-0 w-9 h-9">
+                    <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-700 ring-2 ring-white/5">
+                        {avatarUrl ? (
+                            <img
+                                src={avatarUrl}
+                                alt={user.displayName || "User"}
+                                className="h-full w-full object-cover"
+                            />
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-600 to-neutral-700 text-sm font-bold text-white">
+                                {(user.displayName || "U").charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Input Area */}
+                {/* Input Area - Full Width in Padding Area */}
                 <div className="flex-1 min-w-0">
                     <textarea
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                         placeholder="What's happening?"
-                        className="w-full resize-none bg-transparent pt-2.5 text-[17px] text-white placeholder:text-neutral-500 focus:outline-none min-h-[50px]"
-                        rows={Math.max(2, content.split('\n').length)}
+                        className="w-full resize-none bg-transparent pt-2.5 text-[17px] text-white placeholder:text-neutral-500 focus:outline-none min-h-[40px]"
+                        rows={Math.max(1, content.split('\n').length)}
                         style={{ overflowAnchor: "none" }}
                     />
 
@@ -190,8 +193,8 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                                 className="flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-sm font-medium text-neutral-300 transition-colors hover:bg-white/10 hover:text-white group"
                             >
                                 <CalendarIcon className="h-4.5 w-4.5 text-neutral-400 group-hover:text-white transition-colors" />
-                                <span className="hidden sm:inline">Create event</span>
-                                <span className="sm:hidden">Event</span>
+                                <span className="hidden @3xl:inline">Create event</span>
+                                <span className="@3xl:hidden">Event</span>
                             </button>
 
                             {/* Media Attachment */}

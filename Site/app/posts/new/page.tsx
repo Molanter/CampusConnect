@@ -111,7 +111,8 @@ export default function CreateEventPage() {
   const [toast, setToast] = useState<ToastData | null>(null);
 
   // Event form fields
-  const [title, setTitle] = useState("");
+  const [isEvent, setIsEvent] = useState(false);
+
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [eventDate, setEventDate] = useState(""); // yyyy-mm-dd
@@ -348,17 +349,16 @@ export default function CreateEventPage() {
       return;
     }
 
-    if (!title.trim()) {
-      setFormError("Please add a name for your event.");
-      return;
-    }
-    if (!eventDate || !startTime || !endTime) {
-      setFormError("Please set date, start time, and end time.");
-      return;
-    }
-    if (!locationLabel.trim()) {
-      setFormError("Please add a location label (e.g. Student Center).");
-      return;
+
+    if (isEvent) {
+      if (!eventDate || !startTime || !endTime) {
+        setFormError("Please set date, start time, and end time.");
+        return;
+      }
+      if (!locationLabel.trim()) {
+        setFormError("Please add a location label (e.g. Student Center).");
+        return;
+      }
     }
 
     try {
@@ -381,13 +381,13 @@ export default function CreateEventPage() {
 
       // 2. Create post document in "events" collection (keeping collection name for data continuity)
       const postData = {
-        title: title.trim(),
+        title: "",
         description: description.trim(),
-        date: eventDate, // yyyy-mm-dd
-        startTime, // hh:mm
-        endTime, // hh:mm
-        locationLabel: locationLabel.trim(),
-        coordinates: coordinates,
+        date: isEvent ? eventDate : null, // yyyy-mm-dd
+        startTime: isEvent ? startTime : null, // hh:mm
+        endTime: isEvent ? endTime : null, // hh:mm
+        locationLabel: isEvent ? locationLabel.trim() : null,
+        coordinates: isEvent ? coordinates : null,
         imageUrls: imageUrls,
         authorId: user.uid,
         authorName: profile?.preferredName || user.displayName || "Anonymous",
@@ -398,7 +398,7 @@ export default function CreateEventPage() {
         goingUids: [],
         maybeUids: [],
         notGoingUids: [],
-        isEvent: true, // Still flagging as event for now as it has event fields
+        isEvent: isEvent,
       };
 
       await addDoc(collection(db, "events"), postData);
@@ -407,15 +407,17 @@ export default function CreateEventPage() {
       router.push("/posts");
       setToast({ type: "success", message: "Post created." });
       // Reset form
-      setTitle("");
+
       setDescription("");
       setSelectedFiles([]);
       setPreviewUrls([]);
-      setEventDate("");
-      setStartTime("");
-      setEndTime("");
-      setLocationUrl("");
-      setLocationLabel("");
+      if (isEvent) {
+        setEventDate("");
+        setStartTime("");
+        setEndTime("");
+        setLocationUrl("");
+        setLocationLabel("");
+      }
 
       router.push("/events");
     } catch (err) {
@@ -485,15 +487,8 @@ export default function CreateEventPage() {
               {/* Section: Basic Info */}
               <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
                 <div className="space-y-[1px]">
-                  <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                    <input
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className="peer w-full bg-transparent px-4 py-3 text-base text-white placeholder:text-neutral-500 focus:outline-none"
-                      placeholder="Post Title"
-                      required
-                    />
-                  </div>
+
+
                   <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
                     <textarea
                       rows={3}
@@ -547,119 +542,145 @@ export default function CreateEventPage() {
                 </div>
               </div>
 
-              {/* Section: Logistics */}
-              <div className="space-y-2">
-                <h3 className="ml-4 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                  Time & Location
-                </h3>
-                <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
-                  <div className="space-y-[1px]">
-                    <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                      <span className="text-sm text-neutral-300">Date</span>
-                      <input
-                        type="date"
-                        value={eventDate}
-                        onChange={(e) => setEventDate(e.target.value)}
-                        className="bg-transparent text-right text-sm text-white focus:outline-none [color-scheme:dark]"
-                        required
-                      />
-                    </div>
-                    <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                      <span className="text-sm text-neutral-300">Start Time</span>
-                      <input
-                        type="time"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        className="bg-transparent text-right text-sm text-white focus:outline-none [color-scheme:dark]"
-                        required
-                      />
-                    </div>
-                    <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                      <span className="text-sm text-neutral-300">End Time</span>
-                      <input
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        className="bg-transparent text-right text-sm text-white focus:outline-none [color-scheme:dark]"
-                        required
-                      />
-                    </div>
-                    <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors flex items-center">
-                      <input
-                        value={locationUrl}
-                        onChange={(e) => setLocationUrl(e.target.value)}
-                        className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                        placeholder="Paste Map URL (Apple/Google)"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setIsMapHelpOpen(true)}
-                        className="mr-3 text-neutral-500 hover:text-white transition-colors"
-                        title="How to get link?"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                      <input
-                        value={locationLabel}
-                        onChange={(e) => setLocationLabel(e.target.value)}
-                        className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                        placeholder="Location Label (e.g. Student Center)"
-                      />
-                    </div>
-                    {coordinates && (
-                      <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                        <span className="text-sm text-neutral-300">Show map in preview</span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={showMapPreview}
-                          onClick={() => setShowMapPreview(!showMapPreview)}
-                          style={{
-                            backgroundColor: showMapPreview ? '#ffb200' : '#525252'
-                          }}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showMapPreview ? 'translate-x-6' : 'translate-x-1'
-                              }`}
-                          />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+              {/* Make Event Toggle */}
+              <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10 mt-6">
+                <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 rounded-[20px] hover:bg-neutral-800/50 transition-colors">
+                  <span className="text-sm font-medium text-white">Make this an event?</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isEvent}
+                    onClick={() => setIsEvent(!isEvent)}
+                    style={{
+                      backgroundColor: isEvent ? '#ffb200' : '#525252'
+                    }}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEvent ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                    />
+                  </button>
                 </div>
               </div>
 
-              {/* Section: Extra Details */}
-              <div className="space-y-2">
-                <h3 className="ml-4 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                  More Info
-                </h3>
-                <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
-                  <div className="space-y-[1px]">
-                    <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                      <input
-                        value={dressCode}
-                        onChange={(e) => setDressCode(e.target.value)}
-                        className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                        placeholder="Dress Code (Optional)"
-                      />
-                    </div>
-                    <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                      <input
-                        value={extraNotes}
-                        onChange={(e) => setExtraNotes(e.target.value)}
-                        className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                        placeholder="Extra Notes (Optional)"
-                      />
+              {/* Section: Logistics */}
+              {isEvent && (
+                <div className="space-y-2">
+                  <h3 className="ml-4 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+                    Time & Location
+                  </h3>
+                  <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
+                    <div className="space-y-[1px]">
+                      <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
+                        <span className="text-sm text-neutral-300">Date</span>
+                        <input
+                          type="date"
+                          value={eventDate}
+                          onChange={(e) => setEventDate(e.target.value)}
+                          className="bg-transparent text-right text-sm text-white focus:outline-none [color-scheme:dark]"
+                          required={isEvent}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
+                        <span className="text-sm text-neutral-300">Start Time</span>
+                        <input
+                          type="time"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className="bg-transparent text-right text-sm text-white focus:outline-none [color-scheme:dark]"
+                          required={isEvent}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
+                        <span className="text-sm text-neutral-300">End Time</span>
+                        <input
+                          type="time"
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className="bg-transparent text-right text-sm text-white focus:outline-none [color-scheme:dark]"
+                          required={isEvent}
+                        />
+                      </div>
+                      <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors flex items-center">
+                        <input
+                          value={locationUrl}
+                          onChange={(e) => setLocationUrl(e.target.value)}
+                          className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                          placeholder="Paste Map URL (Apple/Google)"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setIsMapHelpOpen(true)}
+                          className="mr-3 text-neutral-500 hover:text-white transition-colors"
+                          title="How to get link?"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
+                        <input
+                          value={locationLabel}
+                          onChange={(e) => setLocationLabel(e.target.value)}
+                          className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                          placeholder="Location Label (e.g. Student Center)"
+                        />
+                      </div>
+                      {coordinates && (
+                        <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
+                          <span className="text-sm text-neutral-300">Show map in preview</span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={showMapPreview}
+                            onClick={() => setShowMapPreview(!showMapPreview)}
+                            style={{
+                              backgroundColor: showMapPreview ? '#ffb200' : '#525252'
+                            }}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showMapPreview ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Section: Extra Details */}
+              {isEvent && (
+                <div className="space-y-2">
+                  <h3 className="ml-4 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+                    More Info
+                  </h3>
+                  <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
+                    <div className="space-y-[1px]">
+                      <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
+                        <input
+                          value={dressCode}
+                          onChange={(e) => setDressCode(e.target.value)}
+                          className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                          placeholder="Dress Code (Optional)"
+                        />
+                      </div>
+                      <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
+                        <input
+                          value={extraNotes}
+                          onChange={(e) => setExtraNotes(e.target.value)}
+                          className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                          placeholder="Extra Notes (Optional)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
             </div>
 
@@ -675,19 +696,19 @@ export default function CreateEventPage() {
                   <PostCard
                     post={{
                       id: "preview",
-                      title: title || "Post Title",
+                      title: "",
                       content: description || "Post description will appear here.",
                       imageUrls: previewUrls,
-                      date: eventDate,
-                      startTime: startTime,
-                      endTime: endTime,
-                      locationLabel: locationLabel,
+                      date: isEvent ? eventDate : undefined,
+                      startTime: isEvent ? startTime : undefined,
+                      endTime: isEvent ? endTime : undefined,
+                      locationLabel: isEvent ? locationLabel : undefined,
                       authorId: user?.uid || "current",
                       authorName: profile?.preferredName || user?.displayName || "You",
                       authorUsername: profile?.username,
                       authorAvatarUrl: profile?.photoURL || user?.photoURL,
-                      coordinates: showMapPreview ? coordinates : undefined,
-                      isEvent: true,
+                      coordinates: isEvent && showMapPreview && coordinates ? coordinates : undefined,
+                      isEvent: isEvent,
                       likes: [],
                       goingUids: [],
                       maybeUids: [],

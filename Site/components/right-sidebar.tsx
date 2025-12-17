@@ -1,6 +1,6 @@
 "use client";
 
-import { BellIcon, XMarkIcon, ChevronLeftIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
+import { BellIcon, XMarkIcon, ChevronLeftIcon, PaperAirplaneIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { useRightSidebar } from "./right-sidebar-context";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { UserRow } from "./user-row";
@@ -41,6 +41,7 @@ import {
 import { CommentMessage, type CommentRecord } from "./comment-message";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "@/lib/admin-utils";
 import { ReportSheet } from "./report-sheet";
+import { CommentsView } from "./comments-view";
 
 // ... existing code ...
 
@@ -125,7 +126,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                 </button>
 
                 {/* Bottom Sheet */}
-                <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-[#121212] rounded-t-[2rem] border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.9)] max-h-[85vh] animate-slide-up pb-20">
+                <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-[#121212]/40 backdrop-blur-3xl rounded-t-[2rem] border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.9)] max-h-[85vh] animate-slide-up pb-20">
                     {/* Handle */}
                     <div className="flex justify-center py-3">
                         <div className="w-10 h-1 bg-white/20 rounded-full" />
@@ -147,6 +148,8 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                                 {view === "comments" && "Comments"}
                                 {view === "details" && "Event Details"}
                                 {view === "attendance" && "Guest List"}
+                                {view === "report" && "Report Content"}
+                                {view === "likes" && "Likes"}
                             </h2>
                         </div>
                     </div>
@@ -157,22 +160,17 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                         {view === "comments" && <CommentsView data={data} />}
                         {view === "details" && <EventDetailsView data={data} />}
                         {view === "attendance" && <AttendanceView data={data} />}
+                        {view === "report" && <ReportView data={data} />}
+                        {view === "likes" && <LikesView data={data} />}
                     </div>
                 </div>
             </>
         );
     }
 
-    // Desktop/Tablet: Bell button in top-right when sidebar is closed
+    // Desktop/Tablet: Bell button in top-right when sidebar is closed - REMOVED per user request
     if (!isVisible) {
-        return (
-            <button
-                onClick={toggle}
-                className="fixed right-6 top-6 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-[#1C1C1E] text-white shadow-lg backdrop-blur-xl transition-transform hover:scale-105 active:scale-95"
-            >
-                <BellIcon className="h-6 w-6" />
-            </button>
-        );
+        return null;
     }
 
     // Desktop/Tablet sidebar
@@ -182,7 +180,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                 <div className="fixed inset-0 z-50 cursor-ew-resize" />
             )}
             <aside
-                className={`fixed bottom-3 right-3 z-40 flex flex-col rounded-[1.8rem] border border-white/10 bg-[#121212] shadow-[0_30px_80px_rgba(0,0,0,0.9)] backdrop-blur-2xl ${headerVisible ? 'top-[80px]' : 'top-3'}`}
+                className={`fixed bottom-3 right-3 z-40 flex flex-col rounded-[1.8rem] border border-white/10 bg-[#121212]/40 shadow-[0_30px_80px_rgba(0,0,0,0.9)] backdrop-blur-3xl ${headerVisible ? 'top-[80px]' : 'top-3'}`}
                 style={{ width: `${sidebarWidth}px` }}
             >
                 {/* Resize Handle */}
@@ -209,6 +207,8 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                             {view === "comments" && "Comments"}
                             {view === "details" && "Event Details"}
                             {view === "attendance" && "Guest List"}
+                            {view === "report" && "Report Content"}
+                            {view === "likes" && "Likes"}
                         </h2>
                     </div>
                     <button
@@ -225,6 +225,8 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     {view === "comments" && <CommentsView data={data} />}
                     {view === "details" && <EventDetailsView data={data} />}
                     {view === "attendance" && <AttendanceView data={data} />}
+                    {view === "report" && <ReportView data={data} />}
+                    {view === "likes" && <LikesView data={data} />}
                 </div>
             </aside>
         </>
@@ -299,555 +301,7 @@ function NotificationsView() {
     );
 }
 
-function CommentsView({ data }: { data: any }) {
-    const [comments, setComments] = useState<CommentRecord[]>([]);
-    const [commentsLoading, setCommentsLoading] = useState(true);
-    const [newComment, setNewComment] = useState("");
-    const [sending, setSending] = useState(false);
-    const [replyTarget, setReplyTarget] = useState<CommentRecord | null>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const [currentUser, setCurrentUser] = useState<any>(null);
-    const [globalAdmins, setGlobalAdmins] = useState<string[]>([]);
-    const [eventOwnerUid, setEventOwnerUid] = useState<string | null>(null);
-    const [reportTarget, setReportTarget] = useState<CommentRecord | null>(null);
-    const [showHidden, setShowHidden] = useState(false);
 
-    useEffect(() => {
-        const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
-        return () => unsub();
-    }, []);
-
-    useEffect(() => {
-        fetchGlobalAdminEmails().then(setGlobalAdmins).catch(() => setGlobalAdmins([]));
-    }, []);
-
-    // Helper to check if a comment should be hidden due to reports
-    const checkReportCount = async (dbFull: any, commentPath: string): Promise<number> => {
-        try {
-            // Construct collection reference by appending reports to the path
-            const reportsPath = `${commentPath}/reports`;
-            const pathSegments = reportsPath.split('/');
-            const reportsRef = collectionFull(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
-            const snapshot = await getDocsFull(reportsRef);
-            return snapshot.size;
-        } catch (error) {
-            console.error("Error checking report count:", error);
-            return 0;
-        }
-    };
-
-    // Helper to recursively load replies
-    const loadRepliesRecursive = async (
-        dbFull: any,
-        parentPath: string,
-        depth: number,
-        parentPathArray: string[]
-    ): Promise<CommentRecord[]> => {
-        if (depth >= 2) return [];
-
-        try {
-            const repliesRef = collectionFull(dbFull, parentPath, "replies");
-            const q = queryFull(repliesRef, orderByFull("createdAt", "asc"));
-            const snapshot = await getDocsFull(q);
-
-            const replies: CommentRecord[] = await Promise.all(
-                snapshot.docs.map(async (docSnap) => {
-                    const data = docSnap.data() as any;
-                    const replyPath = `${parentPath}/replies/${docSnap.id}`;
-                    const nestedReplies = await loadRepliesRecursive(
-                        dbFull,
-                        replyPath,
-                        depth + 1,
-                        [...parentPathArray, docSnap.id]
-                    );
-
-                    // Fetch user data from users collection
-                    let authorName = "Someone";
-                    let authorUsername = null;
-                    let authorPhotoURL = null;
-                    const authorUid = data.uid ?? data.authorUid ?? null;
-
-                    if (authorUid) {
-                        try {
-                            const userDoc = await getDocFull(docFull(dbFull, "users", authorUid));
-                            if (userDoc.exists()) {
-                                const userData = userDoc.data();
-                                authorName = userData.displayName || userData.username || "Someone";
-                                authorUsername = userData.username || null;
-                                authorPhotoURL = userData.photoURL || null;
-                            }
-                        } catch (err) {
-                            console.error("Error fetching user data:", err);
-                        }
-                    }
-
-                    // Check report count
-                    const reportCount = await checkReportCount(dbFull, replyPath);
-                    const isHidden = reportCount >= 10;
-
-                    return {
-                        id: docSnap.id,
-                        text: data.text ?? "",
-                        authorName,
-                        authorUsername,
-                        authorUid,
-                        authorPhotoURL,
-                        createdAt: data.createdAt?.toDate?.() ?? null,
-                        updatedAt: data.updatedAt?.toDate?.() ?? null,
-                        likes: data.likes ?? [],
-                        replies: nestedReplies,
-                        depth: depth,
-                        parentPath: parentPathArray,
-                        reportCount,
-                        isHidden,
-                    } as CommentRecord;
-                })
-            );
-
-            return replies;
-        } catch (error) {
-            console.error("Error loading replies:", error);
-            return [];
-        }
-    };
-
-    useEffect(() => {
-        if (!data?.id) return;
-
-        const loadComments = async () => {
-            try {
-                const dbFull = getFirestore();
-                const commentsRef = collectionFull(dbFull, "events", data.id, "comments");
-                const q = queryFull(commentsRef, orderByFull("createdAt", "asc"));
-                const snapshot = await getDocsFull(q);
-
-                const topLevelComments: CommentRecord[] = await Promise.all(
-                    snapshot.docs.map(async (docSnap) => {
-                        const payload = docSnap.data() as any;
-                        const commentPath = `events/${data.id}/comments/${docSnap.id}`;
-                        const replies = await loadRepliesRecursive(dbFull, commentPath, 0, [docSnap.id]);
-
-                        // Fetch user data from users collection
-                        let authorName = "Someone";
-                        let authorUsername = null;
-                        let authorPhotoURL = null;
-                        const authorUid = payload.uid ?? payload.authorUid ?? null;
-
-                        if (authorUid) {
-                            try {
-                                const userDoc = await getDocFull(docFull(dbFull, "users", authorUid));
-                                if (userDoc.exists()) {
-                                    const userData = userDoc.data();
-                                    authorName = userData.displayName || userData.username || "Someone";
-                                    authorUsername = userData.username || null;
-                                    authorPhotoURL = userData.photoURL || null;
-                                }
-                            } catch (err) {
-                                console.error("Error fetching user data:", err);
-                            }
-                        }
-
-                        // Check report count
-                        const reportCount = await checkReportCount(dbFull, commentPath);
-                        const isHidden = reportCount >= 10;
-
-                        return {
-                            id: docSnap.id,
-                            text: payload.text ?? "",
-                            authorName,
-                            authorUsername,
-                            authorUid,
-                            authorPhotoURL,
-                            createdAt: payload.createdAt?.toDate?.() ?? null,
-                            updatedAt: payload.updatedAt?.toDate?.() ?? null,
-                            likes: payload.likes ?? [],
-                            replies: replies,
-                            depth: 0,
-                            parentPath: [],
-                            reportCount,
-                            isHidden,
-                        } as CommentRecord;
-                    })
-                );
-
-                // Filter out hidden comments unless showHidden is true
-                const visibleComments = showHidden
-                    ? topLevelComments
-                    : topLevelComments.filter(c => !c.isHidden);
-
-                setComments(visibleComments);
-                setCommentsLoading(false);
-                setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 120);
-            } catch (error) {
-                console.error("Error loading comments:", error);
-                setCommentsLoading(false);
-            }
-        };
-
-        loadComments();
-
-        // Refresh every 5 seconds to pick up new replies
-        const interval = setInterval(loadComments, 5000);
-        return () => clearInterval(interval);
-    }, [data?.id, showHidden]);
-
-    useEffect(() => {
-        if (!data?.id) return;
-        const loadOwner = async () => {
-            try {
-                const dbFull = getFirestore();
-                const ref = docFull(dbFull, "events", data.id);
-                const snap = await getDocFull(ref);
-                if (snap.exists()) {
-                    setEventOwnerUid((snap.data() as any)?.hostUserId ?? null);
-                }
-            } catch (error) {
-                console.error("Error loading event owner:", error);
-            }
-        };
-        loadOwner();
-    }, [data?.id]);
-
-    const userIsGlobalAdmin = useMemo(
-        () => isGlobalAdmin(currentUser?.email, globalAdmins),
-        [currentUser?.email, globalAdmins]
-    );
-
-    const buildCommentPath = (comment: CommentRecord): string => {
-        const parentPath = comment.parentPath || [];
-        if (parentPath.length === 0) {
-            // Top-level comment
-            return `events/${data?.id}/comments/${comment.id}`;
-        }
-
-        // Nested reply
-        let path = `events/${data?.id}/comments/${parentPath[0]}`;
-        for (let i = 1; i < parentPath.length; i++) {
-            path += `/replies/${parentPath[i]}`;
-        }
-        path += `/replies/${comment.id}`;
-        return path;
-    };
-
-    const canDelete = (comment: CommentRecord) => {
-        if (!currentUser) return false;
-        return (
-            comment.authorUid === currentUser.uid ||
-            eventOwnerUid === currentUser.uid ||
-            userIsGlobalAdmin
-        );
-    };
-
-    const reloadComments = async () => {
-        if (!data?.id) return;
-        try {
-            const dbFull = getFirestore();
-            const commentsRef = collectionFull(dbFull, "events", data.id, "comments");
-            const q = queryFull(commentsRef, orderByFull("createdAt", "asc"));
-            const snapshot = await getDocsFull(q);
-
-            const topLevelComments: CommentRecord[] = await Promise.all(
-                snapshot.docs.map(async (docSnap) => {
-                    const payload = docSnap.data() as any;
-                    const commentPath = `events/${data.id}/comments/${docSnap.id}`;
-                    const replies = await loadRepliesRecursive(dbFull, commentPath, 0, [docSnap.id]);
-
-                    // Fetch user data from users collection
-                    let authorName = "Someone";
-                    let authorUsername = null;
-                    let authorPhotoURL = null;
-                    const authorUid = payload.authorUid ?? payload.uid ?? null;
-
-                    if (authorUid) {
-                        try {
-                            const userDoc = await getDocFull(docFull(dbFull, "users", authorUid));
-                            if (userDoc.exists()) {
-                                const userData = userDoc.data();
-                                authorName = userData.displayName || userData.username || "Someone";
-                                authorUsername = userData.username || null;
-                                authorPhotoURL = userData.photoURL || null;
-                            }
-                        } catch (err) {
-                            console.error("Error fetching user data:", err);
-                        }
-                    }
-
-                    return {
-                        id: docSnap.id,
-                        text: payload.text ?? "",
-                        authorName,
-                        authorUsername,
-                        authorUid,
-                        authorPhotoURL,
-                        createdAt: payload.createdAt?.toDate?.() ?? null,
-                        updatedAt: payload.updatedAt?.toDate?.() ?? null,
-                        likes: payload.likes ?? [],
-                        replies: replies,
-                        depth: 0,
-                        parentPath: [],
-                    } as CommentRecord;
-                })
-            );
-
-            setComments(topLevelComments);
-        } catch (error) {
-            console.error("Error reloading comments:", error);
-        }
-    };
-
-    const handleToggleLike = async (comment: CommentRecord) => {
-        if (!currentUser || !data?.id) return;
-        try {
-            const dbFull = getFirestore();
-            const path = buildCommentPath(comment);
-            const pathSegments = path.split('/');
-            const ref = docFull(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
-            const alreadyLiked = comment.likes?.includes(currentUser.uid);
-            await updateDocFull(ref, {
-                likes: alreadyLiked
-                    ? arrayRemoveFull(currentUser.uid)
-                    : arrayUnionFull(currentUser.uid),
-            });
-            await reloadComments();
-        } catch (error) {
-            console.error("Error toggling like:", error);
-        }
-    };
-
-    const handleReport = async (comment: CommentRecord) => {
-        if (!currentUser) return;
-        setReportTarget(comment);
-    };
-
-    const submitReport = async (reason: string, details?: string) => {
-        if (!currentUser || !reportTarget) return;
-        try {
-            const dbFull = getFirestore();
-            const commentPath = buildCommentPath(reportTarget);
-            const pathSegments = commentPath.split('/');
-            const commentRef = docFull(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
-
-            // Add report to the comment's reports subcollection
-            await addDocFull(collectionFull(commentRef, "reports"), {
-                reason,
-                details: details || null,
-                reporterUid: currentUser.uid,
-                reporterName: currentUser.displayName ?? currentUser.email ?? "User",
-                createdAt: serverTimestampFull(),
-            });
-
-            // Also add to global reports collection for admin review
-            await addDocFull(collectionFull(dbFull, "commentReports"), {
-                eventId: data?.id,
-                commentId: reportTarget.id,
-                commentPath,
-                commentText: reportTarget.text,
-                reportedUid: reportTarget.authorUid ?? null,
-                reporterUid: currentUser.uid,
-                reporterName: currentUser.displayName ?? currentUser.email ?? "User",
-                reason,
-                details: details || null,
-                createdAt: serverTimestampFull(),
-            });
-
-            setReportTarget(null);
-        } catch (error) {
-            console.error("Error reporting comment:", error);
-        }
-    };
-
-    const handleDelete = async (comment: CommentRecord) => {
-        if (!data?.id) return;
-        try {
-            const dbFull = getFirestore();
-            const path = buildCommentPath(comment);
-            const pathSegments = path.split('/');
-            await deleteDocFull(docFull(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2)));
-            await reloadComments();
-        } catch (error) {
-            console.error("Error deleting comment:", error);
-        }
-    };
-
-    const handleEdit = async (comment: CommentRecord, newText: string) => {
-        if (!data?.id) return;
-        try {
-            const dbFull = getFirestore();
-            const path = buildCommentPath(comment);
-            const pathSegments = path.split('/');
-            await updateDocFull(docFull(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2)), {
-                text: newText,
-                updatedAt: serverTimestampFull(),
-            });
-            await reloadComments();
-        } catch (error) {
-            console.error("Error editing comment:", error);
-        }
-    };
-
-    const handleSend = async () => {
-        if (!newComment.trim() || !currentUser || !data?.id) return;
-        setSending(true);
-        try {
-            const dbFull = getFirestore();
-
-            // Build the correct path based on whether this is a reply or top-level comment
-            let targetRef;
-            if (replyTarget) {
-                // This is a reply - save to the replies subcollection
-                const parentPath = replyTarget.parentPath || [];
-                let basePath = `events/${data.id}/comments/${parentPath[0] || replyTarget.id}`;
-
-                // If there are nested levels, build the path
-                for (let i = 1; i < parentPath.length; i++) {
-                    basePath += `/replies/${parentPath[i]}`;
-                }
-
-                targetRef = collectionFull(dbFull, basePath, "replies");
-            } else {
-                // Top-level comment
-                targetRef = collectionFull(dbFull, "events", data.id, "comments");
-            }
-
-            const payload: any = {
-                text: newComment.trim(),
-                authorUid: currentUser.uid,
-                createdAt: serverTimestampFull(),
-                likes: [],
-            };
-
-            const mentions = newComment.match(/@(\w+)/g);
-            if (mentions) {
-                try {
-                    for (const mention of mentions) {
-                        const username = mention.substring(1);
-                        const usersRef = collectionFull(dbFull, "users");
-                        const q = queryFull(usersRef, whereFull("username", "==", username));
-                        const snap = await getDocsFull(q);
-
-                        if (!snap.empty) {
-                            const targetUser = snap.docs[0];
-                            const notifRef = collectionFull(dbFull, "users", targetUser.id, "notifications");
-                            await addDocFull(notifRef, {
-                                type: "mention",
-                                fromUid: currentUser.uid,
-                                fromName: currentUser.displayName || "Someone",
-                                eventId: data.id,
-                                eventTitle: data.title || "Event",
-                                text: newComment.trim(),
-                                createdAt: serverTimestampFull(),
-                                read: false,
-                            });
-                        }
-                    }
-                } catch (err) {
-                    console.error("Error sending notifications:", err);
-                }
-            }
-
-            await addDocFull(targetRef, payload);
-            setNewComment("");
-            setReplyTarget(null);
-            await reloadComments();
-        } catch (e) {
-            console.error("Error sending comment:", e);
-        } finally {
-            setSending(false);
-        }
-    };
-
-    const handleReply = (comment: CommentRecord) => {
-        setReplyTarget(comment);
-    };
-
-    return (
-        <>
-            <div className="flex h-full flex-col">
-                <div className="flex-1 space-y-4 pb-4">
-                    {comments.some(c => c.isHidden) && (
-                        <div className="mb-3">
-                            <button
-                                type="button"
-                                onClick={() => setShowHidden(!showHidden)}
-                                className="text-xs text-neutral-400 hover:text-neutral-300"
-                            >
-                                {showHidden ? "Hide" : "Show"} hidden comments (reported 10+ times)
-                            </button>
-                        </div>
-                    )}
-                    {commentsLoading ? (
-                        <div className="text-center text-sm text-neutral-500 py-10">
-                            Loading comments...
-                        </div>
-                    ) : comments.length === 0 ? (
-                        <div className="text-center text-sm text-neutral-500 py-10">
-                            No comments yet. Be the first!
-                        </div>
-                    ) : (
-                        comments.map((comment) => (
-                            <CommentMessage
-                                key={comment.id}
-                                comment={comment}
-                                currentUserId={currentUser?.uid}
-                                liked={
-                                    !!currentUser && (comment.likes || []).includes(currentUser.uid)
-                                }
-                                likeCount={comment.likes?.length ?? 0}
-                                canEdit={comment.authorUid === currentUser?.uid}
-                                canDelete={canDelete(comment)}
-                                onReply={handleReply}
-                                onLike={handleToggleLike}
-                                onReport={handleReport}
-                                onDelete={handleDelete}
-                                onEdit={handleEdit}
-                                depth={0}
-                            />
-                        ))
-                    )}
-                    <div ref={messagesEndRef} />
-                </div>
-
-                <div className="mt-auto space-y-2 pt-2">
-                    {replyTarget && (
-                        <div className="flex items-center justify-between rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
-                            <span>Replying to {replyTarget.authorName}</span>
-                            <button
-                                type="button"
-                                className="text-amber-100/80 hover:text-amber-50"
-                                onClick={() => setReplyTarget(null)}
-                            >
-                                Clear
-                            </button>
-                        </div>
-                    )}
-                    <div className="relative flex items-center">
-                        <input
-                            type="text"
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSend())}
-                            placeholder="Add a comment... Use @username to mention."
-                            className="w-full rounded-full border border-white/10 bg-white/5 py-2.5 pl-4 pr-10 text-sm text-white placeholder-neutral-500 focus:border-white/20 focus:outline-none focus:ring-0"
-                        />
-                        <button
-                            onClick={handleSend}
-                            disabled={!newComment.trim() || sending}
-                            className="absolute right-1.5 rounded-full p-1.5 text-amber-300 hover:bg-white/10 disabled:opacity-50"
-                        >
-                            <PaperAirplaneIcon className="h-5 w-5" />
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <ReportSheet
-                isOpen={!!reportTarget}
-                onClose={() => setReportTarget(null)}
-                onSubmit={submitReport}
-                commentAuthor={reportTarget?.authorName ?? ""}
-            />
-        </>
-    );
-}
 
 function EventDetailsView({ data }: { data: any }) {
     if (!data) {
@@ -1101,3 +555,176 @@ function AttendanceView({ data }: { data: any }) {
 // Wait, I should update UserRow to support `onlyAvatar` or just style it here.
 // I'll just use the standard UserRow for now.
 
+const REPORT_REASONS = [
+    "Spam or misleading",
+    "Harassment or hate speech",
+    "Inappropriate content",
+    "False information",
+    "Violence or dangerous content",
+    "Other",
+];
+
+function ReportView({ data }: { data: any }) {
+    const { close } = useRightSidebar();
+    const [selectedReason, setSelectedReason] = useState<string | null>(null);
+    const [details, setDetails] = useState("");
+    const [pending, setPending] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
+
+    useEffect(() => {
+        const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
+        return () => unsub();
+    }, []);
+
+    const handleSubmit = async () => {
+        if (!selectedReason || pending || !data?.id || !currentUser) return;
+
+        setPending(true);
+        try {
+            const dbFull = getFirestore();
+            const reportRef = collectionFull(dbFull, "reports");
+
+            await addDocFull(reportRef, {
+                targetId: data.id,
+                targetType: data.type || "unknown", // 'post', 'comment', 'event'
+                reason: selectedReason,
+                details: details.trim(),
+                reportedByUid: currentUser.uid,
+                createdAt: serverTimestampFull(),
+                status: "pending"
+            });
+
+            setSubmitted(true);
+            setTimeout(() => {
+                close();
+            }, 2000);
+        } catch (error) {
+            console.error("Error submitting report:", error);
+        } finally {
+            setPending(false);
+        }
+    };
+
+    if (!data) return <div className="text-neutral-500 text-sm">No content selected.</div>;
+
+    if (submitted) {
+        return (
+            <div className="flex flex-col items-center justify-center py-10 gap-4 animate-in fade-in zoom-in">
+                <div className="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center text-green-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                </div>
+                <h3 className="text-xl font-bold text-white">Report Submitted</h3>
+                <p className="text-neutral-400 text-center text-sm px-6">
+                    Thank you for keeping our community safe. We will review this content shortly.
+                </p>
+                <button
+                    onClick={close}
+                    className="mt-4 px-6 py-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors text-sm font-medium"
+                >
+                    Close
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-6">
+            <div>
+                <h3 className="text-lg font-bold text-white mb-2">Why are you reporting this?</h3>
+                <p className="text-sm text-neutral-400">
+                    Your report is anonymous. If someone is in immediate danger, call local emergency services - don't wait.
+                </p>
+            </div>
+
+            <div className="space-y-2">
+                {REPORT_REASONS.map((reason) => (
+                    <button
+                        key={reason}
+                        type="button"
+                        className={`w-full rounded-2xl border p-4 text-left transition-colors ${selectedReason === reason
+                            ? "border-white bg-white/10 text-white"
+                            : "border-white/10 text-neutral-300 hover:border-white/20 hover:bg-white/5"
+                            }`}
+                        onClick={() => setSelectedReason(reason)}
+                        disabled={pending}
+                    >
+                        {reason}
+                    </button>
+                ))}
+            </div>
+
+            {selectedReason === "Other" && (
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-neutral-300">
+                        Additional details (optional)
+                    </label>
+                    <textarea
+                        className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none min-h-[100px]"
+                        placeholder="Provide more information..."
+                        value={details}
+                        onChange={(e) => setDetails(e.target.value)}
+                        disabled={pending}
+                    />
+                </div>
+            )}
+
+            <div className="pt-2">
+                <button
+                    type="button"
+                    className="w-full rounded-full bg-red-600 py-3.5 font-semibold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+                    onClick={handleSubmit}
+                    disabled={!selectedReason || pending}
+                >
+                    {pending ? "Submitting..." : "Submit Report"}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function LikesView({ data }: { data: any }) {
+    const [likers, setLikers] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!data?.id) return;
+
+        const dbFull = getFirestore();
+        // Determine collection based on type passed or default to checking both or passing type
+        // Assuming data.type is helpful, otherwise check likely collections
+        const collectionName = data.type === "event" ? "events" : "posts";
+        const docRef = docFull(dbFull, collectionName, data.id);
+
+        const unsubscribe = onSnapshotFull(docRef, (snap) => {
+            if (snap.exists()) {
+                const d = snap.data();
+                setLikers(d.likedByUids || []);
+            }
+        }, (error) => {
+            console.error("Error fetching likes:", error);
+        });
+
+        return () => unsubscribe();
+    }, [data?.id, data?.type]);
+
+    return (
+        <div className="flex flex-col gap-6">
+            <div className="space-y-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                    Liked by ({likers.length})
+                </h3>
+                {likers.length === 0 ? (
+                    <p className="text-xs text-neutral-500">No likes yet</p>
+                ) : (
+                    <div className="flex flex-col gap-2">
+                        {likers.map(uid => (
+                            <UserRow key={uid} uid={uid} />
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

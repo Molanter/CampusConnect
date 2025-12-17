@@ -37,8 +37,9 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
     // Apply for tablet (769-1024) and desktop (>1024) to prevent overlay
     const rightPadding = isRightSidebarVisible && width > 768 ? sidebarWidth + 24 : 0;
 
-    // Header is shown if screen is small OR sidebar is explicitly hidden
-    const showHeader = width <= 1024 || !sidebarVisible;
+    // Header is shown if sidebar is hidden (tabbar behavior).
+    // If sidebar is open, header is hidden.
+    const showHeader = !sidebarVisible;
 
     return (
         <div className="flex h-full flex-col overflow-hidden">
@@ -48,11 +49,13 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
                 viewportWidth={viewportWidth}
             />
 
-            <main
-                className={`mx-auto flex-1 max-w-[1600px] w-full overflow-auto pt-20 px-4 md:px-6 transition-all duration-200 ${leftSidebarClass}`}
-                style={{ paddingRight: rightPadding > 0 ? `${rightPadding}px` : undefined }}
-            >
-                {children}
+            <main className="flex-1 w-full overflow-auto relative scrollbar-track-transparent">
+                <div
+                    className={`mx-auto max-w-[1600px] w-full pt-20 px-4 md:px-6 transition-all duration-200 ${leftSidebarClass}`}
+                    style={{ paddingRight: rightPadding > 0 ? `${rightPadding}px` : undefined }}
+                >
+                    {children}
+                </div>
             </main>
 
             <RightSidebar headerVisible={showHeader} />

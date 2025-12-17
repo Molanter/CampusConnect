@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { HandThumbUpIcon, HandThumbDownIcon, QuestionMarkCircleIcon, HeartIcon } from "@heroicons/react/24/solid";
-import { HeartIcon as HeartIconOutline } from "@heroicons/react/24/outline";
+import { HandThumbUpIcon, HandThumbDownIcon, QuestionMarkCircleIcon, HeartIcon, CheckIcon, XMarkIcon, CalendarIcon, UserGroupIcon } from "@heroicons/react/24/solid";
+import { HeartIcon as HeartIconOutline, PencilIcon, EllipsisVerticalIcon, FlagIcon } from "@heroicons/react/24/outline";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, updateDoc, arrayUnion, arrayRemove, getFirestore, onSnapshot, collection, query, getDocs, orderBy, limit, getDoc } from "firebase/firestore";
@@ -8,6 +8,7 @@ import Link from "next/link";
 import { CommentMessage } from "./comment-message";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "../lib/admin-utils";
 import { Post } from "../lib/posts";
+import { useRightSidebar } from "./right-sidebar-context";
 
 // Using full firestore SDK for real-time listeners as established in RightSidebar
 // If this causes issues with "lite" usage elsewhere, we might need to consolidate.
@@ -22,11 +23,21 @@ interface PostCardProps {
     onCommentsClick?: () => void;
     onAttendanceClick?: () => void;
     onDetailsClick?: () => void;
+    onLikesClick?: () => void;
+    onEditClick?: () => void;
     previewMode?: boolean;
     hideMediaPlaceholder?: boolean;
+    displayId?: string; // Optional ID override for rendering variants
+    hideMediaGrid?: boolean;
+    hideCommentPreview?: boolean;
+
+    hideDate?: boolean;
+    fullWidth?: boolean;
+    variant?: "default" | "threads";
 }
 
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
+import { MediaHorizontalScroll } from "@/components/post-detail/media-horizontal-scroll";
 
 const mapContainerStyle = {
     width: "100%",
@@ -41,8 +52,16 @@ export function PostCard({
     onCommentsClick,
     onAttendanceClick,
     onDetailsClick,
+    onLikesClick,
     previewMode = false,
     hideMediaPlaceholder = false,
+    hideMediaGrid = false,
+    hideCommentPreview = false,
+
+    hideDate = false,
+    fullWidth = false,
+    variant = "default",
+    onEditClick,
 }: PostCardProps) {
     // Deconstruct fields for easier access and backward compatibility logic
     const {
@@ -56,14 +75,21 @@ export function PostCard({
         authorName: hostName = "You",
         authorUsername: hostUsername,
         authorAvatarUrl: hostAvatarUrl,
+        authorId,
         coordinates,
         likes = [],
         isEvent,
+        editCount = 0,
     } = post;
 
     const [status, setStatus] = useState<AttendanceStatus>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
-    const [stats, setStats] = useState({ going: 0, maybe: 0, notGoing: 0, comments: 0 });
+    const [stats, setStats] = useState({
+        going: post.goingUids?.length || 0,
+        maybe: post.maybeUids?.length || 0,
+        notGoing: post.notGoingUids?.length || 0,
+        comments: 0
+    });
     const [previewComment, setPreviewComment] = useState<any>(null);
     const [hasMoreComments, setHasMoreComments] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
@@ -74,6 +100,16 @@ export function PostCard({
     const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
     const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
     const [attendanceMenuOpen, setAttendanceMenuOpen] = useState(false);
+    const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
+
+    // Safely get sidebar context if available
+    let openView: any = () => console.warn("RightSidebar context not available");
+    try {
+        const sidebar = useRightSidebar();
+        openView = sidebar.openView;
+    } catch (e) {
+        // Ignore error if context is missing (e.g. in isolation)
+    }
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
@@ -229,37 +265,47 @@ export function PostCard({
         }
     };
 
-    // Load host photo from Firestore if not provided
-    useEffect(() => {
-        if (!id || hostAvatarUrl) return;
+    const [displayedName, setDisplayedName] = useState(hostName);
 
-        const loadHostPhoto = async () => {
+    // Load host details (photo & name) from Firestore
+    useEffect(() => {
+        const loadAuthorData = async () => {
             try {
                 const dbFull = getFirestore();
-                const eventRef = doc(dbFull, "events", id);
-                const eventSnap = await getDoc(eventRef);
+                let targetAuthorId = authorId;
 
-                if (eventSnap.exists()) {
-                    const eventData = eventSnap.data();
-                    const hostId = eventData?.hostUserId || eventData?.authorId; // supporting both for safe migration
+                // If no authorId passed, try to get from event
+                if (!targetAuthorId && id) {
+                    const eventRef = doc(dbFull, "events", id);
+                    const eventSnap = await getDoc(eventRef);
+                    if (eventSnap.exists()) {
+                        const eventData = eventSnap.data();
+                        targetAuthorId = eventData?.hostUserId || eventData?.authorId;
+                    }
+                }
 
-                    if (hostId) {
-                        const userRef = doc(dbFull, "users", hostId);
-                        const userSnap = await getDoc(userRef);
+                if (targetAuthorId) {
+                    const userRef = doc(dbFull, "users", targetAuthorId);
+                    const userSnap = await getDoc(userRef);
 
-                        if (userSnap.exists()) {
-                            const userData = userSnap.data();
+                    if (userSnap.exists()) {
+                        const userData = userSnap.data();
+                        // Update photo if we don't have it or just want fresh
+                        if (!hostAvatarUrl) {
                             setHostPhotoUrl(userData.photoURL || null);
                         }
+                        // Always update name to be fresh
+                        const name = userData.displayName || userData.name || userData.username || "Unknown";
+                        setDisplayedName(name);
                     }
                 }
             } catch (error) {
-                console.error("Error loading host photo:", error);
+                console.error("Error loading author data:", error);
             }
         };
 
-        loadHostPhoto();
-    }, [id, hostAvatarUrl]);
+        loadAuthorData();
+    }, [id, authorId, hostAvatarUrl]);
 
     // Load preview comment (one with most replies or likes)
     useEffect(() => {
@@ -386,6 +432,27 @@ export function PostCard({
         const oldStatus = status;
         setStatus(newStatus);
 
+        // Update stats optimistically
+        setStats(prev => {
+            const newStats = { ...prev };
+
+            // Decrement old status count
+            if (oldStatus) {
+                if (oldStatus === "going") newStats.going = Math.max(0, newStats.going - 1);
+                if (oldStatus === "maybe") newStats.maybe = Math.max(0, newStats.maybe - 1);
+                if (oldStatus === "not_going") newStats.notGoing = Math.max(0, newStats.notGoing - 1);
+            }
+
+            // Increment new status count
+            if (newStatus) {
+                if (newStatus === "going") newStats.going++;
+                if (newStatus === "maybe") newStats.maybe++;
+                if (newStatus === "not_going") newStats.notGoing++;
+            }
+
+            return newStats;
+        });
+
         try {
             const dbFull = getFirestore();
             const docRef = doc(dbFull, "events", id);
@@ -406,12 +473,36 @@ export function PostCard({
         } catch (err) {
             console.error("Error updating attendance:", err);
             setStatus(oldStatus); // Revert
+            // Revert stats
+            setStats(prev => {
+                const newStats = { ...prev };
+                if (oldStatus) {
+                    if (oldStatus === "going") newStats.going++;
+                    if (oldStatus === "maybe") newStats.maybe++;
+                    if (oldStatus === "not_going") newStats.notGoing++;
+                }
+                if (newStatus) {
+                    if (newStatus === "going") newStats.going--;
+                    if (newStatus === "maybe") newStats.maybe--;
+                    if (newStatus === "not_going") newStats.notGoing--;
+                }
+                return newStats;
+            });
         }
     };
 
     const [likeAnimating, setLikeAnimating] = useState(false);
 
     const handleToggleLike = async () => {
+        // In preview mode, just animate and toggle local state
+        if (previewMode) {
+            setLikeAnimating(true);
+            setTimeout(() => setLikeAnimating(false), 140);
+            setIsLiked(!isLiked);
+            setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+            return;
+        }
+
         if (!id || !currentUser) return;
 
         // Trigger animation
@@ -605,16 +696,17 @@ export function PostCard({
     }
 
     const getTimeUntilLabel = () => {
-        if (!date || !time) return "--";
+        if (!date) return null;
 
-        // Expecting date as yyyy-mm-dd and time as hh:mm (24h)
+        // Expecting date as yyyy-mm-dd. If time is missing, default to 00:00
+        const timeStr = time || "00:00";
         // Handle time ranges like "20:59 - 21:59" by extracting the start time
-        const startTime = time.split('-')[0].trim();
+        const startTime = timeStr.split('-')[0].trim();
         const target = new Date(`${date}T${startTime}:00`);
         const now = new Date();
         const diffMs = target.getTime() - now.getTime();
 
-        if (!Number.isFinite(diffMs)) return "--";
+        if (!Number.isFinite(diffMs)) return null;
 
         // If the event time has already passed, show expired
         if (diffMs <= 0) return "expired";
@@ -639,6 +731,30 @@ export function PostCard({
     };
 
     const timeUntilLabel = getTimeUntilLabel();
+
+    const getStatusObj = () => {
+        if (!date || !time) return { type: 'upcoming', label: 'UPCOMING' };
+
+        const now = new Date();
+        const start = new Date(`${date}T${time}`);
+        // Default 2h duration if no end time
+        // Note: We need endTime from post, but it wasn't deconstructed. 
+        // Accessing post.endTime directly or adding to deconstruction.
+        // Let's rely on adding it to deconstruction in the next step or access via post.endTime
+        const end = post.endTime ? new Date(`${date}T${post.endTime}`) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
+
+        let type: 'live' | 'upcoming' | 'past' = 'upcoming';
+        if (now > end) type = 'past';
+        else if (now >= start) type = 'live';
+
+        let label = "UPCOMING";
+        if (type === 'live') label = "LIVE";
+        else if (type === 'past') label = "ENDED";
+
+        return { type, label };
+    };
+
+    const statusObj = getStatusObj();
 
     const renderOverflowBubbles = (items: (string | { lat: number; lng: number })[]) => {
         if (items.length === 0) return null;
@@ -673,28 +789,25 @@ export function PostCard({
 
     const renderImages = () => {
         if (mediaItems.length === 0) {
-            if (hideMediaPlaceholder) return null;
-            return (
-                <div className="flex aspect-[4/3] w-full items-center justify-center rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] text-neutral-600 transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
-                    <span className="text-sm">No Image or Location</span>
-                </div>
-            );
+            return null;
         }
 
         if (mediaItems.length === 1) {
             return (
-                <div className="w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
-                    {typeof mediaItems[0] === 'string' ? (
-                        <img
-                            src={mediaItems[0]}
-                            alt={title}
-                            className="h-auto w-full object-cover"
-                        />
-                    ) : (
-                        <div className="aspect-[4/3] w-full">
-                            {renderMediaItem(mediaItems[0], 0, "h-full w-full object-cover")}
-                        </div>
-                    )}
+                <div className="w-full max-w-[450px] aspect-[16/9] flex justify-start items-start">
+                    <div className="h-fit max-h-full w-fit max-w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04] mx-0">
+                        {typeof mediaItems[0] === 'string' ? (
+                            <img
+                                src={mediaItems[0]}
+                                alt={title}
+                                className="max-h-full w-auto mx-0 object-contain"
+                            />
+                        ) : (
+                            <div className="aspect-[4/3] w-full">
+                                {renderMediaItem(mediaItems[0], 0, "h-full w-full object-cover")}
+                            </div>
+                        )}
+                    </div>
                 </div>
             );
         }
@@ -702,10 +815,10 @@ export function PostCard({
         if (mediaItems.length === 2) {
             return (
                 <div className="grid aspect-[4/3] w-full grid-cols-2 gap-3">
-                    <div className="h-full w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                    <div className="h-full w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[0], 0, "h-full w-full object-cover")}
                     </div>
-                    <div className="h-full w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                    <div className="h-full w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[1], 1, "h-full w-full object-cover")}
                     </div>
                 </div>
@@ -716,14 +829,14 @@ export function PostCard({
             return (
                 <div className="grid w-full grid-cols-2 gap-3">
                     <div className="flex flex-col gap-3">
-                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[0], 0, "absolute inset-0 h-full w-full object-cover")}
                         </div>
-                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[1], 1, "absolute inset-0 h-full w-full object-cover")}
                         </div>
                     </div>
-                    <div className="relative h-full w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                    <div className="relative h-full w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[2], 2, "absolute inset-0 h-full w-full object-cover")}
                     </div>
                 </div>
@@ -736,18 +849,18 @@ export function PostCard({
             return (
                 <div className="grid w-full grid-cols-2 gap-3">
                     <div className="flex flex-col gap-3">
-                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[0], 0, "absolute inset-0 h-full w-full object-cover")}
                         </div>
-                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[2], 2, "absolute inset-0 h-full w-full object-cover")}
                         </div>
                     </div>
                     <div className="flex flex-col gap-3">
-                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[1], 1, "absolute inset-0 h-full w-full object-cover")}
                         </div>
-                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[3], 3, "absolute inset-0 h-full w-full object-cover")}
                         </div>
                     </div>
@@ -768,18 +881,18 @@ export function PostCard({
             return (
                 <div className="grid w-full grid-cols-2 gap-3">
                     <div className="flex flex-col gap-3">
-                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {primaryNonMap[0] &&
                                 renderMediaItem(primaryNonMap[0], 0, "absolute inset-0 h-full w-full object-cover")}
                         </div>
-                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {primaryNonMap[1] &&
                                 renderMediaItem(primaryNonMap[1], 1, "absolute inset-0 h-full w-full object-cover")}
                         </div>
                     </div>
                     <div className="flex flex-col gap-3">
                         {/* Map pinned to top-right */}
-                        <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                             {renderMediaItem(mediaItems[mapIndex], mapIndex, "absolute inset-0 h-full w-full object-cover")}
                         </div>
                         {/* Bottom-right: bubbles for remaining images */}
@@ -795,15 +908,15 @@ export function PostCard({
         return (
             <div className="grid w-full grid-cols-2 gap-3">
                 <div className="flex flex-col gap-3">
-                    <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                    <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[0], 0, "absolute inset-0 h-full w-full object-cover")}
                     </div>
-                    <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                    <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[2], 2, "absolute inset-0 h-full w-full object-cover")}
                     </div>
                 </div>
                 <div className="flex flex-col gap-3">
-                    <div className="relative aspect-square w-full overflow-hidden rounded-[22px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
+                    <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04]">
                         {renderMediaItem(mediaItems[1], 1, "absolute inset-0 h-full w-full object-cover")}
                     </div>
                     {/* Bottom-right: bubbles for images that didn't fit */}
@@ -815,7 +928,9 @@ export function PostCard({
 
     const containerClasses = compact
         ? "flex w-full max-w-md mx-auto flex-col gap-3 font-sans"
-        : "flex w-full min-w-[350px] max-w-[450px] flex-col gap-4 font-sans";
+        : fullWidth
+            ? "flex w-full flex-col gap-4 font-sans"
+            : "flex w-full min-w-[350px] max-w-[600px] mx-auto items-start gap-3 font-sans border-b border-white/5 pb-4 mb-2";
 
     // Context menu handlers
     const handleContextMenu = (e: React.MouseEvent) => {
@@ -885,6 +1000,281 @@ export function PostCard({
         }
     }, [contextMenuOpen]);
 
+    // Threads Variant Render (Sidebar-to-Sidebar Media Breakout)
+    if (variant === "threads") {
+        return (
+            <div
+                className="group w-full py-4 font-sans grid grid-cols-[56px_1fr] gap-0 @3xl:flex @3xl:flex-col"
+                onContextMenu={handleContextMenu}
+                onTouchStart={handleLongPressStart}
+                onTouchEnd={handleLongPressEnd}
+                onTouchMove={handleLongPressEnd}
+            >
+                {/* 1. Left Column: Avatar (Mobile Only) */}
+                <div className="pt-1 flex justify-center @3xl:hidden">
+                    <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
+                        <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10">
+                            {hostPhotoUrl ? (
+                                <img src={hostPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
+                                    {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
+                                </div>
+                            )}
+                        </div>
+                    </Link>
+                </div>
+
+                {/* 2. Right Column (Mobile) / Main Content Wrapper (Desktop - Flattened via contents) */}
+                <div className="flex flex-col min-w-0 @3xl:contents">
+
+                    {/* Unified Header: Name/Time + Description */}
+                    <div
+                        onClick={onDetailsClick}
+                        className="relative flex w-full @3xl:mx-auto @3xl:max-w-[600px] cursor-pointer flex-col gap-1 mb-3 @3xl:mb-3 @3xl:gap-3 @3xl:px-8"
+                    >
+                        {/* Desktop Avatar (Hidden on mobile) */}
+                        <div className="hidden @3xl:block shrink-0 pt-1 @3xl:absolute @3xl:-left-4 @3xl:top-1.5 @3xl:pt-0">
+                            <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
+                                <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10">
+                                    {hostPhotoUrl ? (
+                                        <img src={hostPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
+                                    ) : (
+                                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
+                                            {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
+                                        </div>
+                                    )}
+                                </div>
+                            </Link>
+                        </div>
+
+                        {/* Top Row: Name | Time | Menu */}
+                        <div className="flex items-start justify-between">
+                            <div className="flex flex-col leading-tight">
+                                <div className="flex items-center gap-2">
+                                    <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-bold text-white hover:underline">
+                                        {displayedName}
+                                    </Link>
+                                    <span className="text-neutral-500 text-xs">•</span>
+                                    <div className="text-xs text-neutral-500">
+                                        {timeUntilLabel && isEvent ? timeUntilLabel : (date || "now")}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleContextMenu}
+                                className="-mt-1 text-neutral-500 hover:text-white"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                                    <path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 15a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Bottom Row: Description */}
+                        {description && (
+                            <div
+                                onClick={onDetailsClick}
+                                className={`whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-100 ${onDetailsClick ? "cursor-pointer" : ""}`}
+                            >
+                                {description}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Media Scroll */}
+                    {!hideMediaGrid && (
+                        <div className="w-full mb-0 @3xl:mb-0 @3xl:-mx-6 @3xl:w-[calc(100%+3rem)]">
+                            <div className="w-full">
+                                <MediaHorizontalScroll
+                                    post={post}
+                                    noPadding
+                                    className="!pb-1 [&>*:first-child]:ml-0 @3xl:[&>*:first-child]:ml-[max(2rem,calc(50%_-_300px_+_2rem))] [&>*:last-child]:mr-4 @3xl:[&>*:last-child]:mr-6"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Footer: Actions */}
+                    <div
+                        onClick={onDetailsClick}
+                        className="flex w-full @3xl:mx-auto @3xl:max-w-[600px] cursor-pointer items-start gap-3 @3xl:px-8"
+                    >
+                        {/* Actions Row - Full width in the column */}
+                        <div className="flex min-w-0 flex-1 items-center gap-4">
+                            {/* Like Button & Count */}
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleLike();
+                                    }}
+                                    className={`transition-transform active:scale-90 ${isLiked ? "text-[#ffb200]" : "text-white hover:text-neutral-300"}`}
+                                >
+                                    {isLiked ? (
+                                        <HeartIcon className={`h-[22px] w-[22px] ${likeAnimating ? "animate-like-pop" : ""}`} />
+                                    ) : (
+                                        <HeartIconOutline className={`h-[22px] w-[22px] ${likeAnimating ? "animate-like-pop" : ""}`} />
+                                    )}
+                                </button>
+                                {likesCount > 0 && (
+                                    <button onClick={(e) => { e.stopPropagation(); onLikesClick?.(); }} className="text-sm font-medium text-neutral-500 hover:text-white">
+                                        {likesCount}
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Comment Button & Count */}
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onCommentsClick?.(); }}
+                                    className="text-white hover:text-neutral-300 transition-transform active:scale-90"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-[22px] w-[22px]">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.633 9-8.4375 0-4.805-4.03-8.4375-9-8.4375-4.97 0-9 3.6325-9 8.4375 0 2.457 1.056 4.675 2.76 6.223.109.1.18.232.2.378l.583 3.996a.25.25 0 00.322.253l3.655-1.428a.56.56 0 01.373-.02c.365.103.743.176 1.127.2.062.003.125.006.188.006z" />
+                                    </svg>
+                                </button>
+                                {stats.comments > 0 && (
+                                    <button onClick={(e) => { e.stopPropagation(); onCommentsClick?.(); }} className="text-sm font-medium text-neutral-500 hover:text-white">
+                                        {stats.comments}
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Edit Button */}
+                            {(currentUser?.uid === authorId || editCount > 0) && (
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEditClick?.();
+                                        }}
+                                        className="text-white hover:text-neutral-300 transition-transform active:scale-90"
+                                    >
+                                        <PencilIcon className="h-[20px] w-[20px]" />
+                                    </button>
+                                    {editCount > 0 && (
+                                        <span className="text-sm font-medium text-neutral-500">
+                                            {editCount}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Attendance Menu Trigger */}
+                            {isEvent && (
+                                <div className="relative flex items-center gap-1.5">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setAttendanceMenuOpen(!attendanceMenuOpen);
+                                        }}
+                                        className={`transition-transform active:scale-95 ${status ? "text-white" : "text-neutral-400 hover:text-white"}`}
+                                    >
+                                        {status === "going" ? (
+                                            <HandThumbUpIcon className="h-[22px] w-[22px] text-green-400" />
+                                        ) : status === "maybe" ? (
+                                            <QuestionMarkCircleIcon className="h-[22px] w-[22px] text-yellow-400" />
+                                        ) : status === "not_going" ? (
+                                            <HandThumbDownIcon className="h-[22px] w-[22px] text-red-400" />
+                                        ) : (
+                                            <CalendarIcon className="h-[22px] w-[22px]" />
+                                        )}
+                                    </button>
+
+                                    {(() => {
+                                        const count = status === "not_going" ? stats.notGoing
+                                            : status === "maybe" ? stats.maybe
+                                                : stats.going;
+
+                                        if (!count || count <= 0) return null;
+
+                                        return (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openView("attendance", { id });
+                                                }}
+                                                className="text-sm font-medium text-neutral-500 hover:text-white transition-colors"
+                                            >
+                                                {count}
+                                            </button>
+                                        );
+                                    })()}
+
+                                    {/* Attendance Dropdown Menu */}
+                                    {attendanceMenuOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setAttendanceMenuOpen(false); }} />
+                                            <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[160px] overflow-hidden rounded-xl border border-white/10 bg-[#1C1C1E]/90 shadow-xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 origin-bottom-left">
+                                                <div className="p-1.5 flex flex-col gap-0.5">
+                                                    <button onClick={(e) => { e.stopPropagation(); handleStatusChange(status === "going" ? null : "going"); setAttendanceMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${status === "going" ? "bg-white/10 text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white"}`}>
+                                                        <span className="font-medium">Going</span>
+                                                        <HandThumbUpIcon className={`h-4 w-4 ${status === "going" ? "opacity-100" : "opacity-0"}`} />
+                                                    </button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleStatusChange(status === "maybe" ? null : "maybe"); setAttendanceMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${status === "maybe" ? "bg-white/10 text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white"}`}>
+                                                        <span className="font-medium">Maybe</span>
+                                                        <QuestionMarkCircleIcon className={`h-4 w-4 ${status === "maybe" ? "opacity-100" : "opacity-0"}`} />
+                                                    </button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleStatusChange(status === "not_going" ? null : "not_going"); setAttendanceMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${status === "not_going" ? "bg-white/10 text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white"}`}>
+                                                        <span className="font-medium">Not Going</span>
+                                                        <HandThumbDownIcon className={`h-4 w-4 ${status === "not_going" ? "opacity-100" : "opacity-0"}`} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Share Button */}
+                            <div className="flex items-center">
+                                <button
+                                    onClick={handleShare}
+                                    className="text-white hover:text-neutral-300 transition-transform active:scale-90"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-[22px] w-[22px]">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* Options Menu */}
+                            <div className="relative flex items-center">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setOptionsMenuOpen(!optionsMenuOpen); }}
+                                    className={`text-neutral-400 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10 ${optionsMenuOpen ? "text-white bg-white/10" : ""}`}
+                                >
+                                    <EllipsisVerticalIcon className="h-6 w-6" />
+                                </button>
+                                {optionsMenuOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOptionsMenuOpen(false); }} />
+                                        <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[160px] overflow-hidden rounded-xl border border-white/10 bg-[#1C1C1E]/90 shadow-xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 origin-bottom-left">
+                                            <div className="p-1.5 flex flex-col gap-0.5">
+                                                <button onClick={(e) => { e.stopPropagation(); openView("report", { id, type: isEvent ? "event" : "post" }); setOptionsMenuOpen(false); }} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-white/5 hover:text-red-300 transition-colors">
+                                                    <span className="font-medium">Report</span>
+                                                    <FlagIcon className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="flex w-full @3xl:mx-auto @3xl:max-w-[600px] items-center gap-3 @3xl:px-8 group-last:hidden">
+                        <div className="hidden h-px w-full bg-white/10 @3xl:block" />
+                        <div className="block h-px w-full bg-white/10 @3xl:hidden mt-2" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             className={containerClasses}
@@ -893,255 +1283,207 @@ export function PostCard({
             onTouchEnd={handleLongPressEnd}
             onTouchMove={handleLongPressEnd}
         >
-            {/* Media Grid - No Background */}
-            <div>
-                {renderImages()}
-            </div>
-
-            {/* Info Box */}
-            <div
-                className={`bg-[#1C1C1E] ring-1 ring-white/5 ${compact ? "rounded-[28px] p-4" : "rounded-[32px] p-5"
-                    }`}
-            >
-                {/* Title and Date/Time - Only Title for normal posts if they have one, actually posts might not have titles? 
-                    The mock data suggests "title" is generic. Let's keep title for both. 
-                    Date/Time is definitely event only.
-                */}
-                <div className={`flex items-start justify-between gap-4 ${compact ? "mb-1.5" : "mb-2"}`}>
-                    <h3
-                        onClick={onDetailsClick}
-                        className={`font-bold leading-tight text-white ${compact ? "text-[20px]" : "text-[22px]"
-                            } ${onDetailsClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
-                    >
-                        {title || "Untitled Post"}
-                    </h3>
-                    {isEvent && (
-                        <span className="text-xs font-medium text-neutral-400">
-                            {date && time ? `${date} • ${time}` : (date || time || "Date & Time")}
-                        </span>
-                    )}
-                </div>
-
-                {/* Description */}
-                {description && (
-                    <p
-                        onClick={onDetailsClick}
-                        className={`mb-2 text-sm text-neutral-300 line-clamp-2 ${onDetailsClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
-                    >
-                        {description}
-                    </p>
-                )}
-
-                {/* User Info and Stats with Attendance Picker */}
-                <div className="flex items-center gap-3">
-                    {/* User Avatar */}
+            {/* Left Column: Avatar */}
+            <div className="shrink-0">
+                <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
                     <div
-                        className={`shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-2 ring-[#1C1C1E] ${compact ? "h-9 w-9" : "h-10 w-10"
+                        className={`overflow-hidden rounded-full bg-neutral-700 ring-2 ring-[#1C1C1E] transition-opacity hover:opacity-80 ${compact ? "h-9 w-9" : "h-10 w-10"
                             }`}
                     >
                         {hostPhotoUrl ? (
-                            <img src={hostPhotoUrl} alt={hostName} className="h-full w-full object-cover" />
+                            <img src={hostPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
                         ) : (
                             !hideMediaPlaceholder && (
                                 <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
-                                    {hostName ? hostName.charAt(0).toUpperCase() : "U"}
+                                    {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
                                 </div>
                             )
                         )}
                     </div>
+                </Link>
+            </div>
 
-                    {/* VStack: Name and Stats */}
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        {/* Name */}
-                        <span className="truncate text-sm font-semibold text-white">
-                            <span className={hostUsername ? "hidden sm:inline" : ""}>{hostName}</span>
-                            {hostUsername && <span className="sm:hidden">@{hostUsername}</span>}
-                        </span>
-
-                        {/* HStack: Stats */}
-                        <div className="flex items-center justify-start gap-3 text-xs leading-tight text-neutral-400">
-                            {/* Comments */}
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onCommentsClick?.();
-                                }}
-                                className="flex items-center gap-1 text-neutral-400 hover:text-neutral-100"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                                    <path fillRule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.413.993 2.67 2.43 2.902.848.137 1.705.248 2.57.331v3.443a.75.75 0 001.28.53l3.58-3.579a.78.78 0 01.527-.224 41.202 41.202 0 005.183-.5c1.437-.232 2.43-1.49 2.43-2.903V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0010 2zm0 7a1 1 0 100-2 1 1 0 000 2zM8 8a1 1 0 11-2 0 1 1 0 012 0zm5 1a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                                </svg>
-                                <span>{stats.comments}</span>
-                            </button>
-
-                            {/* Attendees - Only for Events */}
-                            {isEvent && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onAttendanceClick?.();
-                                    }}
-                                    className="flex items-center gap-1 text-neutral-400 hover:text-neutral-100"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                                        <path d="M1 8.25a1.25 1.25 0 112.5 0v7.5a1.25 1.25 0 11-2.5 0v-7.5zM11 3V1.7c0-.268.14-.526.395-.607A2 2 0 0114 3c0 .995-.182 1.948-.514 2.826-.204.54.166 1.174.744 1.174h2.52c1.243 0 2.261 1.01 2.146 2.247a23.864 23.864 0 01-1.341 5.974C17.153 16.323 16.072 17 14.9 17h-3.192a3 3 0 01-1.341-.317l-2.734-1.366A3 3 0 006.292 15H5V8h.963c.685 0 1.258-.483 1.612-1.068a4.011 4.011 0 012.166-1.73c.432-.143.853-.386 1.011-.814.16-.432.248-.9.248-1.388z" />
-                                    </svg>
-                                    <span>{stats.going + stats.maybe}</span>
-                                </button>
-                            )}
-
-                            {/* Likes */}
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleLike();
-                                }}
-                                className={`flex items-center gap-1 transition-colors ${isLiked ? 'text-[#ffb200]' : 'text-neutral-400 hover:text-[#ffb200]'
-                                    }`}
-                            >
-                                {isLiked ? (
-                                    <HeartIcon className={`h-4 w-4 ${likeAnimating ? "animate-like-pop" : ""}`} />
-                                ) : (
-                                    <HeartIconOutline className={`h-4 w-4 ${likeAnimating ? "animate-like-pop" : ""}`} />
-                                )}
-                                <span>{likesCount}</span>
-                            </button>
-
-                            {/* Time Left - Only for Events */}
-                            {isEvent && (
-                                <div className="flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
-                                    </svg>
-                                    <span>{timeUntilLabel}</span>
-                                </div>
-                            )}
+            {/* Right Column: Content */}
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+                {/* Header: Name | Time | Menu */}
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-col leading-tight">
+                        <div className="flex items-center gap-2">
+                            <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-bold text-white hover:underline">
+                                <span className={hostUsername ? "hidden sm:inline" : ""}>{displayedName}</span>
+                                {hostUsername && <span className="sm:hidden">@{hostUsername}</span>}
+                            </Link>
+                            <span className="text-neutral-500 text-xs">•</span>
+                            <div className="text-xs text-neutral-500">
+                                {timeUntilLabel && isEvent ? timeUntilLabel : (date || "now")}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Attendance Picker - Only for Events */}
+                    {/* Context Menu Trigger */}
+                    <button
+                        onClick={handleContextMenu}
+                        className="-mt-1 text-neutral-500 hover:text-white"
+                    >
+                        <EllipsisVerticalIcon className="h-5 w-5" />
+                    </button>
+                </div>
+
+                {/* Description */}
+                {description && (
+                    <div
+                        onClick={onDetailsClick}
+                        className={`whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-100 ${onDetailsClick ? "cursor-pointer" : ""}`}
+                    >
+                        {description}
+                    </div>
+                )}
+
+                {/* Media Grid */}
+                {!hideMediaGrid && (
+                    <div className="mt-1">
+                        {renderImages()}
+                    </div>
+                )}
+
+                {/* Actions Footer */}
+                <div className="flex items-center justify-between mt-2 max-w-[400px]">
+                    {/* Comments */}
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onCommentsClick?.();
+                        }}
+                        className="flex items-center gap-1.5 text-neutral-500 hover:text-blue-400 group transition-colors"
+                    >
+                        <div className="p-1.5 rounded-full group-hover:bg-blue-500/10 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
+                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                            </svg>
+                        </div>
+                        <span className="text-sm">{stats.comments > 0 ? stats.comments : ""}</span>
+                    </button>
+
+                    {/* Attendees (Events only) - Using Arrows for cycle */}
                     {isEvent && (
-                        <>
-                            {/* Small screens OR Preview Mode: Menu button */}
-                            <div className={`${previewMode ? "relative" : "sm:hidden relative"}`}>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setAttendanceMenuOpen(!attendanceMenuOpen);
-                                    }}
-                                    className={`flex items-center justify-center rounded-full bg-[#2C2C2E] p-2 transition-colors ${attendanceStatus.color}`}
-                                >
-                                    {attendanceStatus.icon}
-                                </button>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onAttendanceClick?.();
+                            }}
+                            className="flex items-center gap-1.5 text-neutral-500 hover:text-green-400 group transition-colors"
+                        >
+                            <div className="p-1.5 rounded-full group-hover:bg-green-500/10 transition-colors">
+                                <UserGroupIcon className="h-[18px] w-[18px]" />
+                            </div>
+                            <span className="text-sm">{stats.going + stats.maybe > 0 ? stats.going + stats.maybe : ""}</span>
+                        </button>
+                    )}
 
-                                {/* Dropdown Menu */}
-                                {attendanceMenuOpen && (
-                                    <>
-                                        <div
-                                            className="fixed inset-0 z-30"
-                                            onClick={() => setAttendanceMenuOpen(false)}
-                                        />
-                                        <div className="absolute right-0 top-full mt-2 z-40 w-36 rounded-xl border border-white/10 bg-[#1C1C1E] shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-                                            <div className="py-1">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleStatusChange("going");
-                                                        setAttendanceMenuOpen(false);
-                                                    }}
-                                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
-                                                >
-                                                    <HandThumbUpIcon className="h-4 w-4 text-green-400" />
-                                                    <span>Going</span>
-                                                    {status === "going" && (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-auto text-amber-400">
-                                                            <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleStatusChange("maybe");
-                                                        setAttendanceMenuOpen(false);
-                                                    }}
-                                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
-                                                >
-                                                    <QuestionMarkCircleIcon className="h-4 w-4 text-yellow-400" />
-                                                    <span>Maybe</span>
-                                                    {status === "maybe" && (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-auto text-amber-400">
-                                                            <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleStatusChange("not_going");
-                                                        setAttendanceMenuOpen(false);
-                                                    }}
-                                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
-                                                >
-                                                    <HandThumbDownIcon className="h-4 w-4 text-red-400" />
-                                                    <span>Not Going</span>
-                                                    {status === "not_going" && (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-auto text-amber-400">
-                                                            <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                            </div>
+                    {/* Likes */}
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleLike();
+                        }}
+                        className={`flex items-center gap-1.5 group transition-colors ${isLiked ? 'text-[#ffb200]' : 'text-neutral-500 hover:text-[#ffb200]'}`}
+                    >
+                        <div className="p-1.5 rounded-full group-hover:bg-[#ffb200]/10 transition-colors">
+                            {isLiked ? (
+                                <HeartIcon className={`h-[18px] w-[18px] ${likeAnimating ? "animate-like-pop" : ""}`} />
+                            ) : (
+                                <HeartIconOutline className={`h-[18px] w-[18px] ${likeAnimating ? "animate-like-pop" : ""}`} />
+                            )}
+                        </div>
+                        <span className="text-sm">{likesCount > 0 ? likesCount : ""}</span>
+                    </button>
+
+                    {/* Share */}
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleShare();
+                        }}
+                        className="flex items-center gap-1.5 text-neutral-500 hover:text-white group transition-colors"
+                    >
+                        <div className="p-1.5 rounded-full group-hover:bg-white/10 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
+                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                                <polyline points="16 6 12 2 8 6" />
+                                <line x1="12" y1="2" x2="12" y2="15" />
+                            </svg>
+                        </div>
+                    </button>
+
+                    {/* Attendance Status (Current User) */}
+                    {isEvent && (
+                        <div className="relative">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAttendanceMenuOpen(!attendanceMenuOpen);
+                                }}
+                                className={`flex items-center justify-center rounded-full p-1.5 transition-colors hover:bg-white/10 ${attendanceStatus.color}`}
+                            >
+                                {attendanceStatus.icon}
+                            </button>
+                            {/* Dropdown Menu */}
+                            {attendanceMenuOpen && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-30"
+                                        onClick={() => setAttendanceMenuOpen(false)}
+                                    />
+                                    <div className="absolute right-0 bottom-full mb-2 z-40 w-36 rounded-xl border border-white/10 bg-[#1C1C1E] shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+                                        <div className="py-1">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleStatusChange("going");
+                                                    setAttendanceMenuOpen(false);
+                                                }}
+                                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+                                            >
+                                                <HandThumbUpIcon className="h-4 w-4 text-green-400" />
+                                                <span>Going</span>
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleStatusChange("maybe");
+                                                    setAttendanceMenuOpen(false);
+                                                }}
+                                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+                                            >
+                                                <QuestionMarkCircleIcon className="h-4 w-4 text-yellow-400" />
+                                                <span>Maybe</span>
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleStatusChange("not_going");
+                                                    setAttendanceMenuOpen(false);
+                                                }}
+                                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+                                            >
+                                                <HandThumbDownIcon className="h-4 w-4 text-red-400" />
+                                                <span>Not Going</span>
+                                            </button>
                                         </div>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Large screens & Normal Mode: Full picker */}
-                            <div className={`${previewMode ? "hidden" : "hidden sm:flex"} shrink-0 rounded-full bg-[#2C2C2E] p-1`}>
-                                <button
-                                    onClick={() => handleStatusChange("going")}
-                                    className={`flex flex-1 items-center justify-center rounded-full px-3 py-2 transition-all ${status === "going"
-                                        ? "bg-[#3A3A3C] text-white shadow-sm"
-                                        : "text-neutral-400 hover:text-white"
-                                        }`}
-                                    title="Going"
-                                >
-                                    <HandThumbUpIcon className="h-4 w-4" />
-                                </button>
-                                <div className="w-[1px] bg-white/5 my-2" />
-                                <button
-                                    onClick={() => handleStatusChange("maybe")}
-                                    className={`flex flex-1 items-center justify-center rounded-full px-3 py-2 transition-all ${status === "maybe"
-                                        ? "bg-[#3A3A3C] text-white shadow-sm"
-                                        : "text-neutral-400 hover:text-white"
-                                        }`}
-                                    title="Maybe"
-                                >
-                                    <QuestionMarkCircleIcon className="h-4 w-4" />
-                                </button>
-                                <div className="w-[1px] bg-white/5 my-2" />
-                                <button
-                                    onClick={() => handleStatusChange("not_going")}
-                                    className={`flex flex-1 items-center justify-center rounded-full px-3 py-2 transition-all ${status === "not_going"
-                                        ? "bg-[#3A3A3C] text-white shadow-sm"
-                                        : "text-neutral-400 hover:text-white"
-                                        }`}
-                                    title="No"
-                                >
-                                    <HandThumbDownIcon className="h-4 w-4" />
-                                </button>
-                            </div>
-                        </>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     )}
                 </div>
 
                 {/* Comment Preview */}
-                {previewComment && (
-                    <div className="mt-3 pt-3 border-t border-white/5">
+                {!hideCommentPreview && previewComment && (
+                    <div className="mt-2 pt-2 border-t border-white/5">
                         <CommentMessage
                             comment={previewComment}
                             currentUserId={currentUser?.uid}
@@ -1163,12 +1505,9 @@ export function PostCard({
                                     e.stopPropagation();
                                     onCommentsClick?.();
                                 }}
-                                className="mt-3 flex items-center gap-1 text-xs font-medium text-neutral-400/60 hover:text-neutral-400 active:text-neutral-300 transition-colors duration-150"
+                                className="mt-2 flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
                             >
-                                View all comments
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
-                                    <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                                </svg>
+                                Show more comments
                             </button>
                         )}
                     </div>

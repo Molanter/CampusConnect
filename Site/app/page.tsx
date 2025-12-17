@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -104,6 +103,7 @@ export default function HomePage() {
 
           likes: data.likes ?? [],
           createdAt: data.createdAt,
+          editCount: data.editCount ?? 0,
         };
       });
 
@@ -150,59 +150,66 @@ export default function HomePage() {
     );
   }
   return (
-    <div className="min-h-screen bg-neutral-950 px-4 py-8 text-neutral-50 md:px-8 md:py-10">
-      <div className="mx-auto w-full max-w-[450px]">
-        {/* Left: feed */}
+    <div className="min-h-screen bg-neutral-950 py-8 text-neutral-50 md:py-10">
+      <div className="@container">
+        {/* 1. Top Content (Centered & Constrained) */}
         <div className="space-y-6">
           {/* Header */}
-          <header className="flex items-center justify-between gap-4">
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                Feed
-              </p>
-              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-                Your Feed
-              </h1>
-            </div>
-          </header>
+          <div className="mx-auto w-full max-w-[450px] px-4 md:px-8">
+            <header className="flex items-center justify-between gap-4">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
+                  Feed
+                </p>
+                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+                  Your Feed
+                </h1>
+              </div>
+            </header>
+          </div>
 
-          {/* Composer */}
-          <PostComposer user={user} onPostCreated={fetchPosts} />
+          {/* Composer - Reduced padding on desktop to match post width */}
+          <div className="mx-auto w-full max-w-[600px]">
+            <PostComposer user={user} onPostCreated={fetchPosts} />
+          </div>
 
-          {/* Status */}
-          {postsLoading && (
-            <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
-              Loading posts...
-            </div>
-          )}
+          {/* Status Messages */}
+          <div className="mx-auto w-full max-w-[450px] px-4 md:px-8">
+            {postsLoading && (
+              <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
+                Loading posts...
+              </div>
+            )}
 
-          {postsError && !postsLoading && (
-            <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {postsError}
-            </div>
-          )}
+            {postsError && !postsLoading && (
+              <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {postsError}
+              </div>
+            )}
 
-          {!postsLoading && !postsError && posts.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-6 text-sm text-neutral-300">
-              No posts yet. Be the first to post!
-            </div>
-          )}
-
-          {/* Posts list */}
-          {!postsLoading && posts.length > 0 && (
-            <section className="space-y-6">
-              {posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onCommentsClick={() => openView("comments", post)}
-                  onAttendanceClick={() => openView("attendance", post)}
-                  onDetailsClick={() => openView("details", post)}
-                />
-              ))}
-            </section>
-          )}
+            {!postsLoading && !postsError && posts.length === 0 && (
+              <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-6 text-sm text-neutral-300">
+                No posts yet. Be the first to post!
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* 2. Posts List (Full Width Container for Breakout) */}
+        {!postsLoading && posts.length > 0 && (
+          <section className="mt-6 flex flex-col gap-6">
+            {posts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                variant="threads"
+                onCommentsClick={() => openView("comments", post)}
+                onAttendanceClick={() => openView("attendance", post)}
+                onDetailsClick={() => openView("details", post)}
+              />
+            ))}
+          </section>
+        )}
       </div>
     </div>
   );

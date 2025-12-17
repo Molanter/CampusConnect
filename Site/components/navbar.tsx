@@ -6,7 +6,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore/lite";
 import { auth, db } from "../lib/firebase";
-import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { UserRow } from "./user-row";
 
 function RadarIcon(props: SVGProps<SVGSVGElement>) {
@@ -152,8 +152,6 @@ export function Navbar({
     sidebarLayoutClasses = "inset-y-3 left-3 w-72";
   }
 
-  const showHeader = width <= 1024 || !sidebarVisible;
-
   // Constants for iPadOS style
   const navItemBase =
     "group flex items-center gap-3 rounded-full px-4 py-3.5 text-[17px] font-medium transition-all duration-200 ease-out";
@@ -161,11 +159,23 @@ export function Navbar({
     "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100 hover:scale-[1.02] active:scale-95";
   const navItemActive = "bg-[#ffb200] text-black shadow-md shadow-[#ffb200]/20 font-semibold";
 
+  // Hide header (tab bar) if sidebar is open, regardless of screen size.
+  // This satisfies: "on table when show sidebar button was pressed hide tabbar"
+  const showHeader = !sidebarVisible;
+
   return (
     <>
+      {/* Backdrop for mobile/tablet when sidebar is active */}
+      {/* "when user clicked somewhere but not sidebar hide it. add light blur of main page when left sidebar is active" */}
+      {sidebarVisible && width <= 1024 && (
+        <div
+          className="fixed inset-0 z-20 bg-black/10 backdrop-blur-sm transition-opacity duration-300"
+          onClick={() => setSidebarVisible(false)}
+        />
+      )}
       {/* iPadOS-style sidebar (md and up) */}
       <aside
-        className={`fixed z-30 flex-col rounded-none md:rounded-[1.8rem] border border-white/5 bg-gradient-to-b from-[#111111] to-[#151515] px-5 py-6 shadow-[0_30px_80px_rgba(0,0,0,0.5)] transition-all duration-300 ${sidebarLayoutClasses} ${sidebarVisible ? "flex" : "hidden"
+        className={`fixed z-30 flex-col rounded-none md:rounded-[1.8rem] border border-white/10 bg-gradient-to-b from-[#111111]/40 to-[#151515]/40 backdrop-blur-3xl px-5 py-6 shadow-[0_30px_80px_rgba(0,0,0,0.5)] transition-all duration-300 ${sidebarLayoutClasses} ${sidebarVisible ? "flex" : "hidden"
           }`}
       >
         {/* App name + sidebar toggle */}
@@ -196,13 +206,23 @@ export function Navbar({
 
           {/* Explore */}
           <Link
-            href="/events"
+            href="/explore"
             onClick={handleSidebarLinkClick}
-            className={`${navItemBase} ${pathname === "/events" ? navItemActive : navItemInactive
+            className={`${navItemBase} ${pathname === "/explore" ? navItemActive : navItemInactive
               }`}
           >
-            <RadarIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+            <MagnifyingGlassIcon className="h-[22px] w-[22px]" strokeWidth={2} />
             <span>Explore</span>
+          </Link>
+
+          {/* Clubs */}
+          <Link
+            href="/clubs"
+            onClick={handleSidebarLinkClick}
+            className={`${navItemBase} ${pathname.startsWith("/clubs") ? navItemActive : navItemInactive}`}
+          >
+            <UserGroupIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+            <span>Clubs</span>
           </Link>
 
           {/* Profile */}

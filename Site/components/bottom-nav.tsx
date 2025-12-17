@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const items = [
   { href: "/", label: "Home" },
-  { href: "/explore", label: "Map" },
+  { href: "/explore", label: "Explore" },
   { href: "/profile", label: "Profile" },
   { href: "/settings", label: "Settings" },
 ];
@@ -25,11 +25,10 @@ export function BottomNav() {
               className="flex flex-1 flex-col items-center gap-0.5 text-xs"
             >
               <div
-                className={`rounded-full px-3 py-1 text-[11px] ${
-                  active
+                className={`rounded-full px-3 py-1 text-[11px] ${active
                     ? "bg-brand text-white shadow-soft"
                     : "bg-white/5 text-gray-300"
-                }`}
+                  }`}
               >
                 {item.label}
               </div>

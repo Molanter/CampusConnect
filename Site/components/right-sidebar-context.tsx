@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-export type RightSidebarView = "notifications" | "comments" | "details" | "attendance";
+export type RightSidebarView = "notifications" | "comments" | "details" | "attendance" | "report" | "likes";
 
 interface RightSidebarContextType {
     isVisible: boolean;
@@ -19,7 +19,15 @@ interface RightSidebarContextType {
 const RightSidebarContext = createContext<RightSidebarContextType | undefined>(undefined);
 
 export function RightSidebarProvider({ children }: { children: ReactNode }) {
-    const [isVisible, setIsVisible] = useState(true);
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        // Auto-open on desktop only (matches logic in right-sidebar.tsx)
+        if (typeof window !== 'undefined' && window.innerWidth > 1024) {
+            setIsVisible(true);
+        }
+    }, []);
+
     const [view, setView] = useState<RightSidebarView>("notifications");
     const [data, setData] = useState<any>(null);
     const [sidebarWidth, setSidebarWidth] = useState(300);

@@ -36,6 +36,21 @@ service cloud.firestore {
       }
     }
 
+    // Clubs collection
+    match /clubs/{clubId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      // Allow updates for joining (updating memberIds) or admins editing details
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && resource.data.createdBy == request.auth.uid;
+
+      // Club Members subcollection
+      match /members/{memberId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
+      }
+    }
+
    // Events collection
     match /events/{eventId} {
       // Allow any authenticated user to read events

@@ -10,6 +10,12 @@ export type Post = {
     authorName: string;
     authorUsername?: string;
     authorAvatarUrl?: string | null;
+
+    // Club Branding
+    clubId?: string;
+    clubName?: string;
+    clubAvatarUrl?: string;
+
     content?: string;
     imageUrls?: string[];
     likes?: string[]; // Array of user IDs
@@ -35,6 +41,8 @@ export type Post = {
     goingUids?: string[];
     maybeUids?: string[];
     notGoingUids?: string[];
+
+    editCount?: number;
 };
 
 export const moodFilters: Mood[] = [
