@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore/lite";
+import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Post } from "@/lib/posts";
 import { Club } from "@/lib/clubs";
@@ -36,11 +36,11 @@ export default function ExplorePage() {
             setLoading(true);
             try {
                 const results: SearchResult[] = [];
-                const eventsRef = collection(db, "events");
+                const postsRef = collection(db, "posts");
 
                 // 1. Fetch All Events & Posts (for Coming Soon & Search)
                 // Removing orderBy temporarily to ensure we catch legacy events without 'createdAt'
-                const allQ = query(eventsRef, limit(50));
+                const allQ = query(postsRef, limit(50));
                 const allSnap = await getDocs(allQ);
                 const fetchedAll: Post[] = [];
 

@@ -12,7 +12,7 @@ import {
   updateDoc,
   deleteDoc,
   addDoc,
-} from "firebase/firestore/lite";
+} from "firebase/firestore";
 import { auth, db } from "../../../../lib/firebase";
 import Toast, { ToastData } from "@/components/Toast";
 
@@ -131,8 +131,8 @@ export default function ManageMyUniversityPage() {
         const allowed = userIsGlobalAdmin
           ? items
           : items.filter((u) =>
-              (u.adminEmails ?? []).includes(userEmailLower)
-            );
+            (u.adminEmails ?? []).includes(userEmailLower)
+          );
 
         setUniversities(allowed);
 

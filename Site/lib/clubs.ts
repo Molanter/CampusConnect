@@ -13,8 +13,9 @@ import {
     Timestamp,
     serverTimestamp,
     arrayUnion,
-    arrayRemove
-} from "firebase/firestore/lite";
+    arrayRemove,
+    setDoc
+} from "firebase/firestore";
 
 export type ClubRole = "owner" | "admin" | "member";
 export type JoinStatus = "pending" | "approved" | "rejected";
@@ -45,9 +46,11 @@ export interface ClubMember {
     status: JoinStatus; // effective only for private clubs request flow
 
     // Fetched user data
+    name?: string;
     displayName?: string;
     photoURL?: string;
     username?: string;
+    _docId?: string;
 }
 
 export interface ClubPost {
@@ -78,7 +81,8 @@ export async function createClub(
     });
 
     // Add creator as Owner in subcollection (for roles)
-    await addDoc(collection(db, "clubs", clubRef.id, "members"), {
+    // Use setDoc with userId as docId
+    await setDoc(doc(db, "clubs", clubRef.id, "members", userId), {
         uid: userId,
         clubId: clubRef.id,
         role: "owner",
@@ -104,7 +108,8 @@ export async function joinClub(clubId: string, userId: string, isPrivate: boolea
 
     const status: JoinStatus = isPrivate ? "pending" : "approved";
 
-    await addDoc(memberRef, {
+    // Use setDoc with userId as docId
+    await setDoc(doc(memberRef, userId), {
         uid: userId,
         clubId,
         role: "member",

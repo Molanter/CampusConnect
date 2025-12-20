@@ -6,9 +6,9 @@ import { format } from "date-fns";
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 import { CalendarIcon, MapPinIcon, CheckCircleIcon, QuestionMarkCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { ArrowTopRightOnSquareIcon, ChatBubbleOvalLeftIcon, HandThumbUpIcon } from "@heroicons/react/24/outline";
-import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, updateDoc, arrayUnion, arrayRemove, getFirestore, onSnapshot } from "firebase/firestore";
+import { doc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 
 interface EventHeroProps {
     post: Post;
@@ -51,15 +51,15 @@ export function EventHero({ post }: EventHeroProps) {
     });
 
     useEffect(() => {
-        const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
+        const unsub = onAuthStateChanged(auth, (u: any) => setCurrentUser(u));
         return () => unsub();
     }, []);
 
     // Sync stats
     useEffect(() => {
         if (!id) return;
-        const db = getFirestore();
-        const unsub = onSnapshot(doc(db, "events", id), (snap) => {
+
+        const unsub = onSnapshot(doc(db, "events", id), (snap: any) => {
             if (snap.exists()) {
                 const data = snap.data();
                 setStats({
@@ -91,7 +91,7 @@ export function EventHero({ post }: EventHeroProps) {
         setStatus(newStatus);
 
         try {
-            const db = getFirestore();
+
             const ref = doc(db, "events", id);
             const updates: any = {};
 

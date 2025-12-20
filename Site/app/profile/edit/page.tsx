@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { doc, getDoc, setDoc, getFirestore, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { auth, storage } from "../../../lib/firebase";
+import { auth, storage, db } from "../../../lib/firebase";
 import Link from "next/link";
 import { ChevronLeftIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
@@ -51,7 +51,7 @@ export default function EditProfilePage() {
         const fetchUniversities = async () => {
             try {
                 setLoadingUniversities(true);
-                const db = getFirestore();
+
                 const snapshot = await getDocs(collection(db, "universities"));
                 const univs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setUniversities(univs);
@@ -73,7 +73,7 @@ export default function EditProfilePage() {
             }
 
             try {
-                const db = getFirestore();
+
                 const dormsSnapshot = await getDocs(
                     collection(db, "universities", universityId, "dorms")
                 );
@@ -105,7 +105,7 @@ export default function EditProfilePage() {
 
         const loadProfile = async () => {
             try {
-                const db = getFirestore();
+
                 const ref = doc(db, "users", user.uid);
                 const snap = await getDoc(ref);
                 if (snap.exists()) {
@@ -153,7 +153,7 @@ export default function EditProfilePage() {
         try {
             setSaving(true);
             setError("");
-            const db = getFirestore();
+
 
             // Check if username is already taken (if username is being changed)
             if (username.trim() && username.trim() !== profile?.username) {

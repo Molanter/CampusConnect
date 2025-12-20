@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, updateDoc, arrayUnion, arrayRemove, getFirestore, onSnapshot, collection, query, getDocs } from "firebase/firestore";
+import { doc, updateDoc, arrayUnion, arrayRemove, onSnapshot, collection, query, getDocs } from "firebase/firestore";
+import { auth, db } from "../lib/firebase";
 
 interface ExplorePostCardProps {
     id?: string;
@@ -46,8 +46,8 @@ export function ExplorePostCard({
     useEffect(() => {
         if (!id) return;
 
-        const dbFull = getFirestore();
-        const docRef = doc(dbFull, "events", id);
+
+        const docRef = doc(db, "posts", id);
 
         const unsubscribe = onSnapshot(docRef, (snap) => {
             if (snap.exists()) {
@@ -72,12 +72,12 @@ export function ExplorePostCard({
     useEffect(() => {
         if (!id) return;
 
-        const dbFull = getFirestore();
+
 
         const countRepliesRecursively = async (commentPath: string, depth: number): Promise<number> => {
             if (depth >= 2) return 0;
             try {
-                const repliesRef = collection(dbFull, commentPath, "replies");
+                const repliesRef = collection(db, commentPath, "replies");
                 const repliesSnapshot = await getDocs(repliesRef);
                 let count = repliesSnapshot.size;
 
@@ -95,7 +95,7 @@ export function ExplorePostCard({
 
         const updateCommentCount = async () => {
             try {
-                const commentsRef = collection(dbFull, "events", id, "comments");
+                const commentsRef = collection(db, "events", id, "comments");
                 const commentsSnapshot = await getDocs(commentsRef);
                 let totalCount = commentsSnapshot.size;
 
@@ -113,7 +113,7 @@ export function ExplorePostCard({
             }
         };
 
-        const commentsRef = collection(dbFull, "events", id, "comments");
+        const commentsRef = collection(db, "events", id, "comments");
         const q = query(commentsRef);
 
         const unsubscribe = onSnapshot(q, () => {

@@ -102,10 +102,10 @@ export default function EventsPage() {
     const fetchCampusEvents = async () => {
       try {
         setCampusEventsLoading(true);
-        const eventsRef = collection(db, "events");
+        const postsRef = collection(db, "posts");
         // Query for actual events/posts. 
         // We can filter by isEvent=true if we strictly want events only.
-        const q = query(eventsRef, orderBy("date", "asc"));
+        const q = query(postsRef, orderBy("date", "asc"));
         const snap = await getDocs(q);
 
         const items: Post[] = snap.docs.map((doc) => {

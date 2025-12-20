@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { doc, getDoc, getFirestore, collection, query, where, getDocs } from "firebase/firestore";
-import { auth } from "@/lib/firebase";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 import Link from "next/link";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
 import { PostCard } from "@/components/post-card";
@@ -47,7 +47,7 @@ export default function UserProfilePage() {
 
     const loadProfile = async () => {
       try {
-        const db = getFirestore();
+
         const ref = doc(db, "users", targetUid);
         const snap = await getDoc(ref);
         if (snap.exists()) {
@@ -83,9 +83,9 @@ export default function UserProfilePage() {
     const loadPosts = async () => {
       try {
         setPostsLoading(true);
-        const db = getFirestore();
+
         const q = query(
-          collection(db, "events"), // Still using "events" collection
+          collection(db, "posts"),
           where("hostUserId", "==", targetUid)
         );
         const snap = await getDocs(q);

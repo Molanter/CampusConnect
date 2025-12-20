@@ -1,21 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, query, where, orderBy, getDocs, doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore/lite";
+import { collection, query, where, orderBy, getDocs, doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { auth, db } from "../../../lib/firebase";
 import {
     Club,
     ClubMember,
+    ClubRole,
+    JoinStatus,
     getClub,
     joinClub
 } from "../../../lib/clubs";
 import { Post } from "../../../lib/posts";
 import { ClubHeader } from "../../../components/clubs/club-header";
 import { ClubTabs, ClubTab } from "../../../components/clubs/club-tabs";
-import { UserRow } from "../../../components/user-row";
-import { MemberMenu } from "../../../components/clubs/member-menu";
+import { MemberRow } from "../../../components/clubs/member-row";
 import { PostCard } from "../../../components/post-card";
 import { LockClosedIcon } from "@heroicons/react/24/outline";
 
@@ -33,6 +34,7 @@ export default function ClubPage() {
     const [posts, setPosts] = useState<Post[]>([]);
     const [events, setEvents] = useState<Post[]>([]);
     const [members, setMembers] = useState<ClubMember[]>([]);
+    const [stats, setStats] = useState({ totalPosts: 0, totalEvents: 0, activityRate: 0 });
 
     // Helpers
     const canViewContent = !club?.isPrivate || (membership?.status === "approved");
@@ -41,6 +43,39 @@ export default function ClubPage() {
         const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
         return () => unsub();
     }, []);
+
+    // Fetch Statistics
+    useEffect(() => {
+        if (!clubId || activeTab !== "about" || !canViewContent) return;
+
+        const fetchStats = async () => {
+            try {
+                const postsRef = collection(db, "posts");
+                const q = query(postsRef, where("clubId", "==", clubId));
+                const snap = await getDocs(q);
+
+                const allItems = snap.docs.map(d => d.data());
+                const totalPosts = allItems.filter(i => !i.isEvent).length;
+                const totalEvents = allItems.filter(i => !!i.isEvent).length;
+
+                // Activity Rate (posts per month)
+                let rate = 0;
+                if (club?.createdAt) {
+                    const created = club.createdAt.toDate ? club.createdAt.toDate() : new Date(club.createdAt);
+                    const now = new Date();
+                    const diffMonths = Math.max(1, (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth()));
+                    rate = (totalPosts + totalEvents) / diffMonths;
+                }
+
+                setStats({ totalPosts, totalEvents, activityRate: rate });
+            } catch (err) {
+                console.error("Error fetching stats:", err);
+            }
+        };
+
+        fetchStats();
+    }, [clubId, activeTab, club, canViewContent]);
+
 
     // Fetch Club and Membership
     useEffect(() => {
@@ -59,8 +94,16 @@ export default function ClubPage() {
                 const snap = await getDocs(q);
 
                 if (!snap.empty) {
-                    const d = snap.docs[0].data();
-                    setMembership({ ...d, uid: currentUser.uid } as ClubMember);
+                    const docSnap = snap.docs[0];
+                    const d = docSnap.data();
+                    setMembership({
+                        uid: currentUser.uid,
+                        clubId: clubId,
+                        role: d.role as ClubRole,
+                        status: d.status as JoinStatus,
+                        joinedAt: d.joinedAt,
+                        _docId: docSnap.id
+                    });
                 } else {
                     setMembership(null);
                 }
@@ -76,53 +119,67 @@ export default function ClubPage() {
     }, [clubId, currentUser]);
 
     // Fetch Tab Content
-    useEffect(() => {
+    const fetchContent = useCallback(async () => {
         if (!clubId || !canViewContent) return;
 
-        const fetchContent = async () => {
-            if (activeTab === "posts" || activeTab === "events") {
-                const postsRef = collection(db, "events");
-                let q = query(
+        if (activeTab === "posts" || activeTab === "events") {
+            const postsRef = collection(db, "posts");
+            let q = query(
+                postsRef,
+                where("clubId", "==", clubId),
+                orderBy("createdAt", "desc")
+            );
+
+            if (activeTab === "events") {
+                q = query(
                     postsRef,
                     where("clubId", "==", clubId),
+                    where("isEvent", "==", true),
                     orderBy("createdAt", "desc")
                 );
-
-                if (activeTab === "events") {
-                    q = query(
-                        postsRef,
-                        where("clubId", "==", clubId),
-                        where("isEvent", "==", true),
-                        orderBy("createdAt", "desc")
-                    );
-                }
-
-                const snap = await getDocs(q);
-                const fetchedPosts = snap.docs.map(d => ({ id: d.id, ...d.data() } as Post));
-
-                if (activeTab === "events") setEvents(fetchedPosts);
-                else setPosts(fetchedPosts);
+            } else if (activeTab === "posts") {
+                q = query(
+                    postsRef,
+                    where("clubId", "==", clubId),
+                    where("isEvent", "==", false),
+                    orderBy("createdAt", "desc")
+                );
             }
 
-            if (activeTab === "members") {
-                const memRef = collection(db, "clubs", clubId, "members");
-                const q = query(memRef, orderBy("joinedAt", "desc"));
-                const snap = await getDocs(q);
+            const snap = await getDocs(q);
+            const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Post));
+            if (activeTab === "posts") setPosts(items);
+            else setEvents(items);
+        }
 
-                const memsWithData = await Promise.all(snap.docs.map(async (d) => {
-                    const memData = d.data();
-                    const uSnap = await getDoc(doc(db, "users", memData.uid));
-                    const uData = uSnap.exists() ? uSnap.data() : {};
-                    // Include doc ID for updates, using generic casting to avoid type errors locally
-                    return { ...memData, ...uData, _docId: d.id } as ClubMember;
-                }));
+        if (activeTab === "members") {
+            const memRef = collection(db, "clubs", clubId, "members");
+            const q = query(memRef, orderBy("joinedAt", "desc"));
+            const snap = await getDocs(q);
 
-                setMembers(memsWithData);
-            }
-        };
+            const memsWithData = await Promise.all(snap.docs.map(async (d) => {
+                const memData = d.data();
+                const uSnap = await getDoc(doc(db, "users", memData.uid));
+                const uData = uSnap.exists() ? uSnap.data() : {};
+                // Include doc ID for updates, using explicit mapping to satisfy TypeScript
+                return {
+                    uid: memData.uid,
+                    clubId: clubId,
+                    role: memData.role,
+                    joinedAt: memData.joinedAt,
+                    status: memData.status,
+                    _docId: d.id,
+                    ...uData
+                } as ClubMember;
+            }));
 
-        fetchContent();
+            setMembers(memsWithData);
+        }
     }, [clubId, activeTab, canViewContent]);
+
+    useEffect(() => {
+        fetchContent();
+    }, [fetchContent, activeTab]);
 
 
     // Actions
@@ -217,7 +274,7 @@ export default function ClubPage() {
                                     </div>
                                 ) : (
                                     (activeTab === "posts" ? posts : events).map(post => (
-                                        <PostCard key={post.id} post={post} />
+                                        <PostCard key={post.id} post={post} onDeleted={fetchContent} />
                                     ))
                                 )}
                             </div>
@@ -225,56 +282,88 @@ export default function ClubPage() {
 
                         {/* Members Tab */}
                         {activeTab === "members" && (
-                            <div className="rounded-[28px] border border-white/10 bg-[#1C1C1E] p-6 shadow-lg">
-                                <h3 className="mb-4 text-lg font-semibold text-white">
+                            <div className="space-y-3">
+                                <h2 className="px-6 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">
                                     Members ({members.length})
-                                </h3>
-                                <div className="space-y-4">
-                                    {members.map(mem => (
-                                        <div key={mem.uid} className="flex items-center justify-between">
-                                            <UserRow
-                                                uid={mem.uid}
-                                                userData={mem}
-                                                subtitle={mem.role === "owner" ? "Owner" : mem.role === "admin" ? "Admin" : undefined}
-                                                rightElement={
-                                                    <MemberMenu
-                                                        member={mem}
-                                                        currentUserRole={membership?.role || null}
-                                                        onPromote={() => handleUpdateMember((mem as any)._docId, { role: "admin" })}
-                                                        onDemote={() => handleUpdateMember((mem as any)._docId, { role: "member" })}
-                                                        onKick={() => handleRemoveMember((mem as any)._docId)}
-                                                        onApprove={() => handleUpdateMember((mem as any)._docId, { status: "approved" })}
-                                                        onReject={() => handleRemoveMember((mem as any)._docId)}
-                                                    />
-                                                }
-                                            />
-                                        </div>
-                                    ))}
+                                </h2>
+                                <div className="rounded-[28px] border border-white/10 bg-[#1C1C1E] shadow-lg">
+                                    <div className="divide-y divide-white/5">
+                                        {members.map((mem, index) => (
+                                            <div
+                                                key={mem.uid}
+                                                className={`px-6 py-4 transition-colors hover:bg-white/5 ${index === 0 ? "rounded-t-[28px]" : ""
+                                                    } ${index === members.length - 1 ? "rounded-b-[28px]" : ""
+                                                    }`}
+                                            >
+                                                <MemberRow
+                                                    member={mem}
+                                                    currentUserRole={membership?.role || null}
+                                                    onPromote={() => handleUpdateMember((mem as any)._docId, { role: "admin" })}
+                                                    onDemote={() => handleUpdateMember((mem as any)._docId, { role: "member" })}
+                                                    onKick={() => handleRemoveMember((mem as any)._docId)}
+                                                    onApprove={() => handleUpdateMember((mem as any)._docId, { status: "approved" })}
+                                                    onReject={() => handleRemoveMember((mem as any)._docId)}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {members.length === 0 && (
+                                        <div className="p-12 text-center text-zinc-500">Loading members...</div>
+                                    )}
                                 </div>
-                                {members.length === 0 && (
-                                    <div className="p-4 text-zinc-500">Loading members...</div>
-                                )}
                             </div>
                         )}
 
                         {/* About Tab */}
                         {activeTab === "about" && (
-                            <div className="rounded-[28px] border border-white/10 bg-[#1C1C1E] p-6 text-white shadow-lg">
-                                <h3 className="mb-4 text-lg font-semibold">About {club.name}</h3>
-                                <p className="whitespace-pre-wrap text-zinc-300">
-                                    {club.description}
-                                </p>
+                            <div className="space-y-8">
+                                <div className="space-y-3">
+                                    <h2 className="px-6 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">
+                                        About {club.name}
+                                    </h2>
+                                    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#1C1C1E] shadow-lg">
+                                        <div className="p-6">
+                                            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-300">
+                                                {club.description}
+                                            </p>
+                                        </div>
 
-                                <div className="mt-8 grid grid-cols-2 gap-4">
-                                    <div className="rounded-xl bg-white/5 p-4">
-                                        <span className="block text-xs text-zinc-500">Created</span>
-                                        <span className="font-medium">
-                                            {club.createdAt?.toDate ? club.createdAt.toDate().toLocaleDateString() : "Recently"}
-                                        </span>
+                                        <div className="grid grid-cols-2 divide-x divide-white/5 border-t border-white/5 bg-white/2">
+                                            <div className="p-6 text-center">
+                                                <span className="block text-[11px] font-bold uppercase tracking-widest text-zinc-500">Created</span>
+                                                <span className="mt-1 block text-lg font-semibold text-white">
+                                                    {club.createdAt?.toDate ? club.createdAt.toDate().toLocaleDateString() : "Recently"}
+                                                </span>
+                                            </div>
+                                            <div className="p-6 text-center">
+                                                <span className="block text-[11px] font-bold uppercase tracking-widest text-zinc-500">Members</span>
+                                                <span className="mt-1 block text-lg font-semibold text-white">{club.memberCount}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="rounded-xl bg-white/5 p-4">
-                                        <span className="block text-xs text-zinc-500">Members</span>
-                                        <span className="font-medium">{club.memberCount}</span>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <h2 className="px-6 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">
+                                        Statistics
+                                    </h2>
+                                    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#1C1C1E] shadow-lg">
+                                        <div className="grid grid-cols-3 divide-x divide-white/5">
+                                            <div className="p-6 text-center">
+                                                <span className="block text-[11px] font-bold uppercase tracking-widest text-zinc-500">Total Posts</span>
+                                                <span className="mt-1 block text-2xl font-bold text-white">{stats.totalPosts}</span>
+                                            </div>
+                                            <div className="p-6 text-center">
+                                                <span className="block text-[11px] font-bold uppercase tracking-widest text-zinc-500">Total Events</span>
+                                                <span className="mt-1 block text-2xl font-bold text-white">{stats.totalEvents}</span>
+                                            </div>
+                                            <div className="p-6 text-center">
+                                                <span className="block text-[11px] font-bold uppercase tracking-widest text-zinc-500">Posts / Month</span>
+                                                <span className="mt-1 block text-2xl font-bold text-[#ffb200]">
+                                                    {stats.activityRate.toFixed(1)}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -9,11 +9,7 @@ import {
   query,
   orderBy,
   limit,
-} from "firebase/firestore/lite"; // Importing from lite for read-only if possible, but PostComposer uses full SDK. Mixing is fine if careful. But typically better to use one.
-// Actually, for simplicity and consistency with PostComposer (which acts on 'db' from lib/firebase which is full SDK usually), let's ensure we use consistent SDK if possible. 
-// However, the existing imports use 'firebase/firestore/lite'. I'll stick to what was there or upgrade if needed. 
-// PostComposer imports 'firebase/firestore'. "lib/firebase" likely exports 'db' initialized with full SDK. 
-// 'firebase/firestore/lite' is compatible with the same 'db' instance for getDocs usually.
+} from "firebase/firestore";
 
 import { auth, provider, db } from "../lib/firebase";
 import { PostCard } from "@/components/post-card";
@@ -61,7 +57,7 @@ export default function HomePage() {
       setPostsLoading(true);
       setPostsError(null);
 
-      const eventsRef = collection(db, "events");
+      const eventsRef = collection(db, "posts");
       // Ordering by createdAt desc to show newest posts first. 
       // Note: older events might not have createdAt. We might need to handle that or fallback.
       // The original query was orderBy("date", "asc").
@@ -206,6 +202,7 @@ export default function HomePage() {
                 onCommentsClick={() => openView("comments", post)}
                 onAttendanceClick={() => openView("attendance", post)}
                 onDetailsClick={() => openView("details", post)}
+                onDeleted={fetchPosts}
               />
             ))}
           </section>

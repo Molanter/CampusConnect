@@ -7,37 +7,28 @@ import { UserRow } from "./user-row";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
-// Note: Using firestore/lite for some things but we need real-time listeners which lite doesn't support well for onSnapshot?
-// Actually, standard firebase/firestore is needed for onSnapshot. 
-// If the project uses firestore/lite globally, we might need to switch or import from "firebase/firestore" if available.
-// Let's check if "firebase/firestore" is available or if we should stick to fetching.
-// User request implies "fetch" but "real-time" is better for chat. 
-// Given the imports in app/page.tsx use "firebase/firestore/lite", I will stick to "lite" and manual refresh or polling if needed, 
-// OR I will try to use the full SDK if I can. 
-// Wait, standard "firebase/firestore" is usually what's needed for onSnapshot.
-// Let's assume we can use "firebase/firestore" for real-time features if the package is installed.
-// If not, I'll implement with "lite" and manual fetch for now, but "onSnapshot" is not in "lite".
-// I will try to import from "firebase/firestore" for the real-time parts. 
-// If that fails, I'll fallback. But usually both are available.
+// Note: We now use the full firebase/firestore SDK across the project to support real-time listeners.
+// The db instance from lib/firebase.ts is already configured with the full SDK.
+// We import from "firebase/firestore" for real-time listeners and other features.
 
 import {
-    getFirestore,
-    collection as collectionFull,
-    query as queryFull,
-    orderBy as orderByFull,
-    onSnapshot as onSnapshotFull,
-    addDoc as addDocFull,
-    doc as docFull,
-    getDoc as getDocFull,
-    updateDoc as updateDocFull,
-    arrayUnion as arrayUnionFull,
-    arrayRemove as arrayRemoveFull,
-    serverTimestamp as serverTimestampFull,
-    increment as incrementFull,
-    where as whereFull,
-    getDocs as getDocsFull,
-    deleteDoc as deleteDocFull,
+    collection,
+    query,
+    orderBy,
+    onSnapshot,
+    addDoc,
+    doc,
+    getDoc,
+    updateDoc,
+    arrayUnion,
+    arrayRemove,
+    serverTimestamp,
+    increment,
+    where,
+    getDocs,
+    deleteDoc,
 } from "firebase/firestore";
+import { db } from "../lib/firebase";
 import { CommentMessage, type CommentRecord } from "./comment-message";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "@/lib/admin-utils";
 import { ReportSheet } from "./report-sheet";
@@ -246,17 +237,16 @@ function NotificationsView() {
     useEffect(() => {
         if (!currentUser) return;
 
-        const dbFull = getFirestore();
-        const q = queryFull(
-            collectionFull(dbFull, "users", currentUser.uid, "notifications"),
-            orderByFull("createdAt", "desc")
+        const q = query(
+            collection(db, "users", currentUser.uid, "notifications"),
+            orderBy("createdAt", "desc")
         );
 
-        const unsubscribe = onSnapshotFull(q, (snapshot) => {
-            const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const unsubscribe = onSnapshot(q, (snapshot: any) => {
+            const notifs = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
             setNotifications(notifs);
             setLoading(false);
-        }, (error) => {
+        }, (error: any) => {
             // Handle permission denied silently or show empty
             console.log("Notifications permission error (expected if rules are restrictive):", error);
             setLoading(false);
@@ -478,10 +468,9 @@ function AttendanceView({ data }: { data: any }) {
     useEffect(() => {
         if (!data?.id) return;
 
-        const dbFull = getFirestore();
-        const docRef = docFull(dbFull, "events", data.id);
+        const docRef = doc(db, "posts", data.id);
 
-        const unsubscribe = onSnapshotFull(docRef, (snap) => {
+        const unsubscribe = onSnapshot(docRef, (snap) => {
             if (snap.exists()) {
                 const d = snap.data();
                 setAttendance({
@@ -582,16 +571,15 @@ function ReportView({ data }: { data: any }) {
 
         setPending(true);
         try {
-            const dbFull = getFirestore();
-            const reportRef = collectionFull(dbFull, "reports");
+            const reportRef = collection(db, "reports");
 
-            await addDocFull(reportRef, {
+            await addDoc(reportRef, {
                 targetId: data.id,
                 targetType: data.type || "unknown", // 'post', 'comment', 'event'
                 reason: selectedReason,
                 details: details.trim(),
                 reportedByUid: currentUser.uid,
-                createdAt: serverTimestampFull(),
+                createdAt: serverTimestamp(),
                 status: "pending"
             });
 
@@ -691,18 +679,15 @@ function LikesView({ data }: { data: any }) {
     useEffect(() => {
         if (!data?.id) return;
 
-        const dbFull = getFirestore();
-        // Determine collection based on type passed or default to checking both or passing type
-        // Assuming data.type is helpful, otherwise check likely collections
         const collectionName = data.type === "event" ? "events" : "posts";
-        const docRef = docFull(dbFull, collectionName, data.id);
+        const docRef = doc(db, collectionName, data.id);
 
-        const unsubscribe = onSnapshotFull(docRef, (snap) => {
+        const unsubscribe = onSnapshot(docRef, (snap: any) => {
             if (snap.exists()) {
                 const d = snap.data();
                 setLikers(d.likedByUids || []);
             }
-        }, (error) => {
+        }, (error: any) => {
             console.error("Error fetching likes:", error);
         });
 

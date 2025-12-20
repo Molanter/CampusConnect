@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect, type SVGProps } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore/lite";
+import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { UserRow } from "./user-row";

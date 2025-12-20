@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, signInWithPopup, type User } from "firebase/auth";
-import { doc, getDoc, collection, getDocs, query, where, getFirestore, onSnapshot, orderBy } from "firebase/firestore";
-import { auth, provider } from "../../lib/firebase";
+import { doc, getDoc, collection, getDocs, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { auth, provider, db } from "../../lib/firebase";
 import { ProfileTabs, type Tab } from "@/components/profile-tabs";
 import { PostCard } from "@/components/post-card";
 import { CompactPostCard } from "@/components/compact-post-card";
@@ -67,8 +67,8 @@ export default function ProfilePage() {
     if (!user) return;
     const loadProfile = async () => {
       try {
-        const dbFull = getFirestore();
-        const ref = doc(dbFull, "users", user.uid);
+
+        const ref = doc(db, "users", user.uid);
         const snap = await getDoc(ref);
         if (snap.exists()) {
           const data = snap.data();
@@ -102,9 +102,9 @@ export default function ProfilePage() {
     if (!user || activeTab !== "my-events") return;
 
     setMyPostsLoading(true);
-    const dbFull = getFirestore();
+
     const q = query(
-      collection(dbFull, "events"), // Still using "events" collection
+      collection(db, "events"), // Still using "events" collection
       where("hostUserId", "==", user.uid)
     );
 
@@ -153,9 +153,9 @@ export default function ProfilePage() {
     if (!user || activeTab !== "attended") return;
 
     setAttendedLoading(true);
-    const dbFull = getFirestore();
+
     const q = query(
-      collection(dbFull, "events"),
+      collection(db, "events"),
       where("goingUids", "array-contains", user.uid)
     );
 
@@ -202,16 +202,16 @@ export default function ProfilePage() {
     if (!user || activeTab !== "comments") return;
 
     setCommentsLoading(true);
-    const dbFull = getFirestore();
+
 
     const loadComments = async () => {
       try {
-        const eventsSnap = await getDocs(collection(dbFull, "events"));
+        const eventsSnap = await getDocs(collection(db, "posts"));
         const allComments: Comment[] = [];
 
         for (const eventDoc of eventsSnap.docs) {
           const commentsQuery = query(
-            collection(dbFull, "events", eventDoc.id, "comments"),
+            collection(db, "posts", eventDoc.id, "comments"),
             where("uid", "==", user.uid)
           );
           const commentsSnap = await getDocs(commentsQuery);

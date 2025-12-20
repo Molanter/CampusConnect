@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc, getFirestore } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { ChevronLeftIcon, EllipsisHorizontalIcon, ArrowUpTrayIcon, BellIcon } from "@heroicons/react/24/outline";
 import { Post } from "@/lib/posts";
@@ -18,19 +19,19 @@ export default function PostDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { toggle } = useRightSidebar();
-    const eventId = params.id as string;
+    const postId = params.id as string; // Renamed from eventId to postId for clarity
     const [post, setPost] = useState<Post | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"details" | "comments" | "attendance" | "likes">("details");
 
     useEffect(() => {
-        if (!eventId) return;
+        if (!postId) return;
         const loadPost = async () => {
             try {
                 setLoading(true);
-                const db = getFirestore();
-                const snap = await getDoc(doc(db, "events", eventId));
+
+                const snap = await getDoc(doc(db, "posts", postId));
                 if (snap.exists()) {
                     const data = snap.data();
                     setPost({
@@ -67,7 +68,7 @@ export default function PostDetailPage() {
             }
         };
         void loadPost();
-    }, [eventId]);
+    }, [postId, toggle]);
 
     if (loading) {
         return (

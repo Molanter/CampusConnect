@@ -1,20 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   onAuthStateChanged,
   type User,
 } from "firebase/auth";
 import {
   collection,
+  doc,
   getDoc,
   getDocs,
-  doc,
   addDoc,
   serverTimestamp,
-} from "firebase/firestore/lite";
+  query,
+  where,
+} from "firebase/firestore";
 import { auth, db } from "../../../lib/firebase";
+import { Club, ClubMember } from "../../../lib/clubs";
 import Toast, { ToastData } from "@/components/Toast";
 import { PostCard } from "@/components/post-card";
 
@@ -97,6 +100,8 @@ function MapHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
 
 export default function CreateEventPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialClubId = searchParams.get("clubId");
 
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -132,6 +137,12 @@ export default function CreateEventPage() {
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false); // New state for LocationPicker
   const [isMapHelpOpen, setIsMapHelpOpen] = useState(false);
   const [showMapPreview, setShowMapPreview] = useState(true); // Toggle for map preview
+
+  // Club posting state
+  const [userClubs, setUserClubs] = useState<{ id: string; name: string; role: string }[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState<string | null>(initialClubId);
+  const [loadingClubs, setLoadingClubs] = useState(false);
+  const [selectedClubName, setSelectedClubName] = useState<string | null>(null);
 
   // ---- Auth ----
   useEffect(() => {
@@ -280,6 +291,66 @@ export default function CreateEventPage() {
     void loadUniversities();
   }, []);
 
+  // ---- Load User's Clubs ----
+  useEffect(() => {
+    const loadUserClubs = async () => {
+      if (!user) return;
+      setLoadingClubs(true);
+      try {
+        const { getUserClubs } = await import("../../../lib/clubs");
+        const userClubsList = await getUserClubs(user.uid);
+        const availableClubs: { id: string; name: string; role: string }[] = [];
+
+        for (const club of userClubsList) {
+          // Check membership for role and club settings
+          const memberSnap = await getDocs(
+            query(collection(db, "clubs", club.id, "members"), where("uid", "==", user.uid))
+          );
+
+          if (!memberSnap.empty) {
+            const memberData = memberSnap.docs[0].data() as ClubMember;
+            const canPost =
+              memberData.role === "owner" ||
+              memberData.role === "admin" ||
+              club.allowMemberPosts === true;
+
+            if (canPost && memberData.status === "approved") {
+              availableClubs.push({
+                id: club.id,
+                name: club.name,
+                role: memberData.role,
+              });
+            }
+          }
+        }
+        setUserClubs(availableClubs);
+
+        // Update selected club name if we have an initial ID
+        if (initialClubId) {
+          const found = availableClubs.find(c => c.id === initialClubId);
+          if (found) setSelectedClubName(found.name);
+        }
+      } catch (err) {
+        console.error("Error loading user clubs", err);
+      } finally {
+        setLoadingClubs(false);
+      }
+    };
+
+    if (user) void loadUserClubs();
+  }, [user, initialClubId]);
+
+  // Update selected club name when ID changes
+  useEffect(() => {
+    if (selectedClubId) {
+      const found = userClubs.find(c => c.id === selectedClubId);
+      if (found) setSelectedClubName(found.name);
+      else setSelectedClubName(null);
+    } else {
+      setSelectedClubName(null);
+    }
+  }, [selectedClubId, userClubs]);
+
   // Determine university colors for this user (if any)
   const trimmedCampusName = (profile?.campus || "").trim();
   const selectedById =
@@ -380,31 +451,47 @@ export default function CreateEventPage() {
       }
 
       // 2. Create post document in "events" collection (keeping collection name for data continuity)
-      const postData = {
-        title: "",
+      // 2. Create post document in "posts" collection
+      const baseData: any = {
         description: description.trim(),
-        date: isEvent ? eventDate : null, // yyyy-mm-dd
-        startTime: isEvent ? startTime : null, // hh:mm
-        endTime: isEvent ? endTime : null, // hh:mm
-        locationLabel: isEvent ? locationLabel.trim() : null,
-        coordinates: isEvent ? coordinates : null,
-        imageUrls: imageUrls,
         authorId: user.uid,
         authorName: profile?.preferredName || user.displayName || "Anonymous",
         authorUsername: profile?.username || null,
-        authorAvatarUrl: profile?.photoURL || user.photoURL,
+        // authorAvatarUrl removed
         createdAt: serverTimestamp(),
         likes: [],
-        goingUids: [],
-        maybeUids: [],
-        notGoingUids: [],
         isEvent: isEvent,
       };
 
-      await addDoc(collection(db, "events"), postData);
+      if (imageUrls.length > 0) {
+        baseData.imageUrls = imageUrls;
+      }
 
-      // 3. Redirect to posts list
-      router.push("/posts");
+      if (selectedClubId) {
+        baseData.clubId = selectedClubId;
+      }
+
+      if (isEvent) {
+        Object.assign(baseData, {
+          date: eventDate, // yyyy-mm-dd
+          startTime: startTime, // hh:mm
+          endTime: endTime, // hh:mm
+          locationLabel: locationLabel.trim(),
+          coordinates: coordinates,
+          goingUids: [],
+          maybeUids: [],
+          notGoingUids: [],
+        });
+      }
+
+      await addDoc(collection(db, "posts"), baseData);
+
+      // 3. Redirect back
+      if (selectedClubId) {
+        router.push(`/clubs/${selectedClubId}`);
+      } else {
+        router.push("/posts");
+      }
       setToast({ type: "success", message: "Post created." });
       // Reset form
 
@@ -483,6 +570,37 @@ export default function CreateEventPage() {
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-500">
                 Post Details
               </h2>
+
+              {/* Section: Post As */}
+              <div className="space-y-2 mb-6">
+                <h3 className="ml-4 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+                  Post As
+                </h3>
+                <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
+                  <div className="relative bg-neutral-800/30 rounded-[20px] hover:bg-neutral-800/50 transition-colors">
+                    <select
+                      value={selectedClubId || ""}
+                      onChange={(e) => setSelectedClubId(e.target.value || null)}
+                      className="w-full appearance-none bg-transparent px-4 py-3 text-sm text-white focus:outline-none"
+                    >
+                      <option value="" className="bg-neutral-900 text-white">Personal (Your Account)</option>
+                      {userClubs.map((club) => (
+                        <option key={club.id} value={club.id} className="bg-neutral-900 text-white">
+                          Club: {club.name} ({club.role})
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-neutral-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                {loadingClubs && (
+                  <p className="ml-4 text-[10px] text-neutral-500 animate-pulse">Loading your clubs...</p>
+                )}
+              </div>
 
               {/* Section: Basic Info */}
               <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
@@ -691,7 +809,7 @@ export default function CreateEventPage() {
                   Preview
                 </h2>
 
-                <div className="flex flex-col gap-4 mx-auto w-full max-w-md">
+                <div className="flex flex-col gap-4 mx-auto w-full">
                   {/* Details Card with integrated Media Grid (PostCard handles it all) */}
                   <PostCard
                     post={{
@@ -704,17 +822,19 @@ export default function CreateEventPage() {
                       endTime: isEvent ? endTime : undefined,
                       locationLabel: isEvent ? locationLabel : undefined,
                       authorId: user?.uid || "current",
-                      authorName: profile?.preferredName || user?.displayName || "You",
-                      authorUsername: profile?.username,
-                      authorAvatarUrl: profile?.photoURL || user?.photoURL,
+                      authorName: selectedClubName || profile?.preferredName || user?.displayName || "You",
+                      authorUsername: selectedClubId ? undefined : profile?.username,
+                      authorAvatarUrl: selectedClubId ? undefined : (profile?.photoURL || user?.photoURL), // Fallback to generic icon for clubs for now
                       coordinates: isEvent && showMapPreview && coordinates ? coordinates : undefined,
                       isEvent: isEvent,
                       likes: [],
                       goingUids: [],
                       maybeUids: [],
                       notGoingUids: [],
+                      clubId: selectedClubId || undefined,
                     }}
                     previewMode={true}
+                    variant="threads"
                   />
                 </div>
               </div>

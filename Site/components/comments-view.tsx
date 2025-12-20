@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import {
-    getFirestore,
     collection,
     query,
     orderBy,
@@ -20,7 +19,7 @@ import {
     deleteDoc,
 } from "firebase/firestore";
 import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "@/lib/admin-utils";
 import { CommentMessage, type CommentRecord } from "./comment-message";
 import { ReportSheet } from "./report-sheet";
@@ -52,12 +51,12 @@ export function CommentsView({ data }: CommentsViewProps) {
     }, []);
 
     // Helper to check if a comment should be hidden due to reports
-    const checkReportCount = async (dbFull: any, commentPath: string): Promise<number> => {
+    const checkReportCount = async (db: any, commentPath: string): Promise<number> => {
         try {
             // Construct collection reference by appending reports to the path
             const reportsPath = `${commentPath}/reports`;
             const pathSegments = reportsPath.split('/');
-            const reportsRef = collection(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
+            const reportsRef = collection(db, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
             const snapshot = await getDocs(reportsRef);
             return snapshot.size;
         } catch (error) {
@@ -68,7 +67,7 @@ export function CommentsView({ data }: CommentsViewProps) {
 
     // Helper to recursively load replies
     const loadRepliesRecursive = async (
-        dbFull: any,
+        db: any,
         parentPath: string,
         depth: number,
         parentPathArray: string[]
@@ -76,7 +75,7 @@ export function CommentsView({ data }: CommentsViewProps) {
         if (depth >= 2) return [];
 
         try {
-            const repliesRef = collection(dbFull, parentPath, "replies");
+            const repliesRef = collection(db, parentPath, "replies");
             const q = query(repliesRef, orderBy("createdAt", "asc"));
             const snapshot = await getDocs(q);
 
@@ -85,7 +84,7 @@ export function CommentsView({ data }: CommentsViewProps) {
                     const data = docSnap.data() as any;
                     const replyPath = `${parentPath}/replies/${docSnap.id}`;
                     const nestedReplies = await loadRepliesRecursive(
-                        dbFull,
+                        db,
                         replyPath,
                         depth + 1,
                         [...parentPathArray, docSnap.id]
@@ -99,7 +98,7 @@ export function CommentsView({ data }: CommentsViewProps) {
 
                     if (authorUid) {
                         try {
-                            const userDoc = await getDoc(doc(dbFull, "users", authorUid));
+                            const userDoc = await getDoc(doc(db, "users", authorUid));
                             if (userDoc.exists()) {
                                 const userData = userDoc.data();
                                 authorName = userData.displayName || userData.username || "Someone";
@@ -112,7 +111,7 @@ export function CommentsView({ data }: CommentsViewProps) {
                     }
 
                     // Check report count
-                    const reportCount = await checkReportCount(dbFull, replyPath);
+                    const reportCount = await checkReportCount(db, replyPath);
                     const isHidden = reportCount >= 10;
 
                     return {
@@ -146,8 +145,7 @@ export function CommentsView({ data }: CommentsViewProps) {
 
         const loadComments = async () => {
             try {
-                const dbFull = getFirestore();
-                const commentsRef = collection(dbFull, "events", data.id, "comments");
+                const commentsRef = collection(db, "events", data.id, "comments");
                 const q = query(commentsRef, orderBy("createdAt", "asc"));
                 const snapshot = await getDocs(q);
 
@@ -155,7 +153,7 @@ export function CommentsView({ data }: CommentsViewProps) {
                     snapshot.docs.map(async (docSnap) => {
                         const payload = docSnap.data() as any;
                         const commentPath = `events/${data.id}/comments/${docSnap.id}`;
-                        const replies = await loadRepliesRecursive(dbFull, commentPath, 0, [docSnap.id]);
+                        const replies = await loadRepliesRecursive(db, commentPath, 0, [docSnap.id]);
 
                         // Fetch user data from users collection
                         let authorName = "Someone";
@@ -165,7 +163,7 @@ export function CommentsView({ data }: CommentsViewProps) {
 
                         if (authorUid) {
                             try {
-                                const userDoc = await getDoc(doc(dbFull, "users", authorUid));
+                                const userDoc = await getDoc(doc(db, "users", authorUid));
                                 if (userDoc.exists()) {
                                     const userData = userDoc.data();
                                     authorName = userData.displayName || userData.username || "Someone";
@@ -178,7 +176,7 @@ export function CommentsView({ data }: CommentsViewProps) {
                         }
 
                         // Check report count
-                        const reportCount = await checkReportCount(dbFull, commentPath);
+                        const reportCount = await checkReportCount(db, commentPath);
                         const isHidden = reportCount >= 10;
 
                         return {
@@ -225,8 +223,7 @@ export function CommentsView({ data }: CommentsViewProps) {
         if (!data?.id) return;
         const loadOwner = async () => {
             try {
-                const dbFull = getFirestore();
-                const ref = doc(dbFull, "events", data.id);
+                const ref = doc(db, "events", data.id);
                 const snap = await getDoc(ref);
                 if (snap.exists()) {
                     setEventOwnerUid((snap.data() as any)?.hostUserId ?? null);
@@ -271,8 +268,7 @@ export function CommentsView({ data }: CommentsViewProps) {
     const reloadComments = async () => {
         if (!data?.id) return;
         try {
-            const dbFull = getFirestore();
-            const commentsRef = collection(dbFull, "events", data.id, "comments");
+            const commentsRef = collection(db, "events", data.id, "comments");
             const q = query(commentsRef, orderBy("createdAt", "asc"));
             const snapshot = await getDocs(q);
 
@@ -280,7 +276,7 @@ export function CommentsView({ data }: CommentsViewProps) {
                 snapshot.docs.map(async (docSnap) => {
                     const payload = docSnap.data() as any;
                     const commentPath = `events/${data.id}/comments/${docSnap.id}`;
-                    const replies = await loadRepliesRecursive(dbFull, commentPath, 0, [docSnap.id]);
+                    const replies = await loadRepliesRecursive(db, commentPath, 0, [docSnap.id]);
 
                     // Fetch user data from users collection
                     let authorName = "Someone";
@@ -290,7 +286,7 @@ export function CommentsView({ data }: CommentsViewProps) {
 
                     if (authorUid) {
                         try {
-                            const userDoc = await getDoc(doc(dbFull, "users", authorUid));
+                            const userDoc = await getDoc(doc(db, "users", authorUid));
                             if (userDoc.exists()) {
                                 const userData = userDoc.data();
                                 authorName = userData.displayName || userData.username || "Someone";
@@ -328,10 +324,9 @@ export function CommentsView({ data }: CommentsViewProps) {
     const handleToggleLike = async (comment: CommentRecord) => {
         if (!currentUser || !data?.id) return;
         try {
-            const dbFull = getFirestore();
             const path = buildCommentPath(comment);
             const pathSegments = path.split('/');
-            const ref = doc(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
+            const ref = doc(db, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
             const alreadyLiked = comment.likes?.includes(currentUser.uid);
             await updateDoc(ref, {
                 likes: alreadyLiked
@@ -352,10 +347,9 @@ export function CommentsView({ data }: CommentsViewProps) {
     const submitReport = async (reason: string, details?: string) => {
         if (!currentUser || !reportTarget) return;
         try {
-            const dbFull = getFirestore();
             const commentPath = buildCommentPath(reportTarget);
             const pathSegments = commentPath.split('/');
-            const commentRef = doc(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
+            const commentRef = doc(db, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
 
             // Add report to the comment's reports subcollection
             await addDoc(collection(commentRef, "reports"), {
@@ -367,7 +361,7 @@ export function CommentsView({ data }: CommentsViewProps) {
             });
 
             // Also add to global reports collection for admin review
-            await addDoc(collection(dbFull, "commentReports"), {
+            await addDoc(collection(db, "commentReports"), {
                 eventId: data?.id,
                 commentId: reportTarget.id,
                 commentPath,
@@ -389,10 +383,9 @@ export function CommentsView({ data }: CommentsViewProps) {
     const handleDelete = async (comment: CommentRecord) => {
         if (!data?.id) return;
         try {
-            const dbFull = getFirestore();
             const path = buildCommentPath(comment);
             const pathSegments = path.split('/');
-            await deleteDoc(doc(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2)));
+            await deleteDoc(doc(db, pathSegments[0], pathSegments[1], ...pathSegments.slice(2)));
             await reloadComments();
         } catch (error) {
             console.error("Error deleting comment:", error);
@@ -402,10 +395,9 @@ export function CommentsView({ data }: CommentsViewProps) {
     const handleEdit = async (comment: CommentRecord, newText: string) => {
         if (!data?.id) return;
         try {
-            const dbFull = getFirestore();
             const path = buildCommentPath(comment);
             const pathSegments = path.split('/');
-            await updateDoc(doc(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2)), {
+            await updateDoc(doc(db, pathSegments[0], pathSegments[1], ...pathSegments.slice(2)), {
                 text: newText,
                 updatedAt: serverTimestamp(),
             });
@@ -417,9 +409,9 @@ export function CommentsView({ data }: CommentsViewProps) {
 
     const handleSend = async () => {
         if (!newComment.trim() || !currentUser || !data?.id) return;
+        setSending(false); // Wait, this was true in original? No, sending should be true.
         setSending(true);
         try {
-            const dbFull = getFirestore();
 
             // Build the correct path based on whether this is a reply or top-level comment
             let targetRef;
@@ -433,10 +425,10 @@ export function CommentsView({ data }: CommentsViewProps) {
                     basePath += `/replies/${parentPath[i]}`;
                 }
 
-                targetRef = collection(dbFull, basePath, "replies");
+                targetRef = collection(db, basePath, "replies");
             } else {
                 // Top-level comment
-                targetRef = collection(dbFull, "events", data.id, "comments");
+                targetRef = collection(db, "events", data.id, "comments");
             }
 
             const payload: any = {
@@ -451,13 +443,13 @@ export function CommentsView({ data }: CommentsViewProps) {
                 try {
                     for (const mention of mentions) {
                         const username = mention.substring(1);
-                        const usersRef = collection(dbFull, "users");
+                        const usersRef = collection(db, "users");
                         const q = query(usersRef, where("username", "==", username));
                         const snap = await getDocs(q);
 
                         if (!snap.empty) {
                             const targetUser = snap.docs[0];
-                            const notifRef = collection(dbFull, "users", targetUser.id, "notifications");
+                            const notifRef = collection(db, "users", targetUser.id, "notifications");
                             await addDoc(notifRef, {
                                 type: "mention",
                                 fromUid: currentUser.uid,

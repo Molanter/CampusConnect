@@ -1,6 +1,7 @@
 "use client";
 
-import { doc, getDoc, getFirestore } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "./firebase";
 
 export function isGlobalAdmin(
   email?: string | null,
@@ -12,7 +13,6 @@ export function isGlobalAdmin(
 
 export async function fetchGlobalAdminEmails() {
   try {
-    const db = getFirestore();
     const ref = doc(db, "config", "admin");
     const snap = await getDoc(ref);
     const data = snap.data() as { globalAdminEmails?: string[] } | undefined;

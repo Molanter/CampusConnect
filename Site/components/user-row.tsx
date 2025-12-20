@@ -1,11 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, getFirestore } from "firebase/firestore";
-// import { db } from "../lib/firebase"; // db from lib/firebase might be lite.
-// Let's check lib/firebase.ts to see what 'db' is.
-// Actually, profile/page.tsx uses getFirestore().
-// Let's use getFirestore() to be safe and consistent with profile page real-time logic.
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 
 type UserRowProps = {
@@ -37,7 +34,7 @@ export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElem
 
         if (!uid) return;
 
-        const db = getFirestore();
+
         const unsubscribe = onSnapshot(doc(db, "users", uid), (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Post } from "@/lib/posts";
-import { doc, getDoc, getFirestore } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface TabAttendeesProps {
     post: Post;
@@ -30,7 +31,7 @@ export function TabAttendees({ post }: TabAttendeesProps) {
 
         const fetchUsers = async () => {
             try {
-                const db = getFirestore();
+
                 const users = await Promise.all(uids.map(async uid => {
                     const snap = await getDoc(doc(db, "users", uid));
                     if (snap.exists()) {

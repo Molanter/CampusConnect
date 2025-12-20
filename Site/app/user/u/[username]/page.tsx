@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getFirestore, collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../../../../lib/firebase";
 
 export default function UsernameRedirectPage() {
   const params = useParams();
@@ -15,7 +16,7 @@ export default function UsernameRedirectPage() {
 
     const lookupUser = async () => {
       try {
-        const db = getFirestore();
+
         const q = query(collection(db, "users"), where("username", "==", username));
         const snap = await getDocs(q);
 

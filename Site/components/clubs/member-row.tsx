@@ -24,120 +24,137 @@ export function MemberRow({
     onApprove,
     onReject,
 }: MemberRowProps) {
-
-    const isSelf = false; // Logic to check if row is self (need current uid)
-
-    // Permission logic
-    const canManage = currentUserRole === "owner" || (currentUserRole === "admin" && member.role === "member");
     const isOwner = currentUserRole === "owner";
+    const canManage = isOwner || (currentUserRole === "admin" && member.role === "member");
+
+    const displayName = member.name || member.displayName || member.username || "Unknown User";
+    const initials = displayName.charAt(0).toUpperCase();
+
+    if (member.status === "pending") {
+        return (
+            <div className="flex w-full items-center justify-between py-1">
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10">
+                        {member.photoURL ? (
+                            <img src={member.photoURL} alt={displayName} className="h-full w-full object-cover" />
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
+                                {initials}
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex flex-col leading-tight">
+                        <span className="text-sm font-semibold text-white">{displayName}</span>
+                        <span className="text-xs text-amber-500 font-medium">Pending Request</span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => onApprove?.(member.uid)}
+                        className="rounded-full bg-green-500/20 p-2 text-green-400 hover:bg-green-500/30 transition-colors"
+                        title="Approve"
+                    >
+                        <CheckIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                        onClick={() => onReject?.(member.uid)}
+                        className="rounded-full bg-red-500/20 p-2 text-red-400 hover:bg-red-500/30 transition-colors"
+                        title="Reject"
+                    >
+                        <XMarkIcon className="h-4 w-4" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="flex items-center justify-between rounded-xl bg-white/5 p-3 hover:bg-white/10 transition-colors">
+        <div className="flex w-full items-center justify-between py-1">
             <div className="flex items-center gap-3">
-                {member.photoURL ? (
-                    <img
-                        src={member.photoURL}
-                        alt={member.displayName || "User"}
-                        className="h-10 w-10 rounded-full object-cover"
-                    />
-                ) : (
-                    <UserCircleIcon className="h-10 w-10 text-zinc-500" />
-                )}
-
-                <div>
-                    <h4 className="text-sm font-medium text-white">
-                        {member.displayName || member.username || "Unknown User"}
-                    </h4>
-                    <p className="text-xs text-zinc-500 capitalize">
-                        {member.role === "owner" && <span className="text-amber-500 font-bold">Owner</span>}
-                        {member.role === "admin" && <span className="text-blue-400 font-semibold">Admin</span>}
-                        {member.role === "member" && "Member"}
-                    </p>
+                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10">
+                    {member.photoURL ? (
+                        <img src={member.photoURL} alt={displayName} className="h-full w-full object-cover" />
+                    ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
+                            {initials}
+                        </div>
+                    )}
+                </div>
+                <div className="flex flex-col leading-tight">
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold text-white">{displayName}</span>
+                        <span className="text-sm text-neutral-500">·</span>
+                        <span className={`text-[13px] font-medium capitalize ${member.role === "owner" ? "text-amber-500" :
+                            member.role === "admin" ? "text-blue-400" : "text-neutral-400"
+                            }`}>
+                            {member.role}
+                        </span>
+                    </div>
+                    <span className="text-xs text-neutral-500">
+                        {member.username ? `@${member.username}` : ""}
+                    </span>
                 </div>
             </div>
 
-            <div className="flex items-center gap-2">
-                {member.status === "pending" ? (
-                    <>
-                        <button
-                            onClick={() => onApprove?.(member.uid)}
-                            className="rounded-full bg-green-500/20 p-2 text-green-400 hover:bg-green-500/30"
-                            title="Approve"
-                        >
-                            <CheckIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                            onClick={() => onReject?.(member.uid)}
-                            className="rounded-full bg-red-500/20 p-2 text-red-400 hover:bg-red-500/30"
-                            title="Reject"
-                        >
-                            <XMarkIcon className="h-4 w-4" />
-                        </button>
-                    </>
-                ) : (
-                    canManage && (
-                        <Menu as="div" className="relative inline-block text-left">
-                            <Menu.Button className="flex items-center justify-center rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-white">
-                                <EllipsisHorizontalIcon className="h-5 w-5" />
-                            </Menu.Button>
-                            <Transition
-                                as={Fragment}
-                                enter="transition ease-out duration-100"
-                                enterFrom="transform opacity-0 scale-95"
-                                enterTo="transform opacity-100 scale-100"
-                                leave="transition ease-in duration-75"
-                                leaveFrom="transform opacity-100 scale-100"
-                                leaveTo="transform opacity-0 scale-95"
-                            >
-                                <Menu.Items className="absolute right-0 z-50 mt-2 w-48 origin-top-right divide-y divide-zinc-700/50 rounded-xl bg-[#1c1c1e] shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                                    <div className="p-1">
-                                        {/* Promote/Demote */}
-                                        {isOwner && member.role === "member" && (
-                                            <Menu.Item>
-                                                {({ active }) => (
-                                                    <button
-                                                        onClick={() => onPromote?.(member.uid)}
-                                                        className={`${active ? "bg-white/10 text-white" : "text-zinc-300"
-                                                            } group flex w-full items-center rounded-lg px-2 py-2 text-sm`}
-                                                    >
-                                                        Promote to Admin
-                                                    </button>
-                                                )}
-                                            </Menu.Item>
+            {canManage && (
+                <Menu as="div" className="relative inline-block text-left">
+                    <Menu.Button className="flex items-center justify-center rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-white transition-colors">
+                        <EllipsisHorizontalIcon className="h-5 w-5" />
+                    </Menu.Button>
+                    <Transition
+                        as={Fragment}
+                        enter="transition ease-out duration-100"
+                        enterFrom="transform opacity-0 scale-95"
+                        enterTo="transform opacity-100 scale-100"
+                        leave="transition ease-in duration-75"
+                        leaveFrom="transform opacity-100 scale-100"
+                        leaveTo="transform opacity-0 scale-95"
+                    >
+                        <Menu.Items className="absolute right-0 z-50 mt-2 w-48 origin-top-right divide-y divide-white/5 rounded-2xl border border-white/10 bg-[#1C1C1E]/95 backdrop-blur-xl p-1.5 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <div className="p-1">
+                                {isOwner && member.role === "member" && (
+                                    <Menu.Item>
+                                        {({ active }) => (
+                                            <button
+                                                onClick={() => onPromote?.(member.uid)}
+                                                className={`${active ? "bg-white/10 text-white" : "text-neutral-300"
+                                                    } group flex w-full items-center rounded-xl px-2 py-2 text-[13px] font-medium transition-colors`}
+                                            >
+                                                Promote to Admin
+                                            </button>
                                         )}
-                                        {isOwner && member.role === "admin" && (
-                                            <Menu.Item>
-                                                {({ active }) => (
-                                                    <button
-                                                        onClick={() => onDemote?.(member.uid)}
-                                                        className={`${active ? "bg-white/10 text-white" : "text-zinc-300"
-                                                            } group flex w-full items-center rounded-lg px-2 py-2 text-sm`}
-                                                    >
-                                                        Demote to Member
-                                                    </button>
-                                                )}
-                                            </Menu.Item>
+                                    </Menu.Item>
+                                )}
+                                {isOwner && member.role === "admin" && (
+                                    <Menu.Item>
+                                        {({ active }) => (
+                                            <button
+                                                onClick={() => onDemote?.(member.uid)}
+                                                className={`${active ? "bg-white/10 text-white" : "text-neutral-300"
+                                                    } group flex w-full items-center rounded-xl px-2 py-2 text-[13px] font-medium transition-colors`}
+                                            >
+                                                Demote to Member
+                                            </button>
                                         )}
+                                    </Menu.Item>
+                                )}
 
-                                        {/* Kick */}
-                                        <Menu.Item>
-                                            {({ active }) => (
-                                                <button
-                                                    onClick={() => onKick?.(member.uid)}
-                                                    className={`${active ? "bg-red-500/20 text-red-500" : "text-red-400"
-                                                        } group flex w-full items-center rounded-lg px-2 py-2 text-sm`}
-                                                >
-                                                    Remove from Club
-                                                </button>
-                                            )}
-                                        </Menu.Item>
-                                    </div>
-                                </Menu.Items>
-                            </Transition>
-                        </Menu>
-                    )
-                )}
-            </div>
+                                <Menu.Item>
+                                    {({ active }) => (
+                                        <button
+                                            onClick={() => onKick?.(member.uid)}
+                                            className={`${active ? "bg-red-500/20 text-red-500" : "text-red-400"
+                                                } group flex w-full items-center rounded-xl px-2 py-2 text-[13px] font-medium transition-colors`}
+                                        >
+                                            Remove from Club
+                                        </button>
+                                    )}
+                                </Menu.Item>
+                            </div>
+                        </Menu.Items>
+                    </Transition>
+                </Menu>
+            )}
         </div>
     );
 }

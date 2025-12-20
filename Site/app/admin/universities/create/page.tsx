@@ -14,7 +14,7 @@ import {
   query,
   orderBy,
   updateDoc,
-} from "firebase/firestore/lite";
+} from "firebase/firestore";
 import { auth, db } from "../../../../lib/firebase";
 import Toast, { ToastData } from "@/components/Toast";
 

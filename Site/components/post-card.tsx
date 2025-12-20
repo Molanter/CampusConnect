@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { HandThumbUpIcon, HandThumbDownIcon, QuestionMarkCircleIcon, HeartIcon, CheckIcon, XMarkIcon, CalendarIcon, UserGroupIcon } from "@heroicons/react/24/solid";
-import { HeartIcon as HeartIconOutline, PencilIcon, EllipsisVerticalIcon, FlagIcon } from "@heroicons/react/24/outline";
+import { HeartIcon as HeartIconOutline, PencilIcon, EllipsisVerticalIcon, FlagIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, updateDoc, arrayUnion, arrayRemove, getFirestore, onSnapshot, collection, query, getDocs, orderBy, limit, getDoc } from "firebase/firestore";
+import { doc, updateDoc, arrayUnion, arrayRemove, onSnapshot, collection, query, getDocs, orderBy, limit, getDoc, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
 import { CommentMessage } from "./comment-message";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "../lib/admin-utils";
@@ -34,10 +34,12 @@ interface PostCardProps {
     hideDate?: boolean;
     fullWidth?: boolean;
     variant?: "default" | "threads";
+    onDeleted?: () => void;
 }
 
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 import { MediaHorizontalScroll } from "@/components/post-detail/media-horizontal-scroll";
+import { formatDistanceToNow } from "date-fns";
 
 const mapContainerStyle = {
     width: "100%",
@@ -62,6 +64,7 @@ export function PostCard({
     fullWidth = false,
     variant = "default",
     onEditClick,
+    onDeleted,
 }: PostCardProps) {
     // Deconstruct fields for easier access and backward compatibility logic
     const {
@@ -79,6 +82,7 @@ export function PostCard({
         coordinates,
         likes = [],
         isEvent,
+        createdAt,
         editCount = 0,
     } = post;
 
@@ -121,8 +125,7 @@ export function PostCard({
         if (!id) return;
 
         try {
-            const dbFull = getFirestore();
-            const commentsRef = collection(dbFull, "events", id, "comments");
+            const commentsRef = collection(db, "posts", id, "comments");
             const q = query(commentsRef, orderBy("createdAt", "desc"));
             const snapshot = await getDocs(q);
 
@@ -143,7 +146,7 @@ export function PostCard({
 
                     if (targetUid) {
                         try {
-                            const userDoc = await getDoc(doc(dbFull, "users", targetUid));
+                            const userDoc = await getDoc(doc(db, "users", targetUid));
                             if (userDoc.exists()) {
                                 const userData = userDoc.data();
                                 authorName = userData.displayName || userData.username || "Someone";
@@ -155,7 +158,7 @@ export function PostCard({
                         }
                     }
 
-                    const repliesRef = collection(dbFull, "events", id, "comments", docSnap.id, "replies");
+                    const repliesRef = collection(db, "posts", id, "comments", docSnap.id, "replies");
                     const repliesSnapshot = await getDocs(repliesRef);
 
                     // Load replies recursively
@@ -170,7 +173,7 @@ export function PostCard({
 
                         if (replyData.authorUid) {
                             try {
-                                const userDoc = await getDoc(doc(dbFull, "users", replyData.authorUid));
+                                const userDoc = await getDoc(doc(db, "users", replyData.authorUid));
                                 if (userDoc.exists()) {
                                     const userData = userDoc.data();
                                     replyAuthorName = userData.displayName || userData.username || "Someone";
@@ -231,7 +234,7 @@ export function PostCard({
 
                     if (fallbackData.authorUid) {
                         try {
-                            const userDoc = await getDoc(doc(dbFull, "users", fallbackData.authorUid));
+                            const userDoc = await getDoc(doc(db, "users", fallbackData.authorUid));
                             if (userDoc.exists()) {
                                 const userData = userDoc.data();
                                 fallbackAuthorName = userData.displayName || userData.username || "Someone";
@@ -271,12 +274,11 @@ export function PostCard({
     useEffect(() => {
         const loadAuthorData = async () => {
             try {
-                const dbFull = getFirestore();
                 let targetAuthorId = authorId;
 
                 // If no authorId passed, try to get from event
                 if (!targetAuthorId && id) {
-                    const eventRef = doc(dbFull, "events", id);
+                    const eventRef = doc(db, "posts", id);
                     const eventSnap = await getDoc(eventRef);
                     if (eventSnap.exists()) {
                         const eventData = eventSnap.data();
@@ -285,7 +287,7 @@ export function PostCard({
                 }
 
                 if (targetAuthorId) {
-                    const userRef = doc(dbFull, "users", targetAuthorId);
+                    const userRef = doc(db, "users", targetAuthorId);
                     const userSnap = await getDoc(userRef);
 
                     if (userSnap.exists()) {
@@ -317,8 +319,7 @@ export function PostCard({
     useEffect(() => {
         if (!id) return;
 
-        const dbFull = getFirestore();
-        const eventRef = doc(dbFull, "events", id);
+        const eventRef = doc(db, "posts", id);
 
         const unsubscribe = onSnapshot(eventRef, (snap) => {
             if (snap.exists()) {
@@ -337,8 +338,7 @@ export function PostCard({
     useEffect(() => {
         if (!id) return;
 
-        const dbFull = getFirestore();
-        const docRef = doc(dbFull, "events", id);
+        const docRef = doc(db, "posts", id);
 
         const unsubscribe = onSnapshot(docRef, (snap) => {
             if (snap.exists()) {
@@ -370,12 +370,11 @@ export function PostCard({
     useEffect(() => {
         if (!id) return;
 
-        const dbFull = getFirestore();
 
         const countRepliesRecursively = async (commentPath: string, depth: number): Promise<number> => {
             if (depth >= 2) return 0;
             try {
-                const repliesRef = collection(dbFull, commentPath, "replies");
+                const repliesRef = collection(db, commentPath, "replies");
                 const repliesSnapshot = await getDocs(repliesRef);
                 let count = repliesSnapshot.size;
 
@@ -393,12 +392,12 @@ export function PostCard({
 
         const updateCommentCount = async () => {
             try {
-                const commentsRef = collection(dbFull, "events", id, "comments");
+                const commentsRef = collection(db, "posts", id, "comments");
                 const commentsSnapshot = await getDocs(commentsRef);
                 let totalCount = commentsSnapshot.size;
 
                 for (const commentDoc of commentsSnapshot.docs) {
-                    const commentPath = `events/${id}/comments/${commentDoc.id}`;
+                    const commentPath = `posts/${id}/comments/${commentDoc.id}`;
                     totalCount += await countRepliesRecursively(commentPath, 0);
                 }
 
@@ -411,7 +410,7 @@ export function PostCard({
             }
         };
 
-        const commentsRef = collection(dbFull, "events", id, "comments");
+        const commentsRef = collection(db, "posts", id, "comments");
         const q = query(commentsRef);
 
         const unsubscribe = onSnapshot(q, () => {
@@ -454,8 +453,7 @@ export function PostCard({
         });
 
         try {
-            const dbFull = getFirestore();
-            const docRef = doc(dbFull, "events", id);
+            const docRef = doc(db, "posts", id);
 
             const updates: any = {};
 
@@ -517,8 +515,7 @@ export function PostCard({
         setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
 
         try {
-            const dbFull = getFirestore();
-            const eventRef = doc(dbFull, "events", id);
+            const eventRef = doc(db, "posts", id);
 
             await updateDoc(eventRef, {
                 likes: isLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
@@ -540,7 +537,7 @@ export function PostCard({
 
         const checkPermissions = async () => {
             // User can delete if they're the event host
-            const isEventOwner = currentUser.uid === hostUsername; // Adjust as needed
+            const isEventOwner = currentUser.uid === authorId; // Adjust as needed
 
             // Or if they're a global admin
             const globalAdmins = await fetchGlobalAdminEmails();
@@ -550,7 +547,7 @@ export function PostCard({
         };
 
         checkPermissions();
-    }, [currentUser, hostUsername]);
+    }, [currentUser, authorId]);
 
     // Comment action handlers
     const handleCommentReply = (comment: any) => {
@@ -561,7 +558,7 @@ export function PostCard({
     const handleCommentLike = async (comment: any) => {
         if (!id || !currentUser) return;
         try {
-            const dbFull = getFirestore();
+            const dbAccess = db;
 
             // Build path correctly for nested replies
             let commentPath: string;
@@ -569,10 +566,10 @@ export function PostCard({
 
             if (parentPath.length === 0) {
                 // Top-level comment
-                commentPath = `events/${id}/comments/${comment.id}`;
+                commentPath = `posts/${id}/comments/${comment.id}`;
             } else {
                 // Nested reply - build path incrementally
-                commentPath = `events/${id}/comments/${parentPath[0]}`;
+                commentPath = `posts/${id}/comments/${parentPath[0]}`;
                 for (let i = 1; i < parentPath.length; i++) {
                     commentPath += `/replies/${parentPath[i]}`;
                 }
@@ -587,7 +584,7 @@ export function PostCard({
             });
 
             const pathSegments = commentPath.split('/');
-            const commentRef = doc(dbFull, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
+            const commentRef = doc(db, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
             const isLiked = comment.likes?.includes(currentUser.uid);
 
             // Optimistic update
@@ -730,7 +727,37 @@ export function PostCard({
         return `${minutes}m`;
     };
 
-    const timeUntilLabel = getTimeUntilLabel();
+    const getPostTimeLabel = () => {
+        if (isEvent) {
+            return getTimeUntilLabel();
+        }
+
+        if (!createdAt) return "now";
+
+        const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+        if (isNaN(date.getTime())) return "now";
+
+        // Shorten the formatDistanceToNow output
+        // e.g. "about 2 hours" -> "2h", "less than a minute" -> "now"
+        const distance = formatDistanceToNow(date, { addSuffix: false });
+
+        if (distance.includes("less than a minute")) return "now";
+
+        return distance
+            .replace("about ", "")
+            .replace(" hours", "h")
+            .replace(" hour", "h")
+            .replace(" minutes", "m")
+            .replace(" minute", "m")
+            .replace(" days", "d")
+            .replace(" day", "d")
+            .replace(" months", "mo")
+            .replace(" month", "mo")
+            .replace(" years", "y")
+            .replace(" year", "y");
+    };
+
+    const timeLabel = getPostTimeLabel();
 
     const getStatusObj = () => {
         if (!date || !time) return { type: 'upcoming', label: 'UPCOMING' };
@@ -935,6 +962,7 @@ export function PostCard({
     // Context menu handlers
     const handleContextMenu = (e: React.MouseEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         setContextMenuPosition({ x: e.clientX, y: e.clientY });
         setContextMenuOpen(true);
     };
@@ -973,7 +1001,22 @@ export function PostCard({
         closeContextMenu();
     };
 
-    const isEventOwner = currentUser?.uid === hostUsername; // Adjust if needed
+    const handleDeletePost = async () => {
+        if (!id || previewMode) return;
+        if (confirm(`Are you sure you want to delete this ${isEvent ? 'event' : 'post'}?`)) {
+            try {
+                await deleteDoc(doc(db, "events", id));
+                onDeleted?.();
+                closeContextMenu();
+                setOptionsMenuOpen(false);
+            } catch (err) {
+                console.error("Delete error:", err);
+                alert("Failed to delete post.");
+            }
+        }
+    };
+
+    const isEventOwner = currentUser?.uid === authorId;
 
     // Get attendance status label and icon
     const getAttendanceStatus = () => {
@@ -1057,12 +1100,13 @@ export function PostCard({
                                     </Link>
                                     <span className="text-neutral-500 text-xs">•</span>
                                     <div className="text-xs text-neutral-500">
-                                        {timeUntilLabel && isEvent ? timeUntilLabel : (date || "now")}
+                                        {timeLabel || (date ? date : "now")}
                                     </div>
                                 </div>
                             </div>
 
                             <button
+                                type="button"
                                 onClick={handleContextMenu}
                                 className="-mt-1 text-neutral-500 hover:text-white"
                             >
@@ -1106,6 +1150,7 @@ export function PostCard({
                             {/* Like Button & Count */}
                             <div className="flex items-center gap-1.5">
                                 <button
+                                    type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleToggleLike();
@@ -1119,7 +1164,7 @@ export function PostCard({
                                     )}
                                 </button>
                                 {likesCount > 0 && (
-                                    <button onClick={(e) => { e.stopPropagation(); onLikesClick?.(); }} className="text-sm font-medium text-neutral-500 hover:text-white">
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); onLikesClick?.(); }} className="text-sm font-medium text-neutral-500 hover:text-white">
                                         {likesCount}
                                     </button>
                                 )}
@@ -1136,7 +1181,7 @@ export function PostCard({
                                     </svg>
                                 </button>
                                 {stats.comments > 0 && (
-                                    <button onClick={(e) => { e.stopPropagation(); onCommentsClick?.(); }} className="text-sm font-medium text-neutral-500 hover:text-white">
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); onCommentsClick?.(); }} className="text-sm font-medium text-neutral-500 hover:text-white">
                                         {stats.comments}
                                     </button>
                                 )}
@@ -1146,6 +1191,7 @@ export function PostCard({
                             {(currentUser?.uid === authorId || editCount > 0) && (
                                 <div className="flex items-center gap-1.5">
                                     <button
+                                        type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onEditClick?.();
@@ -1166,6 +1212,7 @@ export function PostCard({
                             {isEvent && (
                                 <div className="relative flex items-center gap-1.5">
                                     <button
+                                        type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setAttendanceMenuOpen(!attendanceMenuOpen);
@@ -1192,6 +1239,7 @@ export function PostCard({
 
                                         return (
                                             <button
+                                                type="button"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     openView("attendance", { id });
@@ -1209,15 +1257,15 @@ export function PostCard({
                                             <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setAttendanceMenuOpen(false); }} />
                                             <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[160px] overflow-hidden rounded-xl border border-white/10 bg-[#1C1C1E]/90 shadow-xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 origin-bottom-left">
                                                 <div className="p-1.5 flex flex-col gap-0.5">
-                                                    <button onClick={(e) => { e.stopPropagation(); handleStatusChange(status === "going" ? null : "going"); setAttendanceMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${status === "going" ? "bg-white/10 text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white"}`}>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); handleStatusChange(status === "going" ? null : "going"); setAttendanceMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${status === "going" ? "bg-white/10 text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white"}`}>
                                                         <span className="font-medium">Going</span>
                                                         <HandThumbUpIcon className={`h-4 w-4 ${status === "going" ? "opacity-100" : "opacity-0"}`} />
                                                     </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); handleStatusChange(status === "maybe" ? null : "maybe"); setAttendanceMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${status === "maybe" ? "bg-white/10 text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white"}`}>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); handleStatusChange(status === "maybe" ? null : "maybe"); setAttendanceMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${status === "maybe" ? "bg-white/10 text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white"}`}>
                                                         <span className="font-medium">Maybe</span>
                                                         <QuestionMarkCircleIcon className={`h-4 w-4 ${status === "maybe" ? "opacity-100" : "opacity-0"}`} />
                                                     </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); handleStatusChange(status === "not_going" ? null : "not_going"); setAttendanceMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${status === "not_going" ? "bg-white/10 text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white"}`}>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); handleStatusChange(status === "not_going" ? null : "not_going"); setAttendanceMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${status === "not_going" ? "bg-white/10 text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white"}`}>
                                                         <span className="font-medium">Not Going</span>
                                                         <HandThumbDownIcon className={`h-4 w-4 ${status === "not_going" ? "opacity-100" : "opacity-0"}`} />
                                                     </button>
@@ -1231,7 +1279,11 @@ export function PostCard({
                             {/* Share Button */}
                             <div className="flex items-center">
                                 <button
-                                    onClick={handleShare}
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleShare();
+                                    }}
                                     className="text-white hover:text-neutral-300 transition-transform active:scale-90"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-[22px] w-[22px]">
@@ -1243,6 +1295,7 @@ export function PostCard({
                             {/* Options Menu */}
                             <div className="relative flex items-center">
                                 <button
+                                    type="button"
                                     onClick={(e) => { e.stopPropagation(); setOptionsMenuOpen(!optionsMenuOpen); }}
                                     className={`text-neutral-400 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10 ${optionsMenuOpen ? "text-white bg-white/10" : ""}`}
                                 >
@@ -1253,7 +1306,44 @@ export function PostCard({
                                         <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOptionsMenuOpen(false); }} />
                                         <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[160px] overflow-hidden rounded-xl border border-white/10 bg-[#1C1C1E]/90 shadow-xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 origin-bottom-left">
                                             <div className="p-1.5 flex flex-col gap-0.5">
-                                                <button onClick={(e) => { e.stopPropagation(); openView("report", { id, type: isEvent ? "event" : "post" }); setOptionsMenuOpen(false); }} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-white/5 hover:text-red-300 transition-colors">
+                                                {isEventOwner && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onEditClick?.();
+                                                            setOptionsMenuOpen(false);
+                                                        }}
+                                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+                                                    >
+                                                        <span className="font-medium">Edit</span>
+                                                        <PencilIcon className="h-4 w-4" />
+                                                    </button>
+                                                )}
+
+                                                {isEventOwner && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeletePost();
+                                                        }}
+                                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-white/5 hover:text-red-300 transition-colors"
+                                                    >
+                                                        <span className="font-medium">Delete</span>
+                                                        <TrashIcon className="h-4 w-4" />
+                                                    </button>
+                                                )}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openView("report", { id, type: isEvent ? "event" : "post" });
+                                                        setOptionsMenuOpen(false);
+                                                    }}
+                                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-neutral-400 hover:bg-white/5 hover:text-white transition-colors"
+                                                >
                                                     <span className="font-medium">Report</span>
                                                     <FlagIcon className="h-4 w-4" />
                                                 </button>
@@ -1315,13 +1405,14 @@ export function PostCard({
                             </Link>
                             <span className="text-neutral-500 text-xs">•</span>
                             <div className="text-xs text-neutral-500">
-                                {timeUntilLabel && isEvent ? timeUntilLabel : (date || "now")}
+                                {timeLabel || (date ? date : "now")}
                             </div>
                         </div>
                     </div>
 
                     {/* Context Menu Trigger */}
                     <button
+                        type="button"
                         onClick={handleContextMenu}
                         className="-mt-1 text-neutral-500 hover:text-white"
                     >
@@ -1596,18 +1687,14 @@ export function PostCard({
                             <>
                                 <div className="my-1 border-t border-white/5" />
                                 <button
+                                    type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (confirm(`Are you sure you want to delete this ${isEvent ? 'event' : 'post'}?`)) {
-                                            // Delete event logic
-                                            closeContextMenu();
-                                        }
+                                        handleDeletePost();
                                     }}
                                     className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                    </svg>
+                                    <TrashIcon className="h-5 w-5" />
                                     <span>{isEvent ? 'Delete Event' : 'Delete Post'}</span>
                                 </button>
                             </>

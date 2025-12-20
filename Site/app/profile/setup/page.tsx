@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { doc, getDoc, setDoc, getFirestore, collection, getDocs } from "firebase/firestore";
-import { auth } from "../../../lib/firebase";
+import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
+import { auth, db } from "../../../lib/firebase";
 import Link from "next/link";
 import { ChevronLeftIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
@@ -34,7 +34,7 @@ export default function ProfileSetupPage() {
         const fetchUniversities = async () => {
             try {
                 setLoadingUniversities(true);
-                const db = getFirestore();
+
                 const snapshot = await getDocs(collection(db, "universities"));
                 const univs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setUniversities(univs);
@@ -56,7 +56,7 @@ export default function ProfileSetupPage() {
             }
 
             try {
-                const db = getFirestore();
+
                 const dormsSnapshot = await getDocs(
                     collection(db, "universities", universityId, "dorms")
                 );
@@ -82,7 +82,7 @@ export default function ProfileSetupPage() {
 
             // Load existing profile data
             try {
-                const db = getFirestore();
+
                 const ref = doc(db, "users", u.uid);
                 const snap = await getDoc(ref);
                 if (snap.exists()) {
@@ -114,7 +114,7 @@ export default function ProfileSetupPage() {
         try {
             setSaving(true);
             setError("");
-            const db = getFirestore();
+
 
             // Check if username is already taken
             const usernameQuery = await getDocs(

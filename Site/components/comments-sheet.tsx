@@ -11,8 +11,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  getFirestore,
-  increment,
   onSnapshot,
   orderBy,
   query,
@@ -20,7 +18,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { CommentMessage, type CommentRecord } from "./comment-message";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "@/lib/admin-utils";
 import { ReportSheet } from "./report-sheet";
@@ -52,7 +50,7 @@ export function CommentsSheet({
   const [reportTarget, setReportTarget] = useState<CommentRecord | null>(null);
   const [showHidden, setShowHidden] = useState(false);
 
-  const db = getFirestore();
+
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => setCurrentUser(user));
@@ -101,7 +99,7 @@ export function CommentsSheet({
           let authorName = "Someone";
           let authorUsername = null;
           let authorPhotoURL = null;
-          
+
           if (data.authorUid) {
             try {
               const userDoc = await getDoc(doc(db, "users", data.authorUid));
@@ -163,7 +161,7 @@ export function CommentsSheet({
             let authorName = "Someone";
             let authorUsername = null;
             let authorPhotoURL = null;
-            
+
             if (data.authorUid) {
               try {
                 const userDoc = await getDoc(doc(db, "users", data.authorUid));
@@ -173,7 +171,7 @@ export function CommentsSheet({
                   authorUsername = userData.username || null;
                   authorPhotoURL = userData.photoURL || null;
                 }
-      } catch (err) {
+              } catch (err) {
                 console.error("Error fetching user data:", err);
               }
             }
@@ -202,10 +200,10 @@ export function CommentsSheet({
         );
 
         // Filter out hidden comments unless showHidden is true
-        const visibleComments = showHidden 
-          ? topLevelComments 
+        const visibleComments = showHidden
+          ? topLevelComments
           : topLevelComments.filter(c => !c.isHidden);
-        
+
         setComments(visibleComments);
         setLoading(false);
       } catch (error) {
@@ -260,12 +258,12 @@ export function CommentsSheet({
     const pathSegments = path.split('/');
     const commentRef = doc(db, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
     const alreadyLiked = comment.likes?.includes(currentUser.uid);
-    
+
     try {
       await updateDoc(commentRef, {
         likes: alreadyLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
       });
-      
+
       // Reload to reflect like
       const loadComments = async () => {
         try {
@@ -283,7 +281,7 @@ export function CommentsSheet({
               let authorName = "Someone";
               let authorUsername = null;
               let authorPhotoURL = null;
-              
+
               if (data.authorUid) {
                 try {
                   const userDoc = await getDoc(doc(db, "users", data.authorUid));
@@ -338,7 +336,7 @@ export function CommentsSheet({
       const commentPath = buildCommentPath(reportTarget);
       const pathSegments = commentPath.split('/');
       const commentRef = doc(db, pathSegments[0], pathSegments[1], ...pathSegments.slice(2));
-      
+
       // Add report to the comment's reports subcollection
       await addDoc(collection(commentRef, "reports"), {
         reason,
@@ -361,7 +359,7 @@ export function CommentsSheet({
         details: details || null,
         createdAt: serverTimestamp(),
       });
-      
+
       setReportTarget(null);
     } catch (error) {
       console.error("Error reporting comment:", error);
@@ -374,7 +372,7 @@ export function CommentsSheet({
       // Top-level comment
       return `events/${eventId}/comments/${comment.id}`;
     }
-    
+
     // Nested reply
     let path = `events/${eventId}/comments/${parentPath[0]}`;
     for (let i = 1; i < parentPath.length; i++) {
@@ -389,7 +387,7 @@ export function CommentsSheet({
       const path = buildCommentPath(comment);
       const pathSegments = path.split('/');
       await deleteDoc(doc(db, pathSegments[0], pathSegments[1], ...pathSegments.slice(2)));
-      
+
       // Reload to reflect deletion
       const loadComments = async () => {
         try {
@@ -407,7 +405,7 @@ export function CommentsSheet({
               let authorName = "Someone";
               let authorUsername = null;
               let authorPhotoURL = null;
-              
+
               if (data.authorUid) {
                 try {
                   const userDoc = await getDoc(doc(db, "users", data.authorUid));
@@ -458,7 +456,7 @@ export function CommentsSheet({
         text: newText,
         updatedAt: serverTimestamp(),
       });
-      
+
       // Reload to reflect edit
       const loadComments = async () => {
         try {
@@ -476,7 +474,7 @@ export function CommentsSheet({
               let authorName = "Someone";
               let authorUsername = null;
               let authorPhotoURL = null;
-              
+
               if (data.authorUid) {
                 try {
                   const userDoc = await getDoc(doc(db, "users", data.authorUid));
@@ -527,19 +525,19 @@ export function CommentsSheet({
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || !currentUser) return;
-    
+
     // Build the correct path based on whether this is a reply or top-level comment
     let targetRef;
     if (replyTarget) {
       // This is a reply - save to the replies subcollection
       const parentPath = replyTarget.parentPath || [];
       let basePath = `events/${eventId}/comments/${parentPath[0] || replyTarget.id}`;
-      
+
       // If there are nested levels, build the path
       for (let i = 1; i < parentPath.length; i++) {
         basePath += `/replies/${parentPath[i]}`;
       }
-      
+
       targetRef = collection(db, basePath, "replies");
     } else {
       // Top-level comment
@@ -547,7 +545,7 @@ export function CommentsSheet({
     }
 
     const payload: any = {
-        text: trimmed,
+      text: trimmed,
       authorUid: currentUser.uid,
       createdAt: serverTimestamp(),
       likes: [],
@@ -572,7 +570,7 @@ export function CommentsSheet({
               eventId,
               eventTitle,
               text: trimmed,
-        createdAt: serverTimestamp(),
+              createdAt: serverTimestamp(),
               read: false,
             });
           }
@@ -586,7 +584,7 @@ export function CommentsSheet({
       await addDoc(targetRef, payload);
       setInput("");
       setReplyTarget(null);
-      
+
       // Reload comments to show the new reply
       const loadComments = async () => {
         try {
@@ -604,7 +602,7 @@ export function CommentsSheet({
               let authorName = "Someone";
               let authorUsername = null;
               let authorPhotoURL = null;
-              
+
               if (data.authorUid) {
                 try {
                   const userDoc = await getDoc(doc(db, "users", data.authorUid));
@@ -614,7 +612,7 @@ export function CommentsSheet({
                     authorUsername = userData.username || null;
                     authorPhotoURL = userData.photoURL || null;
                   }
-    } catch (err) {
+                } catch (err) {
                   console.error("Error fetching user data:", err);
                 }
               }
@@ -650,22 +648,22 @@ export function CommentsSheet({
   const listContent = (
     <>
       <div className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
-              Comments
-            </p>
-            <h2 className="text-sm font-semibold text-neutral-50 line-clamp-1">
-              {eventTitle}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-          className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white hover:bg-white/20"
-          >
-            Close
-          </button>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
+            Comments
+          </p>
+          <h2 className="text-sm font-semibold text-neutral-50 line-clamp-1">
+            {eventTitle}
+          </h2>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white hover:bg-white/20"
+        >
+          Close
+        </button>
+      </div>
 
       {comments.some(c => c.isHidden) && (
         <div className="mb-3">
@@ -680,15 +678,15 @@ export function CommentsSheet({
       )}
 
       <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-          {loading && (
-            <p className="text-xs text-neutral-500">Loading comments...</p>
-          )}
-          {!loading && comments.length === 0 && (
-            <p className="text-xs text-neutral-500">
-              No comments yet. Be the first to share something.
-            </p>
-          )}
-          {!loading &&
+        {loading && (
+          <p className="text-xs text-neutral-500">Loading comments...</p>
+        )}
+        {!loading && comments.length === 0 && (
+          <p className="text-xs text-neutral-500">
+            No comments yet. Be the first to share something.
+          </p>
+        )}
+        {!loading &&
           comments.map((comment) => (
             <CommentMessage
               key={comment.id}
@@ -707,8 +705,8 @@ export function CommentsSheet({
               onEdit={handleEdit}
               depth={0}
             />
-            ))}
-        </div>
+          ))}
+      </div>
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-3 rounded-3xl border border-white/10 bg-[#101015] p-4">
         {replyTarget && (
@@ -725,23 +723,23 @@ export function CommentsSheet({
             </button>
           </div>
         )}
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
           rows={3}
           className="w-full rounded-3xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:border-white/30 focus:outline-none"
           placeholder="Write a message... mention someone with @username"
-          />
-          <div className="flex justify-end">
-            <button
-              type="submit"
+        />
+        <div className="flex justify-end">
+          <button
+            type="submit"
             className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
             disabled={!input.trim() || !currentUser}
-            >
+          >
             Send
-            </button>
-          </div>
-        </form>
+          </button>
+        </div>
+      </form>
     </>
   );
 
@@ -750,7 +748,7 @@ export function CommentsSheet({
       <>
         <div className="flex h-full w-full flex-col rounded-3xl border border-white/10 bg-neutral-950/90 px-4 py-4">
           {listContent}
-      </div>
+        </div>
         <ReportSheet
           isOpen={!!reportTarget}
           onClose={() => setReportTarget(null)}
@@ -770,7 +768,7 @@ export function CommentsSheet({
 
   return (
     <>
-    <div className={containerBase} aria-modal="true" role="dialog">
+      <div className={containerBase} aria-modal="true" role="dialog">
         <div className={innerClasses}>{listContent}</div>
       </div>
       <ReportSheet

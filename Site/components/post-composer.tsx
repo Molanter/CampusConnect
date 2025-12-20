@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db, storage } from "../lib/firebase";
-import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore/lite";
+import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { User } from "firebase/auth";
 import { PhotoIcon, CalendarIcon, XMarkIcon } from "@heroicons/react/24/outline";
@@ -95,15 +95,18 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                 authorId: user.uid,
                 authorName: user.displayName || "Anonymous",
                 authorUsername: (user as any).username || null, // Best effort username
-                authorAvatarUrl: avatarUrl, // Use the fetched avatar
+                // authorAvatarUrl removed - fetched dynamically from profile
                 content: content.trim(),
                 createdAt: serverTimestamp(),
                 isEvent: false, // Standard post
                 likes: [],
-                imageUrls: uploadedImageUrls,
             };
 
-            await addDoc(collection(db, "events"), docData); // Using 'events' collection as shared posts collection
+            if (uploadedImageUrls.length > 0) {
+                docData.imageUrls = uploadedImageUrls;
+            }
+
+            await addDoc(collection(db, "posts"), docData); // Using 'posts' collection as shared posts collection
 
             setContent("");
             // Clear images
