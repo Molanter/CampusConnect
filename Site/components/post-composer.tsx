@@ -213,8 +213,8 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                         {/* Post Button */}
                         <button
                             onClick={handlePost}
-                            disabled={loading || (!content.trim() && selectedImages.length === 0)}
-                            className={`rounded-full px-5 py-2 text-sm font-bold transition-all duration-200 ${content.trim() || selectedImages.length > 0
+                            disabled={loading || !content.trim()}
+                            className={`rounded-full px-5 py-2 text-sm font-bold transition-all duration-200 ${content.trim()
                                 ? "bg-[#ffb200] text-black hover:scale-[1.02] active:scale-[0.98]"
                                 : "bg-white/5 text-neutral-500 cursor-not-allowed"
                                 }`}

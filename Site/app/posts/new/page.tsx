@@ -432,6 +432,12 @@ export default function CreateEventPage() {
       }
     }
 
+    // Ensure description is not empty (or just spaces)
+    if (!description || !description.trim()) {
+      setFormError("Please enter a description.");
+      return;
+    }
+
     try {
       setSaving(true);
       setUploading(true);
@@ -490,7 +496,7 @@ export default function CreateEventPage() {
       if (selectedClubId) {
         router.push(`/clubs/${selectedClubId}`);
       } else {
-        router.push("/posts");
+        router.push("/");
       }
       setToast({ type: "success", message: "Post created." });
       // Reset form
@@ -506,7 +512,7 @@ export default function CreateEventPage() {
         setLocationLabel("");
       }
 
-      router.push("/events");
+
     } catch (err) {
       console.error("Error creating event", err);
       setFormError("Could not create event. Please try again.");

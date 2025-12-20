@@ -821,13 +821,13 @@ export function PostCard({
 
         if (mediaItems.length === 1) {
             return (
-                <div className="w-full max-w-[450px] aspect-[16/9] flex justify-start items-start">
-                    <div className="h-fit max-h-full w-fit max-w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04] mx-0">
+                <div className="w-full max-w-[450px] flex justify-start items-start">
+                    <div className="h-fit w-fit max-w-full overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D0D0D] shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-all duration-300 hover:scale-[1.01] hover:brightness-[1.04] mx-0">
                         {typeof mediaItems[0] === 'string' ? (
                             <img
                                 src={mediaItems[0]}
                                 alt={title}
-                                className="max-h-full w-auto mx-0 object-contain"
+                                className="block w-auto h-auto max-w-full max-h-[500px] mx-0 object-contain"
                             />
                         ) : (
                             <div className="aspect-[4/3] w-full">
@@ -1043,6 +1043,33 @@ export function PostCard({
         }
     }, [contextMenuOpen]);
 
+    const getEventTimeLabel = () => {
+        if (!isEvent || !date || !time) return null;
+
+        try {
+            // Parse event date and time
+            // date is YYYY-MM-DD, time is HH:mm
+            const eventDateTime = new Date(`${date}T${time}`);
+            const now = new Date();
+            const diffMs = eventDateTime.getTime() - now.getTime();
+
+            if (diffMs < 0) return null; // Expired
+
+            const diffMins = Math.floor(diffMs / (1000 * 60));
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 0) return `in ${diffDays}d`;
+            if (diffHours > 0) return `in ${diffHours}h`;
+            return `in ${diffMins}m`;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const eventTimeLabel = getEventTimeLabel();
+
+
     // Threads Variant Render (Sidebar-to-Sidebar Media Breakout)
     if (variant === "threads") {
         return (
@@ -1074,10 +1101,10 @@ export function PostCard({
                     {/* Unified Header: Name/Time + Description */}
                     <div
                         onClick={onDetailsClick}
-                        className="relative flex w-full @3xl:mx-auto @3xl:max-w-[600px] cursor-pointer flex-col gap-1 mb-3 @3xl:mb-3 @3xl:gap-3 @3xl:px-8"
+                        className="relative flex w-full @3xl:mx-auto @3xl:max-w-[600px] cursor-pointer flex-col @3xl:flex-row gap-1 mb-3 @3xl:mb-3 @3xl:gap-3 px-0 @3xl:px-3"
                     >
                         {/* Desktop Avatar (Hidden on mobile) */}
-                        <div className="hidden @3xl:block shrink-0 pt-1 @3xl:absolute @3xl:-left-4 @3xl:top-1.5 @3xl:pt-0">
+                        <div className="hidden @3xl:block shrink-0 pt-1">
                             <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
                                 <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10">
                                     {hostPhotoUrl ? (
@@ -1091,50 +1118,53 @@ export function PostCard({
                             </Link>
                         </div>
 
-                        {/* Top Row: Name | Time | Menu */}
-                        <div className="flex items-start justify-between">
-                            <div className="flex flex-col leading-tight">
-                                <div className="flex items-center gap-2">
-                                    <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-bold text-white hover:underline">
-                                        {displayedName}
-                                    </Link>
-                                    <span className="text-neutral-500 text-xs">•</span>
-                                    <div className="text-xs text-neutral-500">
-                                        {timeLabel || (date ? date : "now")}
+                        {/* Content Wrapper */}
+                        <div className="flex flex-col flex-1 min-w-0">
+                            {/* Top Row: Name | Time | Menu */}
+                            <div className="flex items-start justify-between">
+                                <div className="flex flex-col leading-tight">
+                                    <div className="flex items-center gap-2">
+                                        <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-bold text-white hover:underline">
+                                            {displayedName}
+                                        </Link>
+                                        <span className="text-neutral-500 text-xs">•</span>
+                                        <div className="text-xs text-neutral-500">
+                                            {eventTimeLabel || timeLabel || (date ? date : "now")}
+                                        </div>
                                     </div>
                                 </div>
+
+                                <button
+                                    type="button"
+                                    onClick={handleContextMenu}
+                                    className="-mt-1 text-neutral-500 hover:text-white"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                                        <path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 15a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                                    </svg>
+                                </button>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={handleContextMenu}
-                                className="-mt-1 text-neutral-500 hover:text-white"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-                                    <path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 15a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                                </svg>
-                            </button>
+                            {/* Bottom Row: Description */}
+                            {description && (
+                                <div
+                                    onClick={onDetailsClick}
+                                    className={`whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-100 ${onDetailsClick ? "cursor-pointer" : ""}`}
+                                >
+                                    {description}
+                                </div>
+                            )}
                         </div>
-
-                        {/* Bottom Row: Description */}
-                        {description && (
-                            <div
-                                onClick={onDetailsClick}
-                                className={`whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-100 ${onDetailsClick ? "cursor-pointer" : ""}`}
-                            >
-                                {description}
-                            </div>
-                        )}
                     </div>
 
                     {/* Media Scroll */}
                     {!hideMediaGrid && (
-                        <div className="w-full mb-0 @3xl:mb-0 @3xl:-mx-6 @3xl:w-[calc(100%+3rem)]">
+                        <div className="w-[calc(100%+56px)] -ml-[56px] mb-0 @3xl:mb-0 @3xl:ml-0 @3xl:mr-[-1.5rem] @3xl:w-[calc(100%+3rem)]">
                             <div className="w-full">
                                 <MediaHorizontalScroll
                                     post={post}
                                     noPadding
-                                    className="!pb-1 [&>*:first-child]:ml-0 @3xl:[&>*:first-child]:ml-[max(2rem,calc(50%_-_300px_+_2rem))] [&>*:last-child]:mr-4 @3xl:[&>*:last-child]:mr-6"
+                                    className="!pb-1 pl-[60px] scroll-pl-[60px] @3xl:scroll-pl-0 @3xl:pl-[max(2rem,calc(50%_-_300px_+_4rem))] [&>*:last-child]:mr-4 @3xl:[&>*:last-child]:mr-6"
                                 />
                             </div>
                         </div>
@@ -1143,7 +1173,7 @@ export function PostCard({
                     {/* Footer: Actions */}
                     <div
                         onClick={onDetailsClick}
-                        className="flex w-full @3xl:mx-auto @3xl:max-w-[600px] cursor-pointer items-start gap-3 @3xl:px-8"
+                        className="flex w-full @3xl:mx-auto @3xl:max-w-[600px] cursor-pointer items-start gap-3 @3xl:pl-[60px] @3xl:pr-3"
                     >
                         {/* Actions Row - Full width in the column */}
                         <div className="flex min-w-0 flex-1 items-center gap-4">
@@ -1405,7 +1435,7 @@ export function PostCard({
                             </Link>
                             <span className="text-neutral-500 text-xs">•</span>
                             <div className="text-xs text-neutral-500">
-                                {timeLabel || (date ? date : "now")}
+                                {eventTimeLabel || timeLabel || (date ? date : "now")}
                             </div>
                         </div>
                     </div>
