@@ -180,6 +180,20 @@ export default function CreateEventPage() {
 
     console.log("Target URL for regex:", targetUrl);
 
+    // Priority 1: Data params (!3d and !4d) - often used for specific pin location
+    // Format: ...!3d38.835848!4d-77.0828711...
+    const data3dRegex = /!3d(-?\d+\.\d+)/;
+    const data4dRegex = /!4d(-?\d+\.\d+)/;
+    const match3d = targetUrl.match(data3dRegex);
+    const match4d = targetUrl.match(data4dRegex);
+
+    if (match3d && match4d) {
+      return {
+        lat: parseFloat(match3d[1]),
+        lng: parseFloat(match4d[1]),
+      };
+    }
+
     // Google Maps: @lat,lng
     const googleRegex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
     const googleMatch = targetUrl.match(googleRegex);
@@ -432,9 +446,9 @@ export default function CreateEventPage() {
       }
     }
 
-    // Ensure description is not empty (or just spaces)
-    if (!description || !description.trim()) {
-      setFormError("Please enter a description.");
+    // Ensure description is not empty OR there are images
+    if ((!description || !description.trim()) && selectedFiles.length === 0) {
+      setFormError("Please enter a description or add an image.");
       return;
     }
 
@@ -821,7 +835,7 @@ export default function CreateEventPage() {
                     post={{
                       id: "preview",
                       title: "",
-                      content: description || "Post description will appear here.",
+                      content: description,
                       imageUrls: previewUrls,
                       date: isEvent ? eventDate : undefined,
                       startTime: isEvent ? startTime : undefined,

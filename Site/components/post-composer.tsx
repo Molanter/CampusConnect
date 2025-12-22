@@ -126,7 +126,7 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
     if (!user) return null;
 
     return (
-        <div className="mb-6 rounded-[24px] border border-white/10 bg-[#1C1C1E] px-3 py-5 ring-1 ring-white/5 shadow-soft relative mx-auto w-full max-w-[600px]">
+        <div className="mb-6 rounded-[24px] border border-white/10 bg-[#1C1C1E] px-3 py-5 ring-1 ring-white/5 shadow-soft relative w-full @3xl:mx-auto @3xl:max-w-[600px]">
             {/* Wrapper to control layout relative to padding */}
             <div className="relative flex gap-3">
                 {/* User Avatar - Absolute on Desktop to Match PostCard */}
@@ -213,8 +213,8 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                         {/* Post Button */}
                         <button
                             onClick={handlePost}
-                            disabled={loading || !content.trim()}
-                            className={`rounded-full px-5 py-2 text-sm font-bold transition-all duration-200 ${content.trim()
+                            disabled={loading || (!content.trim() && selectedImages.length === 0)}
+                            className={`rounded-full px-5 py-2 text-sm font-bold transition-all duration-200 ${(content.trim() || selectedImages.length > 0)
                                 ? "bg-[#ffb200] text-black hover:scale-[1.02] active:scale-[0.98]"
                                 : "bg-white/5 text-neutral-500 cursor-not-allowed"
                                 }`}

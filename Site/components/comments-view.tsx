@@ -17,6 +17,9 @@ import {
     where,
     getDocs,
     deleteDoc,
+    limit,
+    startAfter,
+    increment,
 } from "firebase/firestore";
 import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import { auth, db } from "@/lib/firebase";
@@ -35,11 +38,18 @@ export function CommentsView({ data }: CommentsViewProps) {
     const [sending, setSending] = useState(false);
     const [replyTarget, setReplyTarget] = useState<CommentRecord | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [globalAdmins, setGlobalAdmins] = useState<string[]>([]);
     const [eventOwnerUid, setEventOwnerUid] = useState<string | null>(null);
     const [reportTarget, setReportTarget] = useState<CommentRecord | null>(null);
     const [showHidden, setShowHidden] = useState(false);
+
+    // Pagination state
+    const [lastDoc, setLastDoc] = useState<any>(null);
+    const [hasMore, setHasMore] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const PAGE_SIZE = 20;
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
@@ -65,36 +75,21 @@ export function CommentsView({ data }: CommentsViewProps) {
         }
     };
 
-    // Helper to recursively load replies
-    const loadRepliesRecursive = async (
-        db: any,
-        parentPath: string,
-        depth: number,
-        parentPathArray: string[]
-    ): Promise<CommentRecord[]> => {
-        if (depth >= 2) return [];
-
+    // Load replies for a single comment (one level only)
+    const loadRepliesForComment = async (commentId: string): Promise<CommentRecord[]> => {
         try {
-            const repliesRef = collection(db, parentPath, "replies");
+            const repliesRef = collection(db, "posts", data.id, "comments", commentId, "replies");
             const q = query(repliesRef, orderBy("createdAt", "asc"));
             const snapshot = await getDocs(q);
 
             const replies: CommentRecord[] = await Promise.all(
                 snapshot.docs.map(async (docSnap) => {
-                    const data = docSnap.data() as any;
-                    const replyPath = `${parentPath}/replies/${docSnap.id}`;
-                    const nestedReplies = await loadRepliesRecursive(
-                        db,
-                        replyPath,
-                        depth + 1,
-                        [...parentPathArray, docSnap.id]
-                    );
+                    const replyData = docSnap.data() as any;
+                    const authorUid = replyData.uid ?? replyData.authorUid ?? null;
 
-                    // Fetch user data from users collection
                     let authorName = "Someone";
                     let authorUsername = null;
                     let authorPhotoURL = null;
-                    const authorUid = data.uid ?? data.authorUid ?? null;
 
                     if (authorUid) {
                         try {
@@ -106,29 +101,27 @@ export function CommentsView({ data }: CommentsViewProps) {
                                 authorPhotoURL = userData.photoURL || null;
                             }
                         } catch (err) {
-                            console.error("Error fetching user data:", err);
+                            console.error("Error fetching reply author:", err);
                         }
                     }
 
-                    // Check report count
-                    const reportCount = await checkReportCount(db, replyPath);
-                    const isHidden = reportCount >= 10;
-
                     return {
                         id: docSnap.id,
-                        text: data.text ?? "",
+                        text: replyData.text ?? "",
                         authorName,
                         authorUsername,
                         authorUid,
                         authorPhotoURL,
-                        createdAt: data.createdAt?.toDate?.() ?? null,
-                        updatedAt: data.updatedAt?.toDate?.() ?? null,
-                        likes: data.likes ?? [],
-                        replies: nestedReplies,
-                        depth: depth,
-                        parentPath: parentPathArray,
-                        reportCount,
-                        isHidden,
+                        createdAt: replyData.createdAt?.toDate?.() ?? null,
+                        updatedAt: replyData.updatedAt?.toDate?.() ?? null,
+                        editCount: replyData.editCount ?? 0,
+                        editedAt: replyData.editedAt?.toDate?.() ?? null,
+                        likes: replyData.likes ?? [],
+                        replies: [], // No nested replies
+                        depth: 1,
+                        parentPath: [commentId],
+                        reportCount: 0,
+                        isHidden: false,
                     } as CommentRecord;
                 })
             );
@@ -145,21 +138,26 @@ export function CommentsView({ data }: CommentsViewProps) {
 
         const loadComments = async () => {
             try {
-                const commentsRef = collection(db, "events", data.id, "comments");
-                const q = query(commentsRef, orderBy("createdAt", "asc"));
+                setCommentsLoading(true);
+                const commentsRef = collection(db, "posts", data.id, "comments");
+                const q = query(commentsRef, orderBy("createdAt", "asc"), limit(PAGE_SIZE));
                 const snapshot = await getDocs(q);
+
+                if (snapshot.empty) {
+                    setComments([]);
+                    setCommentsLoading(false);
+                    setHasMore(false);
+                    return;
+                }
 
                 const topLevelComments: CommentRecord[] = await Promise.all(
                     snapshot.docs.map(async (docSnap) => {
                         const payload = docSnap.data() as any;
-                        const commentPath = `events/${data.id}/comments/${docSnap.id}`;
-                        const replies = await loadRepliesRecursive(db, commentPath, 0, [docSnap.id]);
+                        const authorUid = payload.uid ?? payload.authorUid ?? null;
 
-                        // Fetch user data from users collection
                         let authorName = "Someone";
                         let authorUsername = null;
                         let authorPhotoURL = null;
-                        const authorUid = payload.uid ?? payload.authorUid ?? null;
 
                         if (authorUid) {
                             try {
@@ -175,9 +173,8 @@ export function CommentsView({ data }: CommentsViewProps) {
                             }
                         }
 
-                        // Check report count
-                        const reportCount = await checkReportCount(db, commentPath);
-                        const isHidden = reportCount >= 10;
+                        // Load replies for this comment
+                        const replies = await loadRepliesForComment(docSnap.id);
 
                         return {
                             id: docSnap.id,
@@ -188,24 +185,22 @@ export function CommentsView({ data }: CommentsViewProps) {
                             authorPhotoURL,
                             createdAt: payload.createdAt?.toDate?.() ?? null,
                             updatedAt: payload.updatedAt?.toDate?.() ?? null,
+                            editCount: payload.editCount ?? 0,
+                            editedAt: payload.editedAt?.toDate?.() ?? null,
                             likes: payload.likes ?? [],
                             replies: replies,
                             depth: 0,
                             parentPath: [],
-                            reportCount,
-                            isHidden,
+                            reportCount: 0,
+                            isHidden: false,
                         } as CommentRecord;
                     })
                 );
 
-                // Filter out hidden comments unless showHidden is true
-                const visibleComments = showHidden
-                    ? topLevelComments
-                    : topLevelComments.filter(c => !c.isHidden);
-
-                setComments(visibleComments);
+                setComments(topLevelComments);
+                setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+                setHasMore(snapshot.docs.length === PAGE_SIZE);
                 setCommentsLoading(false);
-                setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 120);
             } catch (error) {
                 console.error("Error loading comments:", error);
                 setCommentsLoading(false);
@@ -213,11 +208,100 @@ export function CommentsView({ data }: CommentsViewProps) {
         };
 
         loadComments();
+    }, [data?.id]);
 
-        // Refresh every 5 seconds to pick up new replies
-        const interval = setInterval(loadComments, 5000);
-        return () => clearInterval(interval);
-    }, [data?.id, showHidden]);
+    // Load more comments (pagination)
+    const loadMoreComments = async () => {
+        if (!data?.id || !hasMore || isLoadingMore || !lastDoc) return;
+
+        try {
+            setIsLoadingMore(true);
+            const commentsRef = collection(db, "posts", data.id, "comments");
+            const q = query(
+                commentsRef,
+                orderBy("createdAt", "asc"),
+                startAfter(lastDoc),
+                limit(PAGE_SIZE)
+            );
+            const snapshot = await getDocs(q);
+
+            if (snapshot.empty) {
+                setHasMore(false);
+                setIsLoadingMore(false);
+                return;
+            }
+
+            const newComments: CommentRecord[] = await Promise.all(
+                snapshot.docs.map(async (docSnap) => {
+                    const payload = docSnap.data() as any;
+                    const authorUid = payload.uid ?? payload.authorUid ?? null;
+
+                    let authorName = "Someone";
+                    let authorUsername = null;
+                    let authorPhotoURL = null;
+
+                    if (authorUid) {
+                        try {
+                            const userDoc = await getDoc(doc(db, "users", authorUid));
+                            if (userDoc.exists()) {
+                                const userData = userDoc.data();
+                                authorName = userData.displayName || userData.username || "Someone";
+                                authorUsername = userData.username || null;
+                                authorPhotoURL = userData.photoURL || null;
+                            }
+                        } catch (err) {
+                            console.error("Error fetching user data:", err);
+                        }
+                    }
+
+                    const replies = await loadRepliesForComment(docSnap.id);
+
+                    return {
+                        id: docSnap.id,
+                        text: payload.text ?? "",
+                        authorName,
+                        authorUsername,
+                        authorUid,
+                        authorPhotoURL,
+                        createdAt: payload.createdAt?.toDate?.() ?? null,
+                        updatedAt: payload.updatedAt?.toDate?.() ?? null,
+                        editCount: payload.editCount ?? 0,
+                        editedAt: payload.editedAt?.toDate?.() ?? null,
+                        likes: payload.likes ?? [],
+                        replies: replies,
+                        depth: 0,
+                        parentPath: [],
+                        reportCount: 0,
+                        isHidden: false,
+                    } as CommentRecord;
+                })
+            );
+
+            setComments(prev => [...prev, ...newComments]);
+            setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+            setHasMore(snapshot.docs.length === PAGE_SIZE);
+            setIsLoadingMore(false);
+        } catch (error) {
+            console.error("Error loading more comments:", error);
+            setIsLoadingMore(false);
+        }
+    };
+
+    // Scroll listener for infinite scroll
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        const handleScroll = () => {
+            const { scrollTop, scrollHeight, clientHeight } = container;
+            if (scrollHeight - scrollTop - clientHeight < 200) {
+                loadMoreComments();
+            }
+        };
+
+        container.addEventListener('scroll', handleScroll);
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, [hasMore, isLoadingMore, lastDoc]);
 
     useEffect(() => {
         if (!data?.id) return;
@@ -241,19 +325,15 @@ export function CommentsView({ data }: CommentsViewProps) {
     );
 
     const buildCommentPath = (comment: CommentRecord): string => {
-        const parentPath = comment.parentPath || [];
-        if (parentPath.length === 0) {
+        // One-level replies only
+        if (comment.depth === 0) {
             // Top-level comment
-            return `events/${data?.id}/comments/${comment.id}`;
+            return `posts/${data?.id}/comments/${comment.id}`;
+        } else {
+            // Reply (depth 1)
+            const parentId = comment.parentPath?.[0];
+            return `posts/${data?.id}/comments/${parentId}/replies/${comment.id}`;
         }
-
-        // Nested reply
-        let path = `events/${data?.id}/comments/${parentPath[0]}`;
-        for (let i = 1; i < parentPath.length; i++) {
-            path += `/replies/${parentPath[i]}`;
-        }
-        path += `/replies/${comment.id}`;
-        return path;
     };
 
     const canDelete = (comment: CommentRecord) => {
@@ -268,21 +348,18 @@ export function CommentsView({ data }: CommentsViewProps) {
     const reloadComments = async () => {
         if (!data?.id) return;
         try {
-            const commentsRef = collection(db, "events", data.id, "comments");
+            const commentsRef = collection(db, "posts", data.id, "comments");
             const q = query(commentsRef, orderBy("createdAt", "asc"));
             const snapshot = await getDocs(q);
 
             const topLevelComments: CommentRecord[] = await Promise.all(
                 snapshot.docs.map(async (docSnap) => {
                     const payload = docSnap.data() as any;
-                    const commentPath = `events/${data.id}/comments/${docSnap.id}`;
-                    const replies = await loadRepliesRecursive(db, commentPath, 0, [docSnap.id]);
+                    const authorUid = payload.authorUid ?? payload.uid ?? null;
 
-                    // Fetch user data from users collection
                     let authorName = "Someone";
                     let authorUsername = null;
                     let authorPhotoURL = null;
-                    const authorUid = payload.authorUid ?? payload.uid ?? null;
 
                     if (authorUid) {
                         try {
@@ -298,6 +375,8 @@ export function CommentsView({ data }: CommentsViewProps) {
                         }
                     }
 
+                    const replies = await loadRepliesForComment(docSnap.id);
+
                     return {
                         id: docSnap.id,
                         text: payload.text ?? "",
@@ -307,6 +386,8 @@ export function CommentsView({ data }: CommentsViewProps) {
                         authorPhotoURL,
                         createdAt: payload.createdAt?.toDate?.() ?? null,
                         updatedAt: payload.updatedAt?.toDate?.() ?? null,
+                        editCount: payload.editCount ?? 0,
+                        editedAt: payload.editedAt?.toDate?.() ?? null,
                         likes: payload.likes ?? [],
                         replies: replies,
                         depth: 0,
@@ -400,6 +481,8 @@ export function CommentsView({ data }: CommentsViewProps) {
             await updateDoc(doc(db, pathSegments[0], pathSegments[1], ...pathSegments.slice(2)), {
                 text: newText,
                 updatedAt: serverTimestamp(),
+                editCount: increment(1),
+                editedAt: serverTimestamp(),
             });
             await reloadComments();
         } catch (error) {
@@ -416,19 +499,17 @@ export function CommentsView({ data }: CommentsViewProps) {
             // Build the correct path based on whether this is a reply or top-level comment
             let targetRef;
             if (replyTarget) {
-                // This is a reply - save to the replies subcollection
-                const parentPath = replyTarget.parentPath || [];
-                let basePath = `events/${data.id}/comments/${parentPath[0] || replyTarget.id}`;
-
-                // If there are nested levels, build the path
-                for (let i = 1; i < parentPath.length; i++) {
-                    basePath += `/replies/${parentPath[i]}`;
+                // One-level replies only - reply to top-level comment
+                if (replyTarget.depth !== 0) {
+                    console.error("Cannot reply to a reply");
+                    setSending(false);
+                    return;
                 }
-
-                targetRef = collection(db, basePath, "replies");
+                // Save to the replies subcollection of the top-level comment
+                targetRef = collection(db, "posts", data.id, "comments", replyTarget.id, "replies");
             } else {
                 // Top-level comment
-                targetRef = collection(db, "events", data.id, "comments");
+                targetRef = collection(db, "posts", data.id, "comments");
             }
 
             const payload: any = {
@@ -479,15 +560,19 @@ export function CommentsView({ data }: CommentsViewProps) {
     };
 
     const handleReply = (comment: CommentRecord) => {
-        setReplyTarget(comment);
+        // Only allow replying to top-level comments (depth 0)
+        if (comment.depth === 0) {
+            setReplyTarget(comment);
+        }
     };
 
     return (
         <>
             <div className="flex h-full flex-col">
-                <div className="shrink-0 space-y-2 pb-4 pt-2 border-b border-white/5 bg-neutral-950 z-10">
+                {/* Composer Section - Compact Threads Style */}
+                <div className="shrink-0 space-y-3 px-1.5 py-3 border-b border-white/10">
                     {replyTarget && (
-                        <div className="flex items-center justify-between rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+                        <div className="flex items-center justify-between rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-xs text-amber-200">
                             <span>Replying to {replyTarget.authorName}</span>
                             <button
                                 type="button"
@@ -504,8 +589,8 @@ export function CommentsView({ data }: CommentsViewProps) {
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSend())}
-                            placeholder="Add a comment... Use @username to mention."
-                            className="w-full rounded-full border border-white/10 bg-white/5 py-2.5 pl-4 pr-10 text-sm text-white placeholder-neutral-500 focus:border-white/20 focus:outline-none focus:ring-0"
+                            placeholder="Write comment"
+                            className="w-full rounded-full border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/40 focus:border-white/20 focus:bg-white/[0.07] focus:outline-none"
                         />
                         <button
                             onClick={handleSend}
@@ -517,9 +602,10 @@ export function CommentsView({ data }: CommentsViewProps) {
                     </div>
                 </div>
 
-                <div className="flex-1 space-y-4 py-4 overflow-y-auto min-h-0 scrollbar-hide">
+                {/* Comments List - Threads Style */}
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
                     {comments.some(c => c.isHidden) && (
-                        <div className="mb-3">
+                        <div className="px-4 pt-3 pb-2">
                             <button
                                 type="button"
                                 onClick={() => setShowHidden(!showHidden)}
@@ -530,33 +616,36 @@ export function CommentsView({ data }: CommentsViewProps) {
                         </div>
                     )}
                     {commentsLoading ? (
-                        <div className="text-center text-sm text-neutral-500 py-10">
+                        <div className="px-4 py-6 text-sm text-neutral-500">
                             Loading comments...
                         </div>
                     ) : comments.length === 0 ? (
-                        <div className="text-center text-sm text-neutral-500 py-10">
+                        <div className="px-4 py-6 text-sm text-neutral-500">
                             No comments yet. Be the first!
                         </div>
                     ) : (
-                        comments.map((comment) => (
-                            <CommentMessage
-                                key={comment.id}
-                                comment={comment}
-                                currentUserId={currentUser?.uid}
-                                liked={
-                                    !!currentUser && (comment.likes || []).includes(currentUser.uid)
-                                }
-                                likeCount={comment.likes?.length ?? 0}
-                                canEdit={comment.authorUid === currentUser?.uid}
-                                canDelete={canDelete(comment)}
-                                onReply={handleReply}
-                                onLike={handleToggleLike}
-                                onReport={handleReport}
-                                onDelete={handleDelete}
-                                onEdit={handleEdit}
-                                depth={0}
-                            />
-                        ))
+                        <div className="space-y-0">
+                            {comments.map((comment) => (
+                                <div key={comment.id} className="px-4 py-3">
+                                    <CommentMessage
+                                        comment={comment}
+                                        currentUserId={currentUser?.uid}
+                                        liked={
+                                            !!currentUser && (comment.likes || []).includes(currentUser.uid)
+                                        }
+                                        likeCount={comment.likes?.length ?? 0}
+                                        canEdit={comment.authorUid === currentUser?.uid}
+                                        canDelete={canDelete(comment)}
+                                        onReply={handleReply}
+                                        onLike={handleToggleLike}
+                                        onReport={handleReport}
+                                        onDelete={handleDelete}
+                                        onEdit={handleEdit}
+                                        depth={0}
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     )}
                     <div ref={messagesEndRef} />
                 </div>

@@ -49,7 +49,7 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
                 viewportWidth={viewportWidth}
             />
 
-            <main className="flex-1 w-full overflow-auto relative scrollbar-track-transparent">
+            <main className="flex-1 w-full overflow-y-auto overflow-x-hidden relative scrollbar-track-transparent">
                 <div
                     className={`mx-auto max-w-[1600px] w-full pt-20 px-4 md:px-6 transition-all duration-200 ${leftSidebarClass}`}
                     style={{ paddingRight: rightPadding > 0 ? `${rightPadding}px` : undefined }}

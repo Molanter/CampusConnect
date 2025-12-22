@@ -108,9 +108,11 @@ export function PostCard({
 
     // Safely get sidebar context if available
     let openView: any = () => console.warn("RightSidebar context not available");
+    let sidebarVisible = false;
     try {
         const sidebar = useRightSidebar();
         openView = sidebar.openView;
+        sidebarVisible = sidebar.isVisible;
     } catch (e) {
         // Ignore error if context is missing (e.g. in isolation)
     }
@@ -122,7 +124,7 @@ export function PostCard({
 
     // Helper to reload preview comment
     const loadPreviewComment = async () => {
-        if (!id) return;
+        if (!id || previewMode) return;
 
         try {
             const commentsRef = collection(db, "posts", id, "comments");
@@ -273,6 +275,7 @@ export function PostCard({
     // Load host details (photo & name) from Firestore
     useEffect(() => {
         const loadAuthorData = async () => {
+            if (previewMode) return;
             try {
                 let targetAuthorId = authorId;
 
@@ -317,7 +320,7 @@ export function PostCard({
 
     // Load and track likes for the event
     useEffect(() => {
-        if (!id) return;
+        if (!id || previewMode) return;
 
         const eventRef = doc(db, "posts", id);
 
@@ -336,7 +339,7 @@ export function PostCard({
     }, [id, currentUser]);
 
     useEffect(() => {
-        if (!id) return;
+        if (!id || previewMode) return;
 
         const docRef = doc(db, "posts", id);
 
@@ -368,7 +371,7 @@ export function PostCard({
 
     // Separate listener for comments count
     useEffect(() => {
-        if (!id) return;
+        if (!id || previewMode) return;
 
 
         const countRepliesRecursively = async (commentPath: string, depth: number): Promise<number> => {
@@ -451,6 +454,10 @@ export function PostCard({
 
             return newStats;
         });
+
+
+
+        if (previewMode) return;
 
         try {
             const docRef = doc(db, "posts", id);
@@ -1005,7 +1012,7 @@ export function PostCard({
         if (!id || previewMode) return;
         if (confirm(`Are you sure you want to delete this ${isEvent ? 'event' : 'post'}?`)) {
             try {
-                await deleteDoc(doc(db, "events", id));
+                await deleteDoc(doc(db, "posts", id));
                 onDeleted?.();
                 closeContextMenu();
                 setOptionsMenuOpen(false);
@@ -1070,223 +1077,188 @@ export function PostCard({
     const eventTimeLabel = getEventTimeLabel();
 
 
-    // Threads Variant Render (Sidebar-to-Sidebar Media Breakout)
+    // Threads Variant Render
     if (variant === "threads") {
         return (
             <div
-                className="group w-full py-4 font-sans grid grid-cols-[56px_1fr] gap-0 @3xl:flex @3xl:flex-col"
+                className="group relative border-b border-white/10 py-4"
                 onContextMenu={handleContextMenu}
                 onTouchStart={handleLongPressStart}
                 onTouchEnd={handleLongPressEnd}
                 onTouchMove={handleLongPressEnd}
             >
-                {/* 1. Left Column: Avatar (Mobile Only) */}
-                <div className="pt-1 flex justify-center @3xl:hidden">
-                    <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
-                        <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10">
-                            {hostPhotoUrl ? (
-                                <img src={hostPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
-                            ) : (
-                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
-                                    {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
-                                </div>
-                            )}
-                        </div>
-                    </Link>
-                </div>
-
-                {/* 2. Right Column (Mobile) / Main Content Wrapper (Desktop - Flattened via contents) */}
-                <div className="flex flex-col min-w-0 @3xl:contents">
-
-                    {/* Unified Header: Name/Time + Description */}
-                    <div
-                        onClick={onDetailsClick}
-                        className="relative flex w-full @3xl:mx-auto @3xl:max-w-[600px] cursor-pointer flex-col @3xl:flex-row gap-1 mb-3 @3xl:mb-3 @3xl:gap-3 px-0 @3xl:px-3"
-                    >
-                        {/* Desktop Avatar (Hidden on mobile) */}
-                        <div className="hidden @3xl:block shrink-0 pt-1">
-                            <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
-                                <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10">
-                                    {hostPhotoUrl ? (
-                                        <img src={hostPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
-                                    ) : (
-                                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
-                                            {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
-                                        </div>
-                                    )}
-                                </div>
-                            </Link>
-                        </div>
-
-                        {/* Content Wrapper */}
-                        <div className="flex flex-col flex-1 min-w-0">
-                            {/* Top Row: Name | Time | Menu */}
-                            <div className="flex items-start justify-between">
-                                <div className="flex flex-col leading-tight">
-                                    <div className="flex items-center gap-2">
-                                        <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-bold text-white hover:underline">
-                                            {displayedName}
-                                        </Link>
-                                        <span className="text-neutral-500 text-xs">•</span>
-                                        <div className="text-xs text-neutral-500">
-                                            {eventTimeLabel || timeLabel || (date ? date : "now")}
-                                        </div>
+                {/* Layout: Avatar + Content */}
+                <div className="flex items-start gap-3">
+                    {/* Avatar Column */}
+                    <div className="shrink-0 self-start">
+                        <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
+                            <div className="h-10 w-10 overflow-hidden rounded-full bg-neutral-700">
+                                {hostPhotoUrl ? (
+                                    <img src={hostPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
+                                ) : (
+                                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
+                                        {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
                                     </div>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    onClick={handleContextMenu}
-                                    className="-mt-1 text-neutral-500 hover:text-white"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-                                        <path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 15a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                                    </svg>
-                                </button>
+                                )}
                             </div>
-
-                            {/* Bottom Row: Description */}
-                            {description && (
-                                <div
-                                    onClick={onDetailsClick}
-                                    className={`whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-100 ${onDetailsClick ? "cursor-pointer" : ""}`}
-                                >
-                                    {description}
-                                </div>
-                            )}
-                        </div>
+                        </Link>
                     </div>
 
-                    {/* Media Scroll */}
-                    {!hideMediaGrid && (
-                        <div className="w-[calc(100%+56px)] -ml-[56px] mb-0 @3xl:mb-0 @3xl:ml-0 @3xl:mr-[-1.5rem] @3xl:w-[calc(100%+3rem)]">
-                            <div className="w-full">
+                    {/* Content Column */}
+                    <div className="min-w-0 flex-1 space-y-2.5">
+                        {/* Header: Username, Timestamp, Menu */}
+                        <div className="flex min-w-0 items-center gap-2">
+                            <Link
+                                href={`/user/${authorId}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="truncate text-sm font-semibold text-white hover:underline"
+                            >
+                                {displayedName}
+                            </Link>
+                            <span className="text-xs text-white/50">•</span>
+                            <div className="text-xs text-white/50">
+                                {eventTimeLabel || timeLabel || (date ? date : "now")}
+                            </div>
+                        </div>
+
+                        {/* Body: Description */}
+                        {description && (
+                            <div
+                                onClick={onDetailsClick}
+                                className={`whitespace-pre-wrap text-sm leading-relaxed text-white/90 ${onDetailsClick ? "cursor-pointer" : ""}`}
+                            >
+                                {description}
+                            </div>
+                        )}
+
+                        {/* Media */}
+                        {!hideMediaGrid && (
+                            <div className="mt-2">
                                 <MediaHorizontalScroll
                                     post={post}
                                     noPadding
-                                    className="!pb-1 pl-[60px] scroll-pl-[60px] @3xl:scroll-pl-0 @3xl:pl-[max(2rem,calc(50%_-_300px_+_4rem))] [&>*:last-child]:mr-4 @3xl:[&>*:last-child]:mr-6"
+                                    fullWidth={!previewMode && !sidebarVisible}
+                                    className="!pb-1"
                                 />
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Footer: Actions */}
-                    <div
-                        onClick={onDetailsClick}
-                        className="flex w-full @3xl:mx-auto @3xl:max-w-[600px] cursor-pointer items-start gap-3 @3xl:pl-[60px] @3xl:pr-3"
-                    >
-                        {/* Actions Row - Full width in the column */}
-                        <div className="flex min-w-0 flex-1 items-center gap-4">
+                        {/* Actions Row */}
+                        <div className="mt-3 flex items-center gap-0">
                             {/* Like Button & Count */}
-                            <div className="flex items-center gap-1.5">
+                            <div className={`flex h-9 items-center justify-center rounded-full hover:bg-white/[0.08] ${likesCount > 0 ? "gap-1.5 px-3" : "w-9"}`}>
                                 <button
                                     type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleToggleLike();
                                     }}
-                                    className={`transition-transform active:scale-90 ${isLiked ? "text-[#ffb200]" : "text-white hover:text-neutral-300"}`}
+                                    className={`flex items-center justify-center ${isLiked ? "text-[#ffb200]" : "text-white/70 hover:text-white"}`}
                                 >
                                     {isLiked ? (
-                                        <HeartIcon className={`h-[22px] w-[22px] ${likeAnimating ? "animate-like-pop" : ""}`} />
+                                        <HeartIcon className={`h-5 w-5 ${likeAnimating ? "animate-like-pop" : ""}`} />
                                     ) : (
-                                        <HeartIconOutline className={`h-[22px] w-[22px] ${likeAnimating ? "animate-like-pop" : ""}`} />
+                                        <HeartIconOutline className={`h-5 w-5 ${likeAnimating ? "animate-like-pop" : ""}`} />
                                     )}
                                 </button>
                                 {likesCount > 0 && (
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); onLikesClick?.(); }} className="text-sm font-medium text-neutral-500 hover:text-white">
-                                        {likesCount}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onLikesClick?.();
+                                        }}
+                                        className="flex items-center text-white/60"
+                                    >
+                                        <span className="text-xs">{likesCount}</span>
                                     </button>
                                 )}
                             </div>
 
                             {/* Comment Button & Count */}
-                            <div className="flex items-center gap-1.5">
+                            <div className={`flex h-9 items-center justify-center rounded-full text-white/70 hover:bg-white/[0.08] ${(() => {
+                                const totalComments = (post.commentsCount || 0) + (post.repliesCommentsCount || 0);
+                                const displayCount = totalComments > 0 ? totalComments : (stats.comments || 0);
+                                return displayCount > 0 ? "gap-1.5 px-3" : "w-9";
+                            })()}`}>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onCommentsClick?.(); }}
-                                    className="text-white hover:text-neutral-300 transition-transform active:scale-90"
+                                    className="flex items-center justify-center hover:text-white"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-[22px] w-[22px]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.633 9-8.4375 0-4.805-4.03-8.4375-9-8.4375-4.97 0-9 3.6325-9 8.4375 0 2.457 1.056 4.675 2.76 6.223.109.1.18.232.2.378l.583 3.996a.25.25 0 00.322.253l3.655-1.428a.56.56 0 01.373-.02c.365.103.743.176 1.127.2.062.003.125.006.188.006z" />
                                     </svg>
                                 </button>
-                                {stats.comments > 0 && (
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); onCommentsClick?.(); }} className="text-sm font-medium text-neutral-500 hover:text-white">
-                                        {stats.comments}
-                                    </button>
-                                )}
+                                {(() => {
+                                    const totalComments = (post.commentsCount || 0) + (post.repliesCommentsCount || 0);
+                                    const displayCount = totalComments > 0 ? totalComments : (stats.comments || 0);
+                                    if (displayCount <= 0) return null;
+                                    return (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onCommentsClick?.();
+                                            }}
+                                            className="flex items-center text-white/60"
+                                        >
+                                            <span className="text-xs">{displayCount}</span>
+                                        </button>
+                                    );
+                                })()}
                             </div>
 
-                            {/* Edit Button */}
-                            {(currentUser?.uid === authorId || editCount > 0) && (
-                                <div className="flex items-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onEditClick?.();
-                                        }}
-                                        className="text-white hover:text-neutral-300 transition-transform active:scale-90"
-                                    >
-                                        <PencilIcon className="h-[20px] w-[20px]" />
-                                    </button>
-                                    {editCount > 0 && (
-                                        <span className="text-sm font-medium text-neutral-500">
-                                            {editCount}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Attendance Menu Trigger */}
+                            {/* Attendance Menu (Events only) */}
                             {isEvent && (
-                                <div className="relative flex items-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setAttendanceMenuOpen(!attendanceMenuOpen);
-                                        }}
-                                        className={`transition-transform active:scale-95 ${status ? "text-white" : "text-neutral-400 hover:text-white"}`}
-                                    >
-                                        {status === "going" ? (
-                                            <HandThumbUpIcon className="h-[22px] w-[22px] text-green-400" />
-                                        ) : status === "maybe" ? (
-                                            <QuestionMarkCircleIcon className="h-[22px] w-[22px] text-yellow-400" />
-                                        ) : status === "not_going" ? (
-                                            <HandThumbDownIcon className="h-[22px] w-[22px] text-red-400" />
-                                        ) : (
-                                            <CalendarIcon className="h-[22px] w-[22px]" />
-                                        )}
-                                    </button>
-
-                                    {(() => {
-                                        const count = status === "not_going" ? stats.notGoing
-                                            : status === "maybe" ? stats.maybe
-                                                : stats.going;
-
-                                        if (!count || count <= 0) return null;
-
-                                        return (
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openView("attendance", { id });
-                                                }}
-                                                className="text-sm font-medium text-neutral-500 hover:text-white transition-colors"
-                                            >
-                                                {count}
-                                            </button>
-                                        );
-                                    })()}
+                                <div className="relative">
+                                    <div className={`flex h-9 items-center justify-center rounded-full hover:bg-white/[0.08] ${(() => {
+                                        const count = status === "not_going" ? stats.notGoing : status === "maybe" ? stats.maybe : stats.going;
+                                        return (count && count > 0) ? "gap-1.5 px-3" : "w-9";
+                                    })()} ${status ? "text-white" : "text-white/70"}`}>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setAttendanceMenuOpen(!attendanceMenuOpen);
+                                            }}
+                                            className={`flex items-center justify-center ${!status ? "hover:text-white" : ""}`}
+                                        >
+                                            {status === "going" ? (
+                                                <HandThumbUpIcon className="h-5 w-5 text-green-400" />
+                                            ) : status === "maybe" ? (
+                                                <QuestionMarkCircleIcon className="h-5 w-5 text-yellow-400" />
+                                            ) : status === "not_going" ? (
+                                                <HandThumbDownIcon className="h-5 w-5 text-red-400" />
+                                            ) : (
+                                                <CalendarIcon className="h-5 w-5" />
+                                            )}
+                                        </button>
+                                        {(() => {
+                                            const count = status === "not_going" ? stats.notGoing
+                                                : status === "maybe" ? stats.maybe
+                                                    : stats.going;
+                                            if (!count || count <= 0) return null;
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onAttendanceClick?.();
+                                                    }}
+                                                    className="flex items-center text-white/60"
+                                                >
+                                                    <span className="text-xs">{count}</span>
+                                                </button>
+                                            );
+                                        })()}
+                                    </div>
 
                                     {/* Attendance Dropdown Menu */}
                                     {attendanceMenuOpen && (
                                         <>
                                             <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setAttendanceMenuOpen(false); }} />
-                                            <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[160px] overflow-hidden rounded-xl border border-white/10 bg-[#1C1C1E]/90 shadow-xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 origin-bottom-left">
-                                                <div className="p-1.5 flex flex-col gap-0.5">
+                                            <div className="absolute bottom-full left-0 z-50 mb-2 min-w-[160px] animate-in fade-in zoom-in-95 origin-bottom-left overflow-hidden rounded-xl border border-white/10 bg-[#1C1C1E]/90 shadow-xl backdrop-blur-xl duration-100">
+                                                <div className="flex flex-col gap-0.5 p-1.5">
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); handleStatusChange(status === "going" ? null : "going"); setAttendanceMenuOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${status === "going" ? "bg-white/10 text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white"}`}>
                                                         <span className="font-medium">Going</span>
                                                         <HandThumbUpIcon className={`h-4 w-4 ${status === "going" ? "opacity-100" : "opacity-0"}`} />
@@ -1307,91 +1279,85 @@ export function PostCard({
                             )}
 
                             {/* Share Button */}
-                            <div className="flex items-center">
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleShare();
-                                    }}
-                                    className="text-white hover:text-neutral-300 transition-transform active:scale-90"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-[22px] w-[22px]">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                                    </svg>
-                                </button>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleShare();
+                                }}
+                                className="flex h-9 w-9 items-center justify-center rounded-full text-white/70 hover:bg-white/[0.08] hover:text-white"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                                </svg>
+                            </button>
 
                             {/* Options Menu */}
-                            <div className="relative flex items-center">
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); setOptionsMenuOpen(!optionsMenuOpen); }}
-                                    className={`text-neutral-400 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10 ${optionsMenuOpen ? "text-white bg-white/10" : ""}`}
-                                >
-                                    <EllipsisVerticalIcon className="h-6 w-6" />
-                                </button>
-                                {optionsMenuOpen && (
-                                    <>
-                                        <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOptionsMenuOpen(false); }} />
-                                        <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[160px] overflow-hidden rounded-xl border border-white/10 bg-[#1C1C1E]/90 shadow-xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 origin-bottom-left">
-                                            <div className="p-1.5 flex flex-col gap-0.5">
-                                                {isEventOwner && (
+                            {!previewMode && (
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setOptionsMenuOpen(!optionsMenuOpen); }}
+                                        className={`flex h-9 w-9 items-center justify-center rounded-full text-white/60 hover:bg-white/[0.08] hover:text-white ${optionsMenuOpen ? "bg-white/[0.08] text-white" : ""}`}
+                                    >
+                                        <EllipsisVerticalIcon className="h-5 w-5" />
+                                    </button>
+                                    {optionsMenuOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOptionsMenuOpen(false); }} />
+                                            <div className="absolute bottom-full right-0 z-50 mb-2 min-w-[160px] animate-in fade-in zoom-in-95 origin-bottom-right overflow-hidden rounded-xl border border-white/10 bg-[#1C1C1E]/90 shadow-xl backdrop-blur-xl duration-100">
+                                                <div className="flex flex-col gap-0.5 p-1.5">
+                                                    {isEventOwner && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onEditClick?.();
+                                                                setOptionsMenuOpen(false);
+                                                            }}
+                                                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white transition-colors hover:bg-white/5"
+                                                        >
+                                                            <span className="font-medium">Edit</span>
+                                                            <PencilIcon className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+
+                                                    {isEventOwner && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeletePost();
+                                                            }}
+                                                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-white/5 hover:text-red-300"
+                                                        >
+                                                            <span className="font-medium">Delete</span>
+                                                            <TrashIcon className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+
                                                     <button
                                                         type="button"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            onEditClick?.();
+                                                            openView("report", { id, type: isEvent ? "event" : "post" });
                                                             setOptionsMenuOpen(false);
                                                         }}
-                                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+                                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-neutral-400 transition-colors hover:bg-white/5 hover:text-white"
                                                     >
-                                                        <span className="font-medium">Edit</span>
-                                                        <PencilIcon className="h-4 w-4" />
+                                                        <span className="font-medium">Report</span>
+                                                        <FlagIcon className="h-4 w-4" />
                                                     </button>
-                                                )}
-
-                                                {isEventOwner && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeletePost();
-                                                        }}
-                                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-white/5 hover:text-red-300 transition-colors"
-                                                    >
-                                                        <span className="font-medium">Delete</span>
-                                                        <TrashIcon className="h-4 w-4" />
-                                                    </button>
-                                                )}
-
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        openView("report", { id, type: isEvent ? "event" : "post" });
-                                                        setOptionsMenuOpen(false);
-                                                    }}
-                                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-neutral-400 hover:bg-white/5 hover:text-white transition-colors"
-                                                >
-                                                    <span className="font-medium">Report</span>
-                                                    <FlagIcon className="h-4 w-4" />
-                                                </button>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
-
-                    {/* Divider */}
-                    <div className="flex w-full @3xl:mx-auto @3xl:max-w-[600px] items-center gap-3 @3xl:px-8 group-last:hidden">
-                        <div className="hidden h-px w-full bg-white/10 @3xl:block" />
-                        <div className="block h-px w-full bg-white/10 @3xl:hidden mt-2" />
-                    </div>
                 </div>
-            </div>
+            </div >
         );
     }
 
@@ -1441,13 +1407,15 @@ export function PostCard({
                     </div>
 
                     {/* Context Menu Trigger */}
-                    <button
-                        type="button"
-                        onClick={handleContextMenu}
-                        className="-mt-1 text-neutral-500 hover:text-white"
-                    >
-                        <EllipsisVerticalIcon className="h-5 w-5" />
-                    </button>
+                    {!previewMode && (
+                        <button
+                            type="button"
+                            onClick={handleContextMenu}
+                            className="-mt-1 text-neutral-500 hover:text-white"
+                        >
+                            <EllipsisVerticalIcon className="h-5 w-5" />
+                        </button>
+                    )}
                 </div>
 
                 {/* Description */}
@@ -1504,23 +1472,34 @@ export function PostCard({
                     )}
 
                     {/* Likes */}
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleLike();
-                        }}
-                        className={`flex items-center gap-1.5 group transition-colors ${isLiked ? 'text-[#ffb200]' : 'text-neutral-500 hover:text-[#ffb200]'}`}
-                    >
-                        <div className="p-1.5 rounded-full group-hover:bg-[#ffb200]/10 transition-colors">
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleLike();
+                            }}
+                            className={`p-1.5 rounded-full transition-colors active:scale-90 ${isLiked ? 'text-[#ffb200] hover:bg-[#ffb200]/10' : 'text-neutral-500 hover:text-[#ffb200] hover:bg-[#ffb200]/10'}`}
+                        >
                             {isLiked ? (
                                 <HeartIcon className={`h-[18px] w-[18px] ${likeAnimating ? "animate-like-pop" : ""}`} />
                             ) : (
                                 <HeartIconOutline className={`h-[18px] w-[18px] ${likeAnimating ? "animate-like-pop" : ""}`} />
                             )}
-                        </div>
-                        <span className="text-sm">{likesCount > 0 ? likesCount : ""}</span>
-                    </button>
+                        </button>
+                        {likesCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onLikesClick?.();
+                                }}
+                                className={`text-sm font-medium hover:underline ${isLiked ? 'text-[#ffb200]' : 'text-neutral-500 hover:text-white'}`}
+                            >
+                                {likesCount}
+                            </button>
+                        )}
+                    </div>
 
                     {/* Share */}
                     <button
@@ -1697,20 +1676,22 @@ export function PostCard({
                         )}
 
                         {/* Report */}
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                closeContextMenu();
-                                // Open report modal or navigate to report page
-                                alert('Report functionality coming soon');
-                            }}
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white hover:bg-white/5 transition-colors"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
-                            </svg>
-                            <span>Report</span>
-                        </button>
+                        {!previewMode && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    closeContextMenu();
+                                    // Open report modal or navigate to report page
+                                    alert('Report functionality coming soon');
+                                }}
+                                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white hover:bg-white/5 transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
+                                </svg>
+                                <span>Report</span>
+                            </button>
+                        )}
 
                         {/* Delete (only if owner) */}
                         {isEventOwner && (

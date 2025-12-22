@@ -1,31 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, signInWithPopup } from "firebase/auth";
 import type { User } from "firebase/auth";
-import {
-  collection,
-  getDocs,
-  query,
-  orderBy,
-  limit,
-} from "firebase/firestore";
 
-import { auth, provider, db } from "../lib/firebase";
+import { auth, provider } from "../lib/firebase";
 import { PostCard } from "@/components/post-card";
 import { PostComposer } from "@/components/post-composer";
 import { useRightSidebar } from "@/components/right-sidebar-context";
-import { Post } from "@/lib/posts";
+import { useFeed } from "@/lib/hooks/use-feed";
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [postsLoading, setPostsLoading] = useState(false);
-  const [postsError, setPostsError] = useState<string | null>(null);
+
+  const { posts, loading: postsLoading, error: postsError, hasMore, fetchMore, refresh } = useFeed(user);
 
   const { openView } = useRightSidebar();
+  const observerTarget = useRef(null);
 
   const handleSignIn = async () => {
     setAuthError(null);
@@ -46,81 +39,35 @@ export default function HomePage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      setLoading(false);
+      setAuthLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  const fetchPosts = async () => {
-    if (!user) return;
-    try {
-      setPostsLoading(true);
-      setPostsError(null);
-
-      const eventsRef = collection(db, "posts");
-      // Ordering by createdAt desc to show newest posts first. 
-      // Note: older events might not have createdAt. We might need to handle that or fallback.
-      // The original query was orderBy("date", "asc").
-      // For a "feed", usually it's reverse chronological.
-      // But for "Upcoming events", it's by date.
-      // Since we are merging, "Feed" usually implies createdAt.
-      // Let's try orderBy createdAt desc. If indexes are missing, it might fail in dev console.
-      // For now, I'll assume usage of 'createdAt' for new posts. Legacy events might lack it?
-      // I'll stick to 'date' for now if that's what was working, or maybe 'createdAt' is better for a general feed.
-      // Let's try 'createdAt' descending. If it fails, I'll need to create an index.
-      const q = query(eventsRef, orderBy("createdAt", "desc"), limit(50));
-
-      const snap = await getDocs(q);
-      const items: Post[] = snap.docs.map((doc) => {
-        const data = doc.data() as any;
-        return {
-          id: doc.id,
-          title: data.title ?? (data.isEvent ? "Untitled Event" : undefined), // Title optional for posts
-          content: data.content ?? data.description ?? "", // Map description to content
-          imageUrls:
-            (Array.isArray(data.imageUrls) ? data.imageUrls : null) ??
-            (data.imageUrl ? [data.imageUrl] : []),
-          // Event specific fields
-          isEvent: data.isEvent ?? true, // Default to true for legacy events? Or check fields? 
-          // If 'isEvent' is missing, but it has 'date', it's likely an event.
-          // Let's infer isEvent if not present:
-          // isEvent: data.isEvent ?? (!!data.date),
-
-          date: data.date ?? undefined,
-          startTime: data.startTime ?? undefined,
-          endTime: data.endTime ?? undefined,
-          locationLabel: data.locationLabel ?? undefined,
-          coordinates: data.coordinates ?? undefined,
-
-          authorId: data.authorId ?? data.hostUserId ?? "",
-          authorName: data.authorName ?? data.hostDisplayName ?? "Unknown",
-          authorUsername: data.authorUsername ?? data.hostUsername,
-          authorAvatarUrl: data.authorAvatarUrl ?? data.hostPhotoURL,
-
-          likes: data.likes ?? [],
-          createdAt: data.createdAt,
-          editCount: data.editCount ?? 0,
-        };
-      });
-
-      setPosts(items);
-    } catch (err: any) {
-      console.error("Error loading posts", err);
-      // Fallback to client-side sorting if index is missing or just generic error
-      setPostsError(
-        err?.message ||
-        "Could not load posts. Please try again later."
-      );
-    } finally {
-      setPostsLoading(false);
-    }
-  };
-
+  // Infinite scroll observer
   useEffect(() => {
-    fetchPosts();
-  }, [user]);
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !postsLoading && !postsError) {
+          fetchMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
 
-  if (loading) {
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [hasMore, postsLoading, postsError, fetchMore]);
+
+
+  if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center text-slate-300">
         Loading...
@@ -146,65 +93,79 @@ export default function HomePage() {
     );
   }
   return (
-    <div className="min-h-screen bg-neutral-950 py-8 text-neutral-50 md:py-10">
-      <div className="@container">
-        {/* 1. Top Content (Centered & Constrained) */}
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="mx-auto w-full max-w-[450px] px-4 md:px-8">
-            <header className="flex items-center justify-between gap-4">
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                  Feed
-                </p>
-                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-                  Your Feed
-                </h1>
-              </div>
-            </header>
-          </div>
-
-          {/* Composer - Reduced padding on desktop to match post width */}
-          <div className="mx-auto w-full max-w-[600px]">
-            <PostComposer user={user} onPostCreated={fetchPosts} />
-          </div>
-
-          {/* Status Messages */}
-          <div className="mx-auto w-full max-w-[450px] px-4 md:px-8">
-            {postsLoading && (
-              <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
-                Loading posts...
-              </div>
-            )}
-
-            {postsError && !postsLoading && (
-              <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {postsError}
-              </div>
-            )}
-
-            {!postsLoading && !postsError && posts.length === 0 && (
-              <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-6 text-sm text-neutral-300">
-                No posts yet. Be the first to post!
-              </div>
-            )}
-          </div>
+    <div className="min-h-screen bg-zinc-950 text-white">
+      {/* Feed Container - Centered with max-width */}
+      <div className="mx-auto w-full max-w-[680px] px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="py-4">
+          <header className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">
+                Feed
+              </p>
+              <h1 className="text-2xl font-bold tracking-tight text-white">
+                Your Feed
+              </h1>
+            </div>
+          </header>
         </div>
 
-        {/* 2. Posts List (Full Width Container for Breakout) */}
-        {!postsLoading && posts.length > 0 && (
-          <section className="mt-6 flex flex-col gap-6">
+        {/* Composer */}
+        <div className="pb-4">
+          <PostComposer user={user} onPostCreated={refresh} />
+        </div>
+
+        {/* Status Messages for Initial Load/Error */}
+        {postsLoading && posts.length === 0 && (
+          <div className="py-4 text-sm text-white/60">
+            Loading posts...
+          </div>
+        )}
+
+        {postsError && !postsLoading && posts.length === 0 && (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {postsError}
+          </div>
+        )}
+
+        {!postsLoading && !postsError && posts.length === 0 && (
+          <div className="py-8 text-sm text-white/60">
+            No posts yet. Be the first to post!
+          </div>
+        )}
+
+        {/* Posts List */}
+        {posts.length > 0 && (
+          <section>
             {posts.map((post) => (
               <PostCard
                 key={post.id}
                 post={post}
                 variant="threads"
                 onCommentsClick={() => openView("comments", post)}
+                onLikesClick={() => openView("likes", post)}
                 onAttendanceClick={() => openView("attendance", post)}
                 onDetailsClick={() => openView("details", post)}
-                onDeleted={fetchPosts}
+                onDeleted={refresh}
               />
             ))}
+
+            {/* Loading more indicator & Observer target */}
+            <div ref={observerTarget} className="flex h-10 w-full flex-col items-center justify-center gap-2 py-4">
+              {postsLoading && posts.length > 0 && (
+                <div className="text-sm text-white/50">Loading more...</div>
+              )}
+              {postsError && posts.length > 0 && (
+                <div className="flex flex-col items-center text-center text-xs text-red-400">
+                  <p>Error loading more</p>
+                  <button onClick={() => fetchMore()} className="mt-1 underline hover:text-red-300">Retry</button>
+                  <p className="mt-1 max-w-xs truncate text-[10px] text-red-500/50">{postsError}</p>
+                </div>
+              )}
+              {!hasMore && posts.length > 0 && (
+                <div className="text-xs uppercase tracking-widest text-white/30">End of results</div>
+              )}
+            </div>
           </section>
         )}
       </div>

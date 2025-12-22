@@ -146,7 +146,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 overflow-y-auto px-5 py-4">
+                    <div className="flex-1 overflow-y-auto px-2 py-4">
                         {view === "notifications" && <NotificationsView />}
                         {view === "comments" && <CommentsView data={data} />}
                         {view === "details" && <EventDetailsView data={data} />}
@@ -211,7 +211,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-5">
+                <div className="flex-1 overflow-y-auto p-2">
                     {view === "notifications" && <NotificationsView />}
                     {view === "comments" && <CommentsView data={data} />}
                     {view === "details" && <EventDetailsView data={data} />}
@@ -679,20 +679,21 @@ function LikesView({ data }: { data: any }) {
     useEffect(() => {
         if (!data?.id) return;
 
-        const collectionName = data.type === "event" ? "events" : "posts";
-        const docRef = doc(db, collectionName, data.id);
+        // Unified 'posts' collection for all items (events are posts)
+        const docRef = doc(db, "posts", data.id);
 
         const unsubscribe = onSnapshot(docRef, (snap: any) => {
             if (snap.exists()) {
                 const d = snap.data();
-                setLikers(d.likedByUids || []);
+                // Use 'likes' array, fallback to 'likedByUids' for legacy
+                setLikers(d.likes || d.likedByUids || []);
             }
         }, (error: any) => {
             console.error("Error fetching likes:", error);
         });
 
         return () => unsubscribe();
-    }, [data?.id, data?.type]);
+    }, [data?.id]);
 
     return (
         <div className="flex flex-col gap-6">
