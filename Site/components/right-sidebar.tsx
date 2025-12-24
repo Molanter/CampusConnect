@@ -33,8 +33,10 @@ import { CommentMessage, type CommentRecord } from "./comment-message";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "@/lib/admin-utils";
 import { ReportSheet } from "./report-sheet";
 import { CommentsView } from "./comments-view";
+import { type Post } from "@/lib/posts";
 
-// ... existing code ...
+import { PostDetailMainInfo } from "./post-detail/post-detail-main-info";
+import { MediaHorizontalScroll } from "./post-detail/media-horizontal-scroll";
 
 export function RightSidebar({ headerVisible = false }: { headerVisible?: boolean }) {
     const { isVisible, view, data, toggle, showNotifications, sidebarWidth, setSidebarWidth } = useRightSidebar();
@@ -137,7 +139,6 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                             <h2 className="text-lg font-semibold text-white">
                                 {view === "notifications" && "Notifications"}
                                 {view === "comments" && "Comments"}
-                                {view === "details" && "Event Details"}
                                 {view === "attendance" && "Guest List"}
                                 {view === "report" && "Report Content"}
                                 {view === "likes" && "Likes"}
@@ -149,7 +150,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     <div className="flex-1 overflow-y-auto px-2 py-4">
                         {view === "notifications" && <NotificationsView />}
                         {view === "comments" && <CommentsView data={data} />}
-                        {view === "details" && <EventDetailsView data={data} />}
+                        {view === "details" && <PostDetailsSidebarView data={data} />}
                         {view === "attendance" && <AttendanceView data={data} />}
                         {view === "report" && <ReportView data={data} />}
                         {view === "likes" && <LikesView data={data} />}
@@ -196,7 +197,6 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                         <h2 className="font-semibold text-white">
                             {view === "notifications" && "Notifications"}
                             {view === "comments" && "Comments"}
-                            {view === "details" && "Event Details"}
                             {view === "attendance" && "Guest List"}
                             {view === "report" && "Report Content"}
                             {view === "likes" && "Likes"}
@@ -214,7 +214,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                 <div className="flex-1 overflow-y-auto p-2">
                     {view === "notifications" && <NotificationsView />}
                     {view === "comments" && <CommentsView data={data} />}
-                    {view === "details" && <EventDetailsView data={data} />}
+                    {view === "details" && <PostDetailsSidebarView data={data} />}
                     {view === "attendance" && <AttendanceView data={data} />}
                     {view === "report" && <ReportView data={data} />}
                     {view === "likes" && <LikesView data={data} />}
@@ -293,161 +293,42 @@ function NotificationsView() {
 
 
 
-function EventDetailsView({ data }: { data: any }) {
+function PostDetailsSidebarView({ data }: { data: Post | null }) {
     if (!data) {
-        return <div className="text-neutral-500 text-sm">No event selected.</div>;
+        return <div className="text-neutral-500 text-sm">No post selected.</div>;
     }
 
-    // Calculate time until event or if it's live
-    const getEventStatus = () => {
-        if (!data.date || !data.startTime) return null;
-
-        const now = new Date();
-        const eventStart = new Date(`${data.date}T${data.startTime}:00`);
-
-        // Check if event is live
-        if (data.endTime) {
-            const eventEnd = new Date(`${data.date}T${data.endTime}:00`);
-            if (now >= eventStart && now <= eventEnd) {
-                return { type: 'live' as const };
-            }
-        }
-
-        // Calculate time until event
-        const diffMs = eventStart.getTime() - now.getTime();
-        if (diffMs <= 0) return null;
-
-        const totalMinutes = Math.round(diffMs / 60000);
-        const days = Math.floor(totalMinutes / (60 * 24));
-        const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-        const minutes = totalMinutes % 60;
-
-        if (days > 0) return { type: 'countdown' as const, label: `in ${days}d ${hours}h` };
-        if (hours > 0) return { type: 'countdown' as const, label: `in ${hours}h ${minutes}m` };
-        return { type: 'countdown' as const, label: `in ${minutes}m` };
-    };
-
-    const eventStatus = getEventStatus();
-
     return (
-        <div className="flex flex-col gap-6">
-            {/* Event Title */}
-            <div>
-                <h3 className="text-2xl font-bold text-white mb-2">{data.title || (data.isEvent ? "Event Title" : "Post Details")}</h3>
-                {(data.description || data.content) && (
-                    <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">
-                        {data.description || data.content}
-                    </p>
+        <div className="flex flex-col">
+            {/* 1) Media section (hero) if available */}
+            {(data.imageUrls && data.imageUrls.length > 0 || data.coordinates) && (
+                <div className="px-1 mb-4">
+                    <MediaHorizontalScroll
+                        post={data}
+                        noPadding
+                        fullWidth
+                        className="h-[200px] rounded-[18px]"
+                    />
+                </div>
+            )}
+
+            <div className="px-3">
+                {/* 2) Post content block (Chat-style) */}
+                <PostDetailMainInfo post={data} />
+
+                {/* Optional Campus Name from sidebar data */}
+                {data.campusName && (
+                    <div className="mt-4 pt-4 border-t border-white/5">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-1">Campus</h4>
+                        <p className="text-sm text-white/70 font-medium">{data.campusName}</p>
+                    </div>
                 )}
-            </div>
 
-            {/* Date & Time */}
-            <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">When</h4>
-                    {eventStatus && (
-                        <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-full ${eventStatus.type === 'live'
-                            ? 'bg-red-500/20 text-red-400 animate-pulse'
-                            : 'bg-amber-500/20 text-amber-400'
-                            }`}>
-                            {eventStatus.type === 'live' ? '● LIVE' : eventStatus.label}
-                        </span>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-neutral-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 text-neutral-400">
-                            <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
-                        </svg>
-                        <span className="font-medium">{data.date || "Date not set"}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-neutral-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 text-neutral-400">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
-                        </svg>
-                        <span className="font-medium">
-                            {data.startTime && data.endTime
-                                ? `${data.startTime} - ${data.endTime}`
-                                : data.startTime
-                                    ? `${data.startTime}${data.endTime ? ` - ${data.endTime}` : ""}`
-                                    : data.timeWindow || data.time || "Time not set"}
-                        </span>
-                    </div>
+                {/* 3) Embedded Comments */}
+                <div className="mt-1 pt-2 border-t border-white/5 -mx-2">
+                    <CommentsView data={data} />
                 </div>
             </div>
-
-            {/* Location with Map */}
-            {(data.locationLabel || data.venue || data.location) && (
-                <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Where</h4>
-                    <div className="flex items-start gap-2 text-sm text-neutral-300 mb-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 text-neutral-400 mt-0.5">
-                            <path fillRule="evenodd" d="m9.69 18.933.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clipRule="evenodd" />
-                        </svg>
-                        <span className="font-medium">{data.locationLabel || data.venue || data.location}</span>
-                    </div>
-
-                    {/* Map */}
-                    {data.coordinates?.lat && data.coordinates?.lng && (
-                        <div className="w-full h-48 rounded-2xl overflow-hidden border border-white/10">
-                            <iframe
-                                src={`https://www.google.com/maps?q=${data.coordinates.lat},${data.coordinates.lng}&z=15&output=embed`}
-                                className="w-full h-full border-0"
-                                loading="lazy"
-                                referrerPolicy="no-referrer-when-downgrade"
-                                title="Event location"
-                            />
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Host / Author */}
-            {(data.hostUserId || data.hostDisplayName || data.authorId || data.authorName) && (
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        {data.hostUserId || data.authorId ? (
-                            <UserRow uid={data.hostUserId || data.authorId} />
-                        ) : (
-                            <UserRow
-                                userData={{
-                                    displayName: data.hostDisplayName || data.authorName,
-                                    username: data.hostUsername || data.authorUsername,
-                                    photoURL: data.hostPhotoURL || data.authorAvatarUrl
-                                }}
-                            />
-                        )}
-                        <span className="text-xs font-semibold uppercase tracking-wider text-purple-400">
-                            {data.isEvent ? "Host" : "Author"}
-                        </span>
-                    </div>
-                </div>
-            )}
-
-            {/* Campus / Category */}
-            {data.campusName && (
-                <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-blue-400">Campus</h4>
-                    <p className="text-sm text-neutral-300 font-medium">{data.campusName}</p>
-                </div>
-            )}
-
-            {/* Images Gallery */}
-            {(data.images || data.imageUrls) && ((data.images && data.images.length > 0) || (data.imageUrls && data.imageUrls.length > 0)) && (
-                <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-pink-400">Photos</h4>
-                    <div className="space-y-2">
-                        {(data.images || data.imageUrls).map((img: string, i: number) => (
-                            <img
-                                key={i}
-                                src={img}
-                                alt={`Event photo ${i + 1}`}
-                                className="w-full rounded-2xl border border-white/10 object-contain bg-neutral-900"
-                            />
-                        ))}
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

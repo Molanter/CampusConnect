@@ -143,7 +143,7 @@ export function CommentInput({ value, onChange, onSend, sending, placeholder, cl
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white">@{user.username}</p>
+                  <p className="text-sm font-medium text-white">{user.username}</p>
                   <p className="text-xs text-neutral-400 truncate">{user.displayName}</p>
                 </div>
               </button>

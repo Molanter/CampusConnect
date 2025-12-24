@@ -258,13 +258,12 @@ export function Navbar({
           </Link>
         </nav>
 
-        {/* Signed-in account - Natural list row style */}
+        {/* Signed-in account - Capsule hover style */}
         <div className="mt-auto pt-4">
           <Link
             href="/profile"
             onClick={handleSidebarLinkClick}
-            className={`flex items-center gap-3 rounded-xl px-2 py-3 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] active:scale-95 group ${pathname === "/profile" ? "bg-white/[0.04]" : ""
-              }`}
+            className="flex items-center gap-3 rounded-full px-2 py-3 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] active:scale-95 group"
           >
             <UserRow uid={uid || undefined} />
           </Link>

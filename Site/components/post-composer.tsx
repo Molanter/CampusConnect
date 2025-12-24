@@ -21,6 +21,15 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
     const [selectedImages, setSelectedImages] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // Auto-resize textarea based on content
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = "auto";
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        }
+    }, [content]);
 
     // Fetch avatar from Firestore to ensure it's up to date
     useEffect(() => {
@@ -93,8 +102,8 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
 
             const docData: any = {
                 authorId: user.uid,
-                authorName: user.displayName || "Anonymous",
-                authorUsername: (user as any).username || null, // Best effort username
+                // authorName removed
+                // authorUsername removed
                 // authorAvatarUrl removed - fetched dynamically from profile
                 content: content.trim(),
                 createdAt: serverTimestamp(),
@@ -149,11 +158,11 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                 {/* Input Area - Full Width in Padding Area */}
                 <div className="flex-1 min-w-0">
                     <textarea
+                        ref={textareaRef}
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                         placeholder="What's happening?"
-                        className="w-full resize-none bg-transparent pt-2.5 text-[17px] text-white placeholder:text-neutral-500 focus:outline-none min-h-[40px]"
-                        rows={Math.max(1, content.split('\n').length)}
+                        className="w-full resize-none bg-transparent pt-2.5 text-[17px] text-white placeholder:text-neutral-500 focus:outline-none min-h-[40px] max-h-[160px] overflow-y-auto"
                         style={{ overflowAnchor: "none" }}
                     />
 

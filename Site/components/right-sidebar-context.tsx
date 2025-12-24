@@ -8,6 +8,8 @@ interface RightSidebarContextType {
     isVisible: boolean;
     view: RightSidebarView;
     data: any;
+    isNarrow: boolean;
+    setIsNarrow: (val: boolean) => void;
     sidebarWidth: number;
     setSidebarWidth: (width: number) => void;
     toggle: () => void;
@@ -31,6 +33,7 @@ export function RightSidebarProvider({ children }: { children: ReactNode }) {
     const [view, setView] = useState<RightSidebarView>("notifications");
     const [data, setData] = useState<any>(null);
     const [sidebarWidth, setSidebarWidth] = useState(300);
+    const [isNarrow, setIsNarrow] = useState(false);
 
     const toggle = () => setIsVisible((prev) => !prev);
 
@@ -52,6 +55,8 @@ export function RightSidebarProvider({ children }: { children: ReactNode }) {
         <RightSidebarContext.Provider
             value={{
                 isVisible,
+                isNarrow,
+                setIsNarrow,
                 view,
                 data,
                 sidebarWidth,

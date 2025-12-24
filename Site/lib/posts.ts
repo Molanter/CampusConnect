@@ -17,13 +17,13 @@ export type Post = {
     clubAvatarUrl?: string;
 
     content?: string;
+    title?: string;
     imageUrls?: string[];
     likes?: string[]; // Array of user IDs
     createdAt?: any; // Timestamp
 
     // Event specific fields (optional)
     isEvent: boolean;
-    title?: string; // Event title
     venue?: string; // or locationLabel
     locationLabel?: string;
     locationUrl?: string; // Link to map
@@ -43,6 +43,9 @@ export type Post = {
     notGoingUids?: string[];
 
     editCount?: number;
+    commentsCount?: number;
+    repliesCommentsCount?: number;
+    campusName?: string;
 };
 
 export const moodFilters: Mood[] = [

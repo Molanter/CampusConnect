@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
     collection,
     query,
@@ -16,11 +16,22 @@ import { Post } from "../posts"; // Assuming posts.ts is in lib/
 const POSTS_PER_PAGE = 15;
 
 // Map Firestore doc to Post type
-const mapDocToPost = (doc: QueryDocumentSnapshot<DocumentData>): Post => {
+export const mapDocToPost = (doc: QueryDocumentSnapshot<DocumentData>): Post => {
     const data = doc.data();
+
+    if (data.clubId || data.club_id || data.communityId || data.hostClubId) {
+        console.log(`[useFeed Debug] Mapping post ${doc.id} with club data:`, {
+            clubId: data.clubId,
+            club_id: data.club_id,
+            communityId: data.communityId,
+            hostClubId: data.hostClubId,
+            raw: data
+        });
+    }
+
     return {
         id: doc.id,
-        title: data.title ?? (data.isEvent ? "Untitled Event" : undefined),
+        title: data.title,
         content: data.content ?? data.description ?? "",
         imageUrls: (Array.isArray(data.imageUrls) ? data.imageUrls : null) ?? (data.imageUrl ? [data.imageUrl] : []),
         isEvent: data.isEvent ?? true,
@@ -41,10 +52,15 @@ const mapDocToPost = (doc: QueryDocumentSnapshot<DocumentData>): Post => {
         goingUids: data.goingUids,
         maybeUids: data.maybeUids,
         notGoingUids: data.notGoingUids,
+
+        // Club info
+        clubId: data.clubId,
+        clubName: data.clubName,
+        clubAvatarUrl: data.clubAvatarUrl,
     } as Post;
 };
 
-export function useFeed(user: any) {
+export function useFeed(user: any, targetUserId?: string) {
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -59,15 +75,13 @@ export function useFeed(user: any) {
     const [isBrowsingExpired, setIsBrowsingExpired] = useState(false);
 
     // Helper to format today YYYY-MM-DD in local time
-    const getTodayStr = () => {
+    const memoizedTodayStr = useMemo(() => {
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, "0");
         const day = String(now.getDate()).padStart(2, "0");
         return `${year}-${month}-${day}`;
-    };
-
-    const todayStr = getTodayStr();
+    }, []);
 
     const fetchPosts = useCallback(async (isInitial = false) => {
         if (!user) return;
@@ -75,170 +89,109 @@ export function useFeed(user: any) {
             setLoading(true);
             setError(null);
 
-            const postsRef = collection(db, "posts");
-            let newPosts: Post[] = [];
-            let lastVisible: QueryDocumentSnapshot<DocumentData> | null = null;
-            let hitEndOfMainFeed = false;
+            const fetchFromCollection = async (collName: string, cursor: QueryDocumentSnapshot<DocumentData> | null) => {
+                const collRef = collection(db, collName);
 
-            if (isInitial) {
-                // --- 1. Fetch Today's Events (Only on initial load) ---
-                const todayQuery = query(
-                    postsRef,
-                    where("isEvent", "==", true),
-                    where("date", "==", todayStr),
-                    orderBy("createdAt", "desc") // Sort today's events by creation too? Or start time? Defaulting to creation for now or whatever index is easier.
-                    // Note: multiple inequality/equality might need composite index.
-                    // valid: isEvent==true, date==todayStr, orderBy date (redundant), orderBy createdAt
-                );
-
-                // --- 2. Fetch Initial Batch of Main Feed ---
-                // We want everything NOT today (or duplicates handled in code) and NOT expired.
-                // It's hard to exclude "today" AND "expired" in one query with 'createdAt' sort.
-                // Strategy: Query by createdAt desc. Filter client-side.
-                // We probably need to fetch slightly more to account for filtering.
-                const feedQuery = query(
-                    postsRef,
-                    orderBy("createdAt", "desc"),
-                    limit(POSTS_PER_PAGE * 2) // Fetch extra to handle filtering
-                );
-
-                const [todaySnap, feedSnap] = await Promise.all([
-                    getDocs(todayQuery),
-                    getDocs(feedQuery)
-                ]);
-
-                const todayItems = todaySnap.docs.map(mapDocToPost);
-
-                // Filter feed items
-                const feedItemsRaw = feedSnap.docs.map(doc => ({ post: mapDocToPost(doc), doc }));
-                const validFeedItems = feedItemsRaw.filter(({ post }) => {
-                    // Exclude if it's already in todayItems
-                    if (post.date === todayStr && post.isEvent) return false;
-                    // Exclude if it's expired (date < todayStr)
-                    if (post.isEvent && post.date && post.date < todayStr) return false;
-                    return true;
-                });
-
-                // Combine
-                // Take only POSTS_PER_PAGE from the valid feed items to start? Or just dump them all?
-                // Let's take up to POSTS_PER_PAGE
-                const initialFeedPortion = validFeedItems.slice(0, POSTS_PER_PAGE);
-
-                newPosts = [...todayItems, ...initialFeedPortion.map(x => x.post)];
-
-                // Set lastDoc for pagination
-                // If we used some feed items, the cursor is the last one we used.
-                if (initialFeedPortion.length > 0) {
-                    lastVisible = initialFeedPortion[initialFeedPortion.length - 1].doc;
-                } else {
-                    // If no feed items found (or all filtered out), we might need to fetch more immediately or switch to expired.
-                    // For simplicity, if we got nothing valid, we mark main feed done?
-                    // Actually, if existing feed is empty, we might just be done with main feed.
-                    if (feedSnap.empty) {
-                        hitEndOfMainFeed = true;
-                    } else {
-                        // We fetched docs but filtered them all out? 
-                        // We should probably optimize this, but for now, let's just use the last fetched doc as cursor
-                        // even if we didn't show it, so we can move forward.
-                        lastVisible = feedSnap.docs[feedSnap.docs.length - 1];
-                    }
-                }
-
-                setIsBrowsingExpired(false);
-                setPosts(newPosts);
-
-            } else {
-                // --- Load More ---
-                if (isBrowsingExpired) {
-                    // Fetching Expired
-                    const expiredQuery = query(
-                        postsRef,
-                        where("isEvent", "==", true),
-                        where("date", "<", todayStr),
-                        orderBy("date", "desc"),
-                        startAfter(lastDocRef.current),
-                        limit(POSTS_PER_PAGE)
-                    );
-                    const snap = await getDocs(expiredQuery);
-                    if (!snap.empty) {
-                        newPosts = snap.docs.map(mapDocToPost);
-                        lastVisible = snap.docs[snap.docs.length - 1];
-                    } else {
-                        setHasMore(false);
-                    }
-                } else {
-                    // Fetching Main Feed
-                    // Use current cursor
-                    if (!lastDocRef.current) {
-                        // Should not happen if isInitial was false, unless main feed was empty initially
-                        hitEndOfMainFeed = true;
-                    } else {
-                        const nextQuery = query(
-                            postsRef,
-                            orderBy("createdAt", "desc"),
-                            startAfter(lastDocRef.current),
-                            limit(POSTS_PER_PAGE * 2)
+                // todayDocs
+                let todayDocs: QueryDocumentSnapshot<DocumentData>[] = [];
+                if (isInitial) {
+                    try {
+                        // Simple query first to avoid index issues
+                        let todayQ = query(
+                            collRef,
+                            where("isEvent", "==", true),
+                            where("date", "==", memoizedTodayStr),
+                            limit(50)
                         );
-                        const snap = await getDocs(nextQuery);
 
-                        if (snap.empty) {
-                            hitEndOfMainFeed = true;
-                        } else {
-                            const itemsRaw = snap.docs.map(doc => ({ post: mapDocToPost(doc), doc }));
-                            // Filter
-                            const validItems = itemsRaw.filter(({ post }) => {
-                                if (post.date === todayStr && post.isEvent) return false; // Already shown at top
-                                if (post.isEvent && post.date && post.date < todayStr) return false; // Expired
-                                return true;
-                            });
-                            // Note: We scan through the *entire* batch for cursor progression
-                            lastVisible = snap.docs[snap.docs.length - 1];
-
-                            newPosts = validItems.map(x => x.post);
+                        if (targetUserId) {
+                            todayQ = query(todayQ, where("authorId", "==", targetUserId));
                         }
+
+                        const snap = await getDocs(todayQ);
+                        todayDocs = snap.docs;
+                    } catch (e) {
+                        console.warn(`[useFeed] Today query failed for ${collName}:`, e);
                     }
                 }
-            }
 
-            // Handle transition to Expired if Main Feed finished
-            if (hitEndOfMainFeed && !isBrowsingExpired) {
-                console.log("Main feed finished. Switching to Expired events.");
-                setIsBrowsingExpired(true);
-                // Important: We do NOT set cursor here for the next phase.
-                // We want the expired query to start from the top (closest to today).
-                // So we must clear the cursor so the 'expired' block doesn't use the 'main feed' cursor.
-                // However, we can't clear it here effectively if we want to "continue" immediately?
-                // Actually, if we switch phase, the next "Load More" click/trigger will call fetchPosts.
-                // It will see isBrowsingExpired=true.
-                // It will try to use lastDocRef.current.
-                // We must invalidate lastDocRef.current if it belongs to the previous phase!
-                lastDocRef.current = null;
+                // mainDocs
+                let feedSnap;
+                try {
+                    // Try with orderBy first (best UX)
+                    let feedQ;
+                    if (isInitial) {
+                        feedQ = query(collRef, orderBy("createdAt", "desc"), limit(POSTS_PER_PAGE));
+                    } else if (cursor) {
+                        feedQ = query(collRef, orderBy("createdAt", "desc"), startAfter(cursor), limit(POSTS_PER_PAGE));
+                    } else {
+                        feedQ = query(collRef, orderBy("createdAt", "desc"), limit(POSTS_PER_PAGE));
+                    }
 
-                if (newPosts.length === 0) {
-                    // Try to verify if there are any expired events immediately so we don't show "End of results" prematurely
-                    // But for simplicity/stability, let's just let the user hit "load more" again or let the observer trigger again.
-                    // The observer might stop if 'hasMore' is true but no posts added? 
-                    // No, if newPosts=0, observer stays intersecting?
-                    // Let's force a re-fetch of expired immediately if main feed yielded 0?
-                    // For now, let's trust the observer to trigger again if we returned 0 posts but hasMore=true.
-                    // To ensure observer triggers, we might need a tiny timeout or just rely on react.
+                    if (targetUserId) {
+                        feedQ = query(feedQ, where("authorId", "==", targetUserId));
+                    }
+
+                    feedSnap = await getDocs(feedQ);
+                } catch (e: any) {
+                    console.warn(`[useFeed] Main query with orderBy failed for ${collName}, falling back to simple query:`, e);
+                    // Fallback: simple query (no orderBy)
+                    let simpleQ;
+                    if (isInitial) {
+                        simpleQ = query(collRef, limit(POSTS_PER_PAGE * 2));
+                    } else if (cursor) {
+                        simpleQ = query(collRef, startAfter(cursor), limit(POSTS_PER_PAGE * 2));
+                    } else {
+                        simpleQ = query(collRef, limit(POSTS_PER_PAGE * 2));
+                    }
+
+                    if (targetUserId) {
+                        simpleQ = query(simpleQ, where("authorId", "==", targetUserId));
+                    }
+
+                    feedSnap = await getDocs(simpleQ);
                 }
+
+                return { todayDocs, feedDocs: feedSnap.docs, empty: feedSnap.empty };
+            };
+
+            // 1. Try 'posts'
+            let { todayDocs, feedDocs, empty } = await fetchFromCollection("posts", lastDocRef.current);
+
+            // 2. Fallback to 'events' if no posts found at all on initial load
+            if (isInitial && empty) {
+                console.log("[useFeed] No data in 'posts', checking 'events' collection...");
+                const fallback = await fetchFromCollection("events", null);
+                todayDocs = fallback.todayDocs;
+                feedDocs = fallback.feedDocs;
+                empty = fallback.empty;
             }
 
-            if (lastVisible) {
-                console.log("Setting cursor to:", lastVisible.id, "Has Date:", lastVisible.data().date);
-                lastDocRef.current = lastVisible;
-            }
+            const todayPosts = todayDocs.map(mapDocToPost);
+            const feedPostsRaw = feedDocs.map(doc => ({ post: mapDocToPost(doc), doc }));
 
+            // Deduplicate (Today's events might be in the feed too)
+            const todayIds = new Set(todayPosts.map(p => p.id));
+            const uniqueFeed = feedPostsRaw.filter(x => !todayIds.has(x.post.id));
+
+            let newPosts = [...todayPosts, ...uniqueFeed.map(x => x.post)];
+
+            // Final safety filter: remove duplicates already in state if not initial
             if (!isInitial) {
                 setPosts(prev => {
                     const existingIds = new Set(prev.map(p => p.id));
                     const uniqueNew = newPosts.filter(p => !existingIds.has(p.id));
-                    console.log(`Adding ${uniqueNew.length} new posts (${newPosts.length - uniqueNew.length} duplicates filtered)`);
                     return [...prev, ...uniqueNew];
                 });
             } else {
                 setPosts(newPosts);
+            }
+
+            if (feedDocs.length > 0) {
+                lastDocRef.current = feedDocs[feedDocs.length - 1];
+                setHasMore(true);
+            } else {
+                setHasMore(false);
             }
 
         } catch (err: any) {
@@ -247,7 +200,7 @@ export function useFeed(user: any) {
         } finally {
             setLoading(false);
         }
-    }, [user, isBrowsingExpired, todayStr]);
+    }, [user, memoizedTodayStr]);
 
     // Trigger initial fetch when user is available
     useEffect(() => {

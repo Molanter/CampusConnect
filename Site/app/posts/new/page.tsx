@@ -475,8 +475,8 @@ export default function CreateEventPage() {
       const baseData: any = {
         description: description.trim(),
         authorId: user.uid,
-        authorName: profile?.preferredName || user.displayName || "Anonymous",
-        authorUsername: profile?.username || null,
+        // authorName removed
+        // authorUsername removed
         // authorAvatarUrl removed
         createdAt: serverTimestamp(),
         likes: [],

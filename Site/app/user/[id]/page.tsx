@@ -11,11 +11,14 @@ import { PostCard } from "@/components/post-card";
 import { CompactPostCard } from "@/components/compact-post-card";
 import { useRightSidebar } from "@/components/right-sidebar-context";
 import { Post } from "@/lib/posts";
+import { TextPostListItem } from "@/components/text-post-list-item";
+import { UserProfileHeader } from "@/components/profile/user-profile-header";
 
 type UserProfile = {
   username?: string;
   displayName?: string;
   photoURL?: string;
+  universityId?: string;
   campus?: string;
   campusLocation?: string;
   yearOfStudy?: string;
@@ -54,8 +57,9 @@ export default function UserProfilePage() {
           const data = snap.data();
           setProfile({
             username: data.username || "",
-            displayName: data.preferredName || data.displayName || "User",
+            displayName: data.name || data.fullName || data.preferredName || data.displayName || "User",
             photoURL: data.photoURL || "",
+            universityId: data.universityId || "",
             campus: data.campus || "",
             campusLocation: data.campusLocation || "",
             yearOfStudy: data.yearOfStudy || "",
@@ -84,12 +88,22 @@ export default function UserProfilePage() {
       try {
         setPostsLoading(true);
 
-        const q = query(
-          collection(db, "posts"),
-          where("hostUserId", "==", targetUid)
-        );
-        const snap = await getDocs(q);
-        const items: Post[] = snap.docs.map((doc) => {
+        // 1. Try 'posts' collection first
+        const postsRef = collection(db, "posts");
+        const qPosts = query(postsRef, where("authorId", "==", targetUid));
+        const snap = await getDocs(qPosts);
+
+        let docs = snap.docs;
+
+        // 2. Fallback to 'events' if 'posts' is empty
+        if (snap.empty) {
+          const eventsRef = collection(db, "events");
+          const qEvents = query(eventsRef, where("hostUserId", "==", targetUid));
+          const snapEvents = await getDocs(qEvents);
+          docs = snapEvents.docs;
+        }
+
+        const items: Post[] = docs.map((doc) => {
           const data = doc.data();
           return {
             id: doc.id,
@@ -110,6 +124,9 @@ export default function UserProfilePage() {
             goingUids: data.goingUids || [],
             maybeUids: data.maybeUids || [],
             notGoingUids: data.notGoingUids || [],
+            clubId: data.clubId,
+            clubName: data.clubName,
+            clubAvatarUrl: data.clubAvatarUrl,
           };
         });
 
@@ -155,73 +172,52 @@ export default function UserProfilePage() {
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-neutral-950 px-4 py-8 text-neutral-50">
-      <div className="mx-auto w-full max-w-xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition"
+    <div className="min-h-screen text-neutral-50">
+      <div className="mx-auto w-full max-w-2xl px-2 py-6 pb-32 space-y-6">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => router.back()}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-white transition-all active:scale-95"
           >
-            <ChevronLeftIcon className="h-5 w-5" />
-          </Link>
-          <h1 className="text-xl font-bold tracking-tight">Profile</h1>
+            <ChevronLeftIcon className="h-6 w-6" />
+          </button>
         </div>
 
-        {/* User Card */}
-        <div className="rounded-[28px] border border-white/10 bg-[#1C1C1E] p-5 ring-1 ring-white/5 space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-2 ring-white/10">
-              {photoURL ? (
-                <img src={photoURL} alt={displayName} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-lg font-bold text-white">
-                  {initials}
-                </div>
-              )}
-            </div>
-            <div>
-              <p className="text-lg font-semibold text-white">{displayName}</p>
-              {username && (
-                <p className="text-sm text-neutral-400">@{username}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Profile Details */}
-          {(profile.campus || profile.major || profile.yearOfStudy || profile.dorm) && (
-            <div className="space-y-2 text-sm pt-4 border-t border-white/10">
-              {profile.campus && (
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-400">Campus</span>
-                  <span className="text-white font-medium">{profile.campus}</span>
-                </div>
-              )}
-              {profile.role === "student" && profile.major && (
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-400">Major</span>
-                  <span className="text-white font-medium">{profile.major}</span>
-                </div>
-              )}
-              {profile.role === "student" && profile.yearOfStudy && (
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-400">Year</span>
-                  <span className="text-white font-medium">{profile.yearOfStudy}</span>
-                </div>
-              )}
-              {profile.dorm && (
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-400">Dorm</span>
-                  <span className="text-white font-medium">{profile.dorm}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* New Glass Profile Header */}
+        <UserProfileHeader
+          displayName={displayName}
+          username={username}
+          photoURL={photoURL}
+          universityId={profile?.universityId}
+          universityName={profile?.campus}
+          yearOfStudy={profile?.yearOfStudy}
+          major={profile?.major}
+          isOwnProfile={user?.uid === targetUid}
+          stats={{
+            posts: userPosts.length,
+            clubs: 0,
+            followers: 0,
+            following: 0,
+          }}
+          onEdit={() => router.push("/profile/edit")}
+          onSettings={() => router.push("/settings")}
+          onShare={() => {
+            if (navigator.share) {
+              navigator.share({
+                title: `${displayName}'s Profile`,
+                url: window.location.href,
+              });
+            }
+          }}
+          onReport={() => {
+            openView("report", { id: targetUid, type: "user" });
+          }}
+        />
 
         {/* User's Posts */}
         <div className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/30">
             Posts by {displayName}
           </h2>
 
@@ -238,16 +234,16 @@ export default function UserProfilePage() {
           )}
 
           {!postsLoading && userPosts.length > 0 && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               {userPosts.map((post) => (
-                <div key={post.id} className="relative">
-                  <CompactPostCard
-                    post={post}
-                    onCommentsClick={() => openView("comments", post)}
-                    onAttendanceClick={() => openView("attendance", post)}
-                    onClick={() => router.push(post.isEvent ? `/events/${post.id}` : `/posts/${post.id}`)}
-                  />
-                </div>
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  variant="threads"
+                  onCommentsClick={() => openView("comments", post)}
+                  onAttendanceClick={() => openView("attendance", post)}
+                  onDetailsClick={() => openView("details", post)}
+                />
               ))}
             </div>
           )}

@@ -9,12 +9,14 @@ interface MediaHorizontalScrollProps {
     noPadding?: boolean;
     className?: string;
     fullWidth?: boolean;
+    onClick?: () => void;
+    isNarrow?: boolean;
 }
 
 const libraries: ("places" | "geometry" | "drawing" | "visualization")[] = ["places"];
 
-export function MediaHorizontalScroll({ post, noPadding = false, className = "", fullWidth = false }: MediaHorizontalScrollProps) {
-    const { coordinates, imageUrls } = post;
+export function MediaHorizontalScroll({ post, noPadding = false, className = "", fullWidth = false, onClick, isNarrow = false }: MediaHorizontalScrollProps) {
+    const { coordinates, imageUrls, id } = post;
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
@@ -31,11 +33,22 @@ export function MediaHorizontalScroll({ post, noPadding = false, className = "",
 
     const totalItems = (hasMap ? 1 : 0) + images.length;
 
+    // Responsive height: h-[180px] on mobile/narrow, h-[200px] on desktop
+    const mediaHeightClass = isNarrow ? "h-[180px]" : "h-[180px] md:h-[200px]";
+
     return (
-        <div className={`flex w-full justify-start gap-3 overflow-hidden rounded-[24px] ${totalItems > 1 ? "overflow-x-auto pb-4 snap-x snap-mandatory" : ""} scrollbar-hide ${noPadding ? '' : 'px-2'} ${className}`}>
-            {/* Map Item - Fixed Aspect Ratio (Square) unless it's the only item, then post width */}
+        <div className={`flex w-full justify-start gap-3 overflow-hidden rounded-[24px] ${totalItems > 1 ? "overflow-x-auto pb-1 snap-x snap-mandatory" : ""} scrollbar-hide ${noPadding ? '' : 'px-2'} ${className}`}>
+            {/* Map Item - Fixed Responsive Height */}
             {hasMap && (
-                <div className={`${images.length === 0 ? `aspect-[16/9] h-auto w-full ${fullWidth ? '' : 'max-w-[450px] @3xl:w-[450px]'}` : 'h-[250px] aspect-square'} shrink-0 snap-start overflow-hidden rounded-[24px] border border-white/5 bg-neutral-900 shadow-lg relative mx-0`}>
+                <div
+                    onClick={(e) => {
+                        if (onClick) {
+                            e.stopPropagation();
+                            onClick();
+                        }
+                    }}
+                    className={`${mediaHeightClass} ${images.length === 0 ? `w-full ${fullWidth ? '' : 'max-w-[450px]'}` : 'aspect-square'} shrink-0 snap-start overflow-hidden rounded-[24px] border border-white/5 bg-neutral-900 shadow-lg relative mx-0 ${onClick ? 'cursor-pointer hover:brightness-[1.05] transition-all' : ''}`}
+                >
                     {isLoaded && coordinates ? (
                         <GoogleMap
                             mapContainerStyle={{ width: '100%', height: '100%' }}
@@ -61,19 +74,27 @@ export function MediaHorizontalScroll({ post, noPadding = false, className = "",
                 </div>
             )}
 
-            {/* Image Items - Variable Width, Full Height (unless single item) */}
+            {/* Image Items - Fixed Responsive Height */}
             {images.map((url, index) => {
                 const isSinglePhoto = !hasMap && images.length === 1;
 
                 if (isSinglePhoto) {
                     return (
-                        <div key={index} className={`w-full ${fullWidth ? '' : 'max-w-[450px]'} flex justify-start items-start`}>
-                            <div className="h-fit w-fit max-w-full overflow-hidden rounded-[24px] border border-white/5 bg-neutral-900 shadow-lg mx-0">
+                        <div
+                            key={index}
+                            onClick={(e) => {
+                                if (onClick) {
+                                    e.stopPropagation();
+                                    onClick();
+                                }
+                            }}
+                            className={`flex justify-start items-start ${mediaHeightClass} ${fullWidth ? '' : 'max-w-full'} ${onClick ? 'cursor-pointer group' : ''}`}
+                        >
+                            <div className="h-full w-auto overflow-hidden rounded-[24px] border border-white/5 bg-neutral-900 shadow-lg mx-0 group-hover:brightness-[1.05] transition-all">
                                 <img
                                     src={url}
                                     alt={`Event media ${index + 1}`}
-                                    className="block w-auto h-auto max-w-full max-h-[500px] object-contain"
-                                    style={{ maxHeight: '500px' }}
+                                    className="h-full w-auto max-w-full object-contain block"
                                 />
                             </div>
                         </div>
@@ -85,7 +106,13 @@ export function MediaHorizontalScroll({ post, noPadding = false, className = "",
                         key={index}
                         src={url}
                         alt={`Event media ${index + 1}`}
-                        className={`h-[250px] w-auto object-contain max-w-none shrink-0 ${!hasMap && index === 0 ? "snap-start" : "snap-center"} rounded-[24px] border border-white/5 bg-neutral-900 shadow-lg mx-0`}
+                        onClick={(e) => {
+                            if (onClick) {
+                                e.stopPropagation();
+                                onClick();
+                            }
+                        }}
+                        className={`${mediaHeightClass} w-auto object-contain max-w-none shrink-0 ${!hasMap && index === 0 ? "snap-start" : "snap-center"} rounded-[24px] border border-white/5 bg-neutral-900 shadow-lg mx-0 ${onClick ? 'cursor-pointer hover:brightness-[1.05] transition-all' : ''}`}
                     />
                 );
             })}

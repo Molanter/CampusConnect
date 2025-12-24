@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { HandThumbUpIcon, HandThumbDownIcon, QuestionMarkCircleIcon, HeartIcon, CheckIcon, XMarkIcon, CalendarIcon, UserGroupIcon } from "@heroicons/react/24/solid";
 import { HeartIcon as HeartIconOutline, PencilIcon, EllipsisVerticalIcon, FlagIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { auth, db } from "../lib/firebase";
@@ -40,6 +41,8 @@ interface PostCardProps {
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 import { MediaHorizontalScroll } from "@/components/post-detail/media-horizontal-scroll";
 import { formatDistanceToNow } from "date-fns";
+import { useUserProfile } from "./user-profiles-context";
+import { useClubProfile } from "./club-profiles-context";
 
 const mapContainerStyle = {
     width: "100%",
@@ -66,6 +69,7 @@ export function PostCard({
     onEditClick,
     onDeleted,
 }: PostCardProps) {
+    const router = useRouter();
     // Deconstruct fields for easier access and backward compatibility logic
     const {
         id,
@@ -84,6 +88,7 @@ export function PostCard({
         isEvent,
         createdAt,
         editCount = 0,
+        clubId,
     } = post;
 
     const [status, setStatus] = useState<AttendanceStatus>(null);
@@ -98,21 +103,107 @@ export function PostCard({
     const [hasMoreComments, setHasMoreComments] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
     const [likesCount, setLikesCount] = useState(likes.length);
-    const [hostPhotoUrl, setHostPhotoUrl] = useState<string | null>(hostAvatarUrl || null);
     const [canDeleteComments, setCanDeleteComments] = useState(false);
     const [contextMenuOpen, setContextMenuOpen] = useState(false);
     const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
     const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
     const [attendanceMenuOpen, setAttendanceMenuOpen] = useState(false);
     const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
+    const descriptionRef = useRef<HTMLDivElement>(null);
+    const [displayText, setDisplayText] = useState(description);
+    const [isTruncated, setIsTruncated] = useState(false);
 
-    // Safely get sidebar context if available
+    const hasMedia = images.length > 0 || !!coordinates;
+    const lineLimit = hasMedia ? 3 : 5;
+
+    useEffect(() => {
+        const checkTruncation = () => {
+            const el = descriptionRef.current;
+            if (!el || !description) return;
+
+            const styles = window.getComputedStyle(el);
+            const lineHeight = parseFloat(styles.lineHeight);
+            if (isNaN(lineHeight)) return;
+
+            const maxHeight = lineHeight * lineLimit;
+
+            // Use a temporary div for measurement to avoid flickering
+            const measureEl = document.createElement("div");
+            measureEl.style.width = `${el.clientWidth}px`;
+            measureEl.style.fontSize = styles.fontSize;
+            measureEl.style.lineHeight = styles.lineHeight;
+            measureEl.style.fontFamily = styles.fontFamily;
+            measureEl.style.fontWeight = styles.fontWeight;
+            measureEl.style.letterSpacing = styles.letterSpacing;
+            measureEl.style.whiteSpace = styles.whiteSpace;
+            measureEl.style.wordBreak = styles.wordBreak;
+            measureEl.style.padding = styles.padding;
+            measureEl.style.boxSizing = styles.boxSizing;
+            measureEl.style.visibility = "hidden";
+            measureEl.style.position = "absolute";
+            measureEl.style.zIndex = "-9999";
+            measureEl.textContent = description;
+            document.body.appendChild(measureEl);
+
+            if (measureEl.scrollHeight <= maxHeight + 1) {
+                setIsTruncated(false);
+                setDisplayText(description);
+                document.body.removeChild(measureEl);
+                return;
+            }
+
+            // Binary search for the truncation point
+            let low = 0;
+            let high = description.length;
+            let best = 0;
+
+            // Increase the buffer to ensure a very pronounced gap like Threads.
+            const spaceBuffer = "\u00A0".repeat(24);
+
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                measureEl.textContent = `${description.slice(0, mid).trim()}...${spaceBuffer}show more`;
+                if (measureEl.scrollHeight <= maxHeight + 1) {
+                    best = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+
+            // Snap to the nearest word boundary to avoid cutting words in half
+            const truncatedText = description.slice(0, best);
+            const lastSpaceIndex = truncatedText.lastIndexOf(" ");
+            const snapPoint = lastSpaceIndex > 0 ? lastSpaceIndex : best;
+
+            setIsTruncated(true);
+            setDisplayText(description.slice(0, snapPoint).trim());
+            document.body.removeChild(measureEl);
+        };
+
+        checkTruncation();
+
+        const observer = new ResizeObserver(() => {
+            checkTruncation();
+        });
+
+        if (descriptionRef.current) {
+            observer.observe(descriptionRef.current);
+        }
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [description, lineLimit, variant]);
+
     let openView: any = () => console.warn("RightSidebar context not available");
     let sidebarVisible = false;
+    let isNarrow = false;
     try {
         const sidebar = useRightSidebar();
         openView = sidebar.openView;
         sidebarVisible = sidebar.isVisible;
+        isNarrow = sidebar.isNarrow;
     } catch (e) {
         // Ignore error if context is missing (e.g. in isolation)
     }
@@ -139,68 +230,26 @@ export function PostCard({
                 for (const docSnap of snapshot.docs) {
                     const data = docSnap.data();
 
-                    // Always fetch author data from users collection for most accurate info
-                    let authorName = data.authorName ?? "Someone";
-                    let authorPhotoURL = data.authorPhotoURL ?? null;
-                    let authorUsername = data.authorUsername ?? null;
-
-                    const targetUid = data.authorUid || data.uid;
-
-                    if (targetUid) {
-                        try {
-                            const userDoc = await getDoc(doc(db, "users", targetUid));
-                            if (userDoc.exists()) {
-                                const userData = userDoc.data();
-                                authorName = userData.displayName || userData.username || "Someone";
-                                authorPhotoURL = userData.photoURL || null;
-                                authorUsername = userData.username || null;
-                            }
-                        } catch (err) {
-                            console.error("Error fetching author data:", err);
-                        }
-                    }
-
                     const repliesRef = collection(db, "posts", id, "comments", docSnap.id, "replies");
                     const repliesSnapshot = await getDocs(repliesRef);
 
-                    // Load replies recursively
-                    const replies = [];
-                    for (const replyDoc of repliesSnapshot.docs) {
+                    // Load replies (simplified)
+                    const replies = repliesSnapshot.docs.map(replyDoc => {
                         const replyData = replyDoc.data();
-
-                        // Always fetch reply author data from users collection
-                        let replyAuthorName = replyData.authorName ?? "Someone";
-                        let replyAuthorPhoto = replyData.authorPhotoURL ?? null;
-                        let replyAuthorUsername = replyData.authorUsername ?? null;
-
-                        if (replyData.authorUid) {
-                            try {
-                                const userDoc = await getDoc(doc(db, "users", replyData.authorUid));
-                                if (userDoc.exists()) {
-                                    const userData = userDoc.data();
-                                    replyAuthorName = userData.displayName || userData.username || "Someone";
-                                    replyAuthorPhoto = userData.photoURL || null;
-                                    replyAuthorUsername = userData.username || null;
-                                }
-                            } catch (err) {
-                                console.error("Error fetching reply author data:", err);
-                            }
-                        }
-
-                        replies.push({
+                        return {
                             id: replyDoc.id,
                             text: replyData.text ?? "",
-                            authorName: replyAuthorName,
+                            authorName: replyData.authorName ?? "Someone",
                             authorUid: replyData.authorUid ?? null,
-                            authorPhotoURL: replyAuthorPhoto,
-                            authorUsername: replyAuthorUsername,
+                            authorPhotoURL: replyData.authorPhotoURL ?? null,
+                            authorUsername: replyData.authorUsername ?? null,
                             createdAt: replyData.createdAt?.toDate ? replyData.createdAt.toDate() : null,
                             updatedAt: replyData.updatedAt?.toDate ? replyData.updatedAt.toDate() : null,
                             likes: replyData.likes ?? [],
                             parentPath: [docSnap.id],
-                            replies: [], // Can load nested if needed
-                        });
-                    }
+                            replies: [],
+                        };
+                    });
 
                     // Sort replies by likes (descending) and take only the top 1
                     replies.sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0));
@@ -213,10 +262,10 @@ export function PostCard({
                         bestComment = {
                             id: docSnap.id,
                             text: data.text ?? "",
-                            authorName,
+                            authorName: data.authorName ?? "Someone",
                             authorUid: data.authorUid ?? null,
-                            authorPhotoURL,
-                            authorUsername,
+                            authorPhotoURL: data.authorPhotoURL ?? null,
+                            authorUsername: data.authorUsername ?? null,
                             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
                             updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : null,
                             likes: data.likes ?? [],
@@ -227,37 +276,18 @@ export function PostCard({
                 }
 
                 if (!bestComment && snapshot.docs.length > 0) {
-                    const fallbackData = snapshot.docs[0].data();
-
-                    // Always fetch author data for fallback comment
-                    let fallbackAuthorName = fallbackData.authorName ?? "Someone";
-                    let fallbackAuthorPhoto = fallbackData.authorPhotoURL ?? null;
-                    let fallbackAuthorUsername = fallbackData.authorUsername ?? null;
-
-                    if (fallbackData.authorUid) {
-                        try {
-                            const userDoc = await getDoc(doc(db, "users", fallbackData.authorUid));
-                            if (userDoc.exists()) {
-                                const userData = userDoc.data();
-                                fallbackAuthorName = userData.displayName || userData.username || "Someone";
-                                fallbackAuthorPhoto = userData.photoURL || null;
-                                fallbackAuthorUsername = userData.username || null;
-                            }
-                        } catch (err) {
-                            console.error("Error fetching fallback author data:", err);
-                        }
-                    }
-
+                    const fallbackData = snapshot.docs[0].id;
+                    const data = snapshot.docs[0].data();
                     bestComment = {
                         id: snapshot.docs[0].id,
-                        text: fallbackData.text ?? "",
-                        authorName: fallbackAuthorName,
-                        authorUid: fallbackData.authorUid ?? null,
-                        authorPhotoURL: fallbackAuthorPhoto,
-                        authorUsername: fallbackAuthorUsername,
-                        createdAt: fallbackData.createdAt?.toDate ? fallbackData.createdAt.toDate() : null,
-                        updatedAt: fallbackData.updatedAt?.toDate ? fallbackData.updatedAt.toDate() : null,
-                        likes: fallbackData.likes ?? [],
+                        text: data.text ?? "",
+                        authorName: data.authorName ?? "Someone",
+                        authorUid: data.authorUid ?? null,
+                        authorPhotoURL: data.authorPhotoURL ?? null,
+                        authorUsername: data.authorUsername ?? null,
+                        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
+                        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : null,
+                        likes: data.likes ?? [],
                         replies: [],
                     };
                 }
@@ -270,47 +300,27 @@ export function PostCard({
         }
     };
 
-    const [displayedName, setDisplayedName] = useState(hostName);
+    const profile = useUserProfile(authorId);
+    const clubProfile = useClubProfile(clubId && clubId !== "" ? clubId : undefined);
 
-    // Load host details (photo & name) from Firestore
+    // CRITICAL: We enter club branding mode if we have a clubId, 
+    // regardless of whether the profile is loaded yet.
+    const isClubPost = !!(clubId && clubId !== "");
+
+    // DEBUG: Club Posting Verification
     useEffect(() => {
-        const loadAuthorData = async () => {
-            if (previewMode) return;
-            try {
-                let targetAuthorId = authorId;
+        if (clubId && clubId !== "") {
+            console.log(`%c[PostCard Debug] Post ${id} has clubId: ${clubId}`, 'background: #222; color: #ffb200; font-weight: bold');
+            console.log(`[PostCard Debug] Post ${id} clubProfile:`, clubProfile);
+            console.log(`[PostCard Debug] Post ${id} isClubPost: ${isClubPost}`);
+            console.log(`[PostCard Debug] Full Post Object:`, post);
+        }
+    }, [id, clubId, clubProfile, isClubPost, post]);
 
-                // If no authorId passed, try to get from event
-                if (!targetAuthorId && id) {
-                    const eventRef = doc(db, "posts", id);
-                    const eventSnap = await getDoc(eventRef);
-                    if (eventSnap.exists()) {
-                        const eventData = eventSnap.data();
-                        targetAuthorId = eventData?.hostUserId || eventData?.authorId;
-                    }
-                }
-
-                if (targetAuthorId) {
-                    const userRef = doc(db, "users", targetAuthorId);
-                    const userSnap = await getDoc(userRef);
-
-                    if (userSnap.exists()) {
-                        const userData = userSnap.data();
-                        // Update photo if we don't have it or just want fresh
-                        if (!hostAvatarUrl) {
-                            setHostPhotoUrl(userData.photoURL || null);
-                        }
-                        // Always update name to be fresh
-                        const name = userData.displayName || userData.name || userData.username || "Unknown";
-                        setDisplayedName(name);
-                    }
-                }
-            } catch (error) {
-                console.error("Error loading author data:", error);
-            }
-        };
-
-        loadAuthorData();
-    }, [id, authorId, hostAvatarUrl]);
+    // Final display values with fallbacks - strict "no-stale" policy
+    const displayedName = profile?.displayName || "User";
+    const displayedPhotoUrl = profile?.photoURL || null;
+    const currentUsername = profile?.username;
 
     // Load preview comment (one with most replies or likes)
     useEffect(() => {
@@ -667,12 +677,34 @@ export function PostCard({
 
     const renderMediaItem = (item: string | { lat: number; lng: number }, index: number, className: string) => {
         if (typeof item === 'string') {
-            return <img key={`img-${index}`} src={item} alt="" className={className} />;
+            return (
+                <img
+                    key={`img-${index}`}
+                    src={item}
+                    alt=""
+                    className={`${className} ${onDetailsClick ? "cursor-pointer" : ""}`}
+                    onClick={(e) => {
+                        if (onDetailsClick) {
+                            e.stopPropagation();
+                            onDetailsClick();
+                        }
+                    }}
+                />
+            );
         } else {
             // Map Item
             if (!isLoaded) return <div key="map-loading" className={`${className} bg-neutral-800 animate-pulse`} />;
             return (
-                <div key="map-view" className={`${className} relative overflow-hidden`}>
+                <div
+                    key="map-view"
+                    className={`${className} relative overflow-hidden ${onDetailsClick ? "cursor-pointer" : ""}`}
+                    onClick={(e) => {
+                        if (onDetailsClick) {
+                            e.stopPropagation();
+                            onDetailsClick();
+                        }
+                    }}
+                >
                     <GoogleMap
                         mapContainerStyle={mapContainerStyle}
                         center={item}
@@ -834,10 +866,24 @@ export function PostCard({
                             <img
                                 src={mediaItems[0]}
                                 alt={title}
-                                className="block w-auto h-auto max-w-full max-h-[500px] mx-0 object-contain"
+                                className={`block w-auto h-auto max-w-full max-h-[500px] mx-0 object-contain ${onDetailsClick ? "cursor-pointer" : ""}`}
+                                onClick={(e) => {
+                                    if (onDetailsClick) {
+                                        e.stopPropagation();
+                                        onDetailsClick();
+                                    }
+                                }}
                             />
                         ) : (
-                            <div className="aspect-[4/3] w-full">
+                            <div
+                                className={`aspect-[4/3] w-full ${onDetailsClick ? "cursor-pointer" : ""}`}
+                                onClick={(e) => {
+                                    if (onDetailsClick) {
+                                        e.stopPropagation();
+                                        onDetailsClick();
+                                    }
+                                }}
+                            >
                                 {renderMediaItem(mediaItems[0], 0, "h-full w-full object-cover")}
                             </div>
                         )}
@@ -962,8 +1008,8 @@ export function PostCard({
 
     const containerClasses = compact
         ? "flex w-full max-w-md mx-auto flex-col gap-3 font-sans"
-        : fullWidth
-            ? "flex w-full flex-col gap-4 font-sans"
+        : (fullWidth || isNarrow)
+            ? "flex w-full flex-col gap-3 font-sans"
             : "flex w-full min-w-[350px] max-w-[600px] mx-auto items-start gap-3 font-sans border-b border-white/5 pb-4 mb-2";
 
     // Context menu handlers
@@ -1081,72 +1127,135 @@ export function PostCard({
     if (variant === "threads") {
         return (
             <div
-                className="group relative border-b border-white/10 py-4"
+                className={`group relative border-b border-white/10 ${isNarrow ? 'py-2.5' : 'py-3'}`}
                 onContextMenu={handleContextMenu}
                 onTouchStart={handleLongPressStart}
                 onTouchEnd={handleLongPressEnd}
                 onTouchMove={handleLongPressEnd}
             >
                 {/* Layout: Avatar + Content */}
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2.5">
                     {/* Avatar Column */}
                     <div className="shrink-0 self-start">
-                        <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
-                            <div className="h-10 w-10 overflow-hidden rounded-full bg-neutral-700">
-                                {hostPhotoUrl ? (
-                                    <img src={hostPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
-                                        {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
-                                    </div>
-                                )}
-                            </div>
-                        </Link>
+                        {isClubPost ? (
+                            <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()}>
+                                <div className="h-10 w-10 overflow-hidden rounded-full bg-neutral-700">
+                                    {clubProfile?.avatarUrl ? (
+                                        <img src={clubProfile.avatarUrl} alt={clubProfile.name} className="h-full w-full object-cover" />
+                                    ) : (
+                                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white">
+                                            {clubProfile?.name ? clubProfile.name.charAt(0).toUpperCase() : (clubId ? "C" : "?")}
+                                        </div>
+                                    )}
+                                </div>
+                            </Link>
+                        ) : (
+                            <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
+                                <div className="h-10 w-10 overflow-hidden rounded-full bg-neutral-700">
+                                    {displayedPhotoUrl ? (
+                                        <img src={displayedPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
+                                    ) : (
+                                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
+                                            {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
+                                        </div>
+                                    )}
+                                </div>
+                            </Link>
+                        )}
                     </div>
 
                     {/* Content Column */}
-                    <div className="min-w-0 flex-1 space-y-2.5">
+                    <div className="min-w-0 flex-1 space-y-0">
                         {/* Header: Username, Timestamp, Menu */}
-                        <div className="flex min-w-0 items-center gap-2">
-                            <Link
-                                href={`/user/${authorId}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="truncate text-sm font-semibold text-white hover:underline"
-                            >
-                                {displayedName}
-                            </Link>
-                            <span className="text-xs text-white/50">•</span>
-                            <div className="text-xs text-white/50">
-                                {eventTimeLabel || timeLabel || (date ? date : "now")}
+                        <div className="flex flex-col min-w-0">
+                            <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+                                {isClubPost ? (
+                                    <>
+                                        <Link
+                                            href={`/clubs/${clubId}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="flex-shrink-0 hover:underline decoration-white/30"
+                                        >
+                                            <span className="text-sm font-semibold text-white">
+                                                {clubProfile?.name || "Club"}
+                                            </span>
+                                        </Link>
+                                        <Link
+                                            href={`/user/${authorId}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="text-xs text-white/40 hover:text-white/60 truncate"
+                                        >
+                                            by {currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, '') : "user")}
+                                        </Link>
+                                    </>
+                                ) : (
+                                    <Link
+                                        href={`/user/${authorId}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex min-w-0 items-center gap-1.5 hover:underline decoration-white/30 group"
+                                    >
+                                        <span className="truncate text-sm font-semibold text-white">
+                                            {displayedName}
+                                        </span>
+                                        {currentUsername && (
+                                            <>
+                                                <span className="text-xs text-white/40 truncate">
+                                                    @{currentUsername}
+                                                </span>
+                                            </>
+                                        )}
+                                    </Link>
+                                )}
+                                <span className="text-xs text-white/30 shrink-0">•</span>
+                                <div className="text-xs text-white/40 shrink-0">
+                                    {eventTimeLabel || timeLabel || (date ? date : "now")}
+                                </div>
                             </div>
                         </div>
 
                         {/* Body: Description */}
                         {description && (
-                            <div
-                                onClick={onDetailsClick}
-                                className={`whitespace-pre-wrap text-sm leading-relaxed text-white/90 ${onDetailsClick ? "cursor-pointer" : ""}`}
-                            >
-                                {description}
+                            <div className="relative">
+                                <div
+                                    ref={descriptionRef}
+                                    onClick={onDetailsClick}
+                                    className={`mt-0.5 whitespace-pre-wrap text-sm leading-relaxed text-white/90 ${onDetailsClick ? "cursor-pointer" : ""}`}
+                                >
+                                    {isTruncated ? (
+                                        <div className="inline">
+                                            <span>{displayText}... </span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDetailsClick?.();
+                                                }}
+                                                className="inline font-medium text-white/40 hover:text-white/60"
+                                            >
+                                                show more
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        description
+                                    )}
+                                </div>
                             </div>
                         )}
 
-                        {/* Media */}
                         {!hideMediaGrid && (
-                            <div className="mt-2">
+                            <div className={description ? "mt-0.5 mb-2" : "mt-2.5 mb-2"}>
                                 <MediaHorizontalScroll
                                     post={post}
                                     noPadding
                                     fullWidth={!previewMode && !sidebarVisible}
-                                    className="!pb-1"
+                                    onClick={onDetailsClick}
+                                    isNarrow={isNarrow}
                                 />
                             </div>
                         )}
 
-                        {/* Actions Row */}
-                        <div className="mt-3 flex items-center gap-0">
+                        <div className="mt-[-4px] flex items-center gap-0 ml-[-8px]">
                             {/* Like Button & Count */}
-                            <div className={`flex h-9 items-center justify-center rounded-full hover:bg-white/[0.08] ${likesCount > 0 ? "gap-1.5 px-3" : "w-9"}`}>
+                            <div className={`flex h-7 items-center justify-center rounded-full hover:bg-white/[0.08] ${likesCount > 0 ? "gap-1 px-1.5" : "w-7"}`}>
                                 <button
                                     type="button"
                                     onClick={(e) => {
@@ -1156,9 +1265,9 @@ export function PostCard({
                                     className={`flex items-center justify-center ${isLiked ? "text-[#ffb200]" : "text-white/70 hover:text-white"}`}
                                 >
                                     {isLiked ? (
-                                        <HeartIcon className={`h-5 w-5 ${likeAnimating ? "animate-like-pop" : ""}`} />
+                                        <HeartIcon className={`h-4 w-4 ${likeAnimating ? "animate-like-pop" : ""}`} />
                                     ) : (
-                                        <HeartIconOutline className={`h-5 w-5 ${likeAnimating ? "animate-like-pop" : ""}`} />
+                                        <HeartIconOutline className={`h-4 w-4 ${likeAnimating ? "animate-like-pop" : ""}`} />
                                     )}
                                 </button>
                                 {likesCount > 0 && (
@@ -1176,16 +1285,16 @@ export function PostCard({
                             </div>
 
                             {/* Comment Button & Count */}
-                            <div className={`flex h-9 items-center justify-center rounded-full text-white/70 hover:bg-white/[0.08] ${(() => {
+                            <div className={`flex h-7 items-center justify-center rounded-full text-white/70 hover:bg-white/[0.08] ${(() => {
                                 const totalComments = (post.commentsCount || 0) + (post.repliesCommentsCount || 0);
                                 const displayCount = totalComments > 0 ? totalComments : (stats.comments || 0);
-                                return displayCount > 0 ? "gap-1.5 px-3" : "w-9";
+                                return displayCount > 0 ? "gap-1 px-2" : "w-7";
                             })()}`}>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onCommentsClick?.(); }}
                                     className="flex items-center justify-center hover:text-white"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.633 9-8.4375 0-4.805-4.03-8.4375-9-8.4375-4.97 0-9 3.6325-9 8.4375 0 2.457 1.056 4.675 2.76 6.223.109.1.18.232.2.378l.583 3.996a.25.25 0 00.322.253l3.655-1.428a.56.56 0 01.373-.02c.365.103.743.176 1.127.2.062.003.125.006.188.006z" />
                                     </svg>
                                 </button>
@@ -1211,9 +1320,9 @@ export function PostCard({
                             {/* Attendance Menu (Events only) */}
                             {isEvent && (
                                 <div className="relative">
-                                    <div className={`flex h-9 items-center justify-center rounded-full hover:bg-white/[0.08] ${(() => {
+                                    <div className={`flex h-7 items-center justify-center rounded-full hover:bg-white/[0.08] ${(() => {
                                         const count = status === "not_going" ? stats.notGoing : status === "maybe" ? stats.maybe : stats.going;
-                                        return (count && count > 0) ? "gap-1.5 px-3" : "w-9";
+                                        return (count && count > 0) ? "gap-1 px-2" : "w-7";
                                     })()} ${status ? "text-white" : "text-white/70"}`}>
                                         <button
                                             type="button"
@@ -1224,13 +1333,13 @@ export function PostCard({
                                             className={`flex items-center justify-center ${!status ? "hover:text-white" : ""}`}
                                         >
                                             {status === "going" ? (
-                                                <HandThumbUpIcon className="h-5 w-5 text-green-400" />
+                                                <HandThumbUpIcon className="h-4 w-4 text-green-400" />
                                             ) : status === "maybe" ? (
-                                                <QuestionMarkCircleIcon className="h-5 w-5 text-yellow-400" />
+                                                <QuestionMarkCircleIcon className="h-4 w-4 text-yellow-400" />
                                             ) : status === "not_going" ? (
-                                                <HandThumbDownIcon className="h-5 w-5 text-red-400" />
+                                                <HandThumbDownIcon className="h-4 w-4 text-red-400" />
                                             ) : (
-                                                <CalendarIcon className="h-5 w-5" />
+                                                <CalendarIcon className="h-4 w-4" />
                                             )}
                                         </button>
                                         {(() => {
@@ -1285,9 +1394,9 @@ export function PostCard({
                                     e.stopPropagation();
                                     handleShare();
                                 }}
-                                className="flex h-9 w-9 items-center justify-center rounded-full text-white/70 hover:bg-white/[0.08] hover:text-white"
+                                className="flex h-7 w-7 items-center justify-center rounded-full text-white/70 hover:bg-white/[0.08] hover:text-white"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                                 </svg>
                             </button>
@@ -1298,9 +1407,9 @@ export function PostCard({
                                     <button
                                         type="button"
                                         onClick={(e) => { e.stopPropagation(); setOptionsMenuOpen(!optionsMenuOpen); }}
-                                        className={`flex h-9 w-9 items-center justify-center rounded-full text-white/60 hover:bg-white/[0.08] hover:text-white ${optionsMenuOpen ? "bg-white/[0.08] text-white" : ""}`}
+                                        className={`flex h-7 w-7 items-center justify-center rounded-full text-white/60 hover:bg-white/[0.08] hover:text-white ${optionsMenuOpen ? "bg-white/[0.08] text-white" : ""}`}
                                     >
-                                        <EllipsisVerticalIcon className="h-5 w-5" />
+                                        <EllipsisVerticalIcon className="h-4 w-4" />
                                     </button>
                                     {optionsMenuOpen && (
                                         <>
@@ -1371,39 +1480,76 @@ export function PostCard({
         >
             {/* Left Column: Avatar */}
             <div className="shrink-0">
-                <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
-                    <div
-                        className={`overflow-hidden rounded-full bg-neutral-700 ring-2 ring-[#1C1C1E] transition-opacity hover:opacity-80 ${compact ? "h-9 w-9" : "h-10 w-10"
-                            }`}
-                    >
-                        {hostPhotoUrl ? (
-                            <img src={hostPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
-                        ) : (
-                            !hideMediaPlaceholder && (
-                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
-                                    {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
+                {isClubPost ? (
+                    <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()}>
+                        <div
+                            className={`overflow-hidden rounded-full bg-neutral-700 ring-2 ring-[#1C1C1E] transition-opacity hover:opacity-80 ${compact ? "h-9 w-9" : "h-10 w-10"
+                                }`}
+                        >
+                            {clubProfile?.avatarUrl ? (
+                                <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="h-full w-full object-cover" />
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white">
+                                    {clubProfile?.name ? clubProfile.name.charAt(0).toUpperCase() : (clubId ? "C" : "?")}
                                 </div>
-                            )
-                        )}
-                    </div>
-                </Link>
+                            )}
+                        </div>
+                    </Link>
+                ) : (
+                    <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
+                        <div
+                            className={`overflow-hidden rounded-full bg-neutral-700 ring-2 ring-[#1C1C1E] transition-opacity hover:opacity-80 ${compact ? "h-9 w-9" : "h-10 w-10"
+                                }`}
+                        >
+                            {displayedPhotoUrl ? (
+                                <img src={displayedPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
+                            ) : (
+                                !hideMediaPlaceholder && (
+                                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-bold text-white">
+                                        {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    </Link>
+                )}
             </div>
 
             {/* Right Column: Content */}
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-0">
                 {/* Header: Name | Time | Menu */}
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-col leading-tight">
                         <div className="flex items-center gap-2">
-                            <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-bold text-white hover:underline">
-                                <span className={hostUsername ? "hidden sm:inline" : ""}>{displayedName}</span>
-                                {hostUsername && <span className="sm:hidden">@{hostUsername}</span>}
-                            </Link>
+                            {isClubPost ? (
+                                <>
+                                    <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-bold text-white hover:underline">
+                                        {clubProfile?.name || "Club"}
+                                    </Link>
+                                    {clubProfile?.handle && (
+                                        <span className="text-xs text-neutral-500 truncate">@{clubProfile.handle}</span>
+                                    )}
+                                </>
+                            ) : (
+                                <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-bold text-white hover:underline">
+                                    <span className={currentUsername ? "hidden sm:inline" : ""}>{displayedName}</span>
+                                    {currentUsername && <span className="sm:hidden">@{currentUsername}</span>}
+                                </Link>
+                            )}
                             <span className="text-neutral-500 text-xs">•</span>
                             <div className="text-xs text-neutral-500">
                                 {eventTimeLabel || timeLabel || (date ? date : "now")}
                             </div>
                         </div>
+                        {isClubPost && (
+                            <Link
+                                href={`/user/${authorId}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[11px] text-neutral-500 hover:text-neutral-400 mt-0.5"
+                            >
+                                by @{currentUsername || displayedName.toLowerCase().replace(/\s+/g, '')}
+                            </Link>
+                        )}
                     </div>
 
                     {/* Context Menu Trigger */}
@@ -1420,23 +1566,41 @@ export function PostCard({
 
                 {/* Description */}
                 {description && (
-                    <div
-                        onClick={onDetailsClick}
-                        className={`whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-100 ${onDetailsClick ? "cursor-pointer" : ""}`}
-                    >
-                        {description}
+                    <div className="relative">
+                        <div
+                            ref={descriptionRef}
+                            onClick={onDetailsClick}
+                            className={`mt-1 whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-100 ${onDetailsClick ? "cursor-pointer" : ""}`}
+                        >
+                            {isTruncated ? (
+                                <div className="inline">
+                                    <span>{displayText}... </span>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDetailsClick?.();
+                                        }}
+                                        className="inline font-medium text-white/40 hover:text-white/60"
+                                    >
+                                        show more
+                                    </button>
+                                </div>
+                            ) : (
+                                description
+                            )}
+                        </div>
                     </div>
                 )}
 
                 {/* Media Grid */}
                 {!hideMediaGrid && (
-                    <div className="mt-1">
+                    <div className={description ? "mt-1 mb-2" : "mt-2.5 mb-2"}>
                         {renderImages()}
                     </div>
                 )}
 
                 {/* Actions Footer */}
-                <div className="flex items-center justify-between mt-2 max-w-[400px]">
+                <div className="flex items-center justify-between mt-[-4px] max-w-[400px]">
                     {/* Comments */}
                     <button
                         type="button"

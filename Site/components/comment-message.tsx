@@ -11,6 +11,7 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
+import { useUserProfile } from "./user-profiles-context";
 
 const cn = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(" ");
@@ -116,6 +117,12 @@ export function CommentMessage({
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [likeAnimating, setLikeAnimating] = useState(false);
   const timeLabel = useMemo(() => getTimeLabel(comment.createdAt), [comment.createdAt]);
+
+  const profile = useUserProfile(comment.authorUid || undefined);
+  const displayName = profile?.displayName || comment.authorName || "User";
+  const displayPhotoURL = profile?.photoURL || comment.authorPhotoURL;
+  const displayUsername = profile?.username || comment.authorUsername;
+
   const replyCount = comment.replies?.length ?? 0;
   const canReply = depth === 0; // Only allow replying to top-level comments
 
@@ -191,15 +198,15 @@ export function CommentMessage({
         >
           <div className="flex flex-col items-center">
             <div className={cn("shrink-0 overflow-hidden rounded-full bg-neutral-800", avatarSize)}>
-              {comment.authorPhotoURL ? (
+              {displayPhotoURL ? (
                 <img
-                  src={comment.authorPhotoURL}
-                  alt={comment.authorName || "User"}
+                  src={displayPhotoURL}
+                  alt={displayName}
                   className="h-full w-full object-cover"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-white/5 text-[10px] font-semibold text-white">
-                  {comment.authorName?.charAt(0)?.toUpperCase() || "U"}
+                  {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
@@ -214,7 +221,7 @@ export function CommentMessage({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <p className="text-sm font-semibold text-white truncate">
-                    {comment.authorUsername || comment.authorName || "User"}
+                    {displayUsername || displayName}
                   </p>
                   <span className="text-xs text-neutral-500 shrink-0">{timeLabel}</span>
                 </div>
@@ -270,7 +277,7 @@ export function CommentMessage({
                       onClick={() => onReply(comment)}
                     >
                       <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
-                      <span>{replyCount}</span>
+                      {replyCount > 0 && <span>{replyCount}</span>}
                     </button>
                   )}
 
@@ -293,7 +300,7 @@ export function CommentMessage({
                         likeAnimating && "animate-like-pop"
                       )}
                     />
-                    <span>{likeCount}</span>
+                    {likeCount > 0 && <span>{likeCount}</span>}
                   </button>
 
                   {canEdit && (
@@ -303,7 +310,7 @@ export function CommentMessage({
                       onClick={() => setIsEditing((prev) => !prev)}
                     >
                       <PencilIcon className="h-3.5 w-3.5" />
-                      <span>{comment.editCount || 0}</span>
+                      {(comment.editCount || 0) > 0 && <span>{comment.editCount}</span>}
                     </button>
                   )}
 

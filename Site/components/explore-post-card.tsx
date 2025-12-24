@@ -181,9 +181,11 @@ export function ExplorePostCard({
             <div className="flex flex-1 flex-col min-w-0">
                 {/* Title and Time Until */}
                 <div className="flex items-baseline justify-between gap-3 mb-1">
-                    <h3 className="text-lg font-bold text-white truncate leading-tight flex-1">
-                        {title}
-                    </h3>
+                    {title && (
+                        <h3 className="text-lg font-bold text-white truncate leading-tight flex-1">
+                            {title}
+                        </h3>
+                    )}
                     <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-full shrink-0 ${eventStatus.type === 'live'
                         ? 'bg-red-500/20 text-red-400 animate-pulse'
                         : showOpenLabel && eventStatus.type === 'countdown'

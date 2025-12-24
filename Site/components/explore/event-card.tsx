@@ -161,7 +161,7 @@ export function EventCard({ event }: EventCardProps) {
                 {/* Main Content: Title & Details Grouped */}
                 <div className="mt-auto flex flex-col gap-1.5 pt-4">
                     <h3 className="line-clamp-2 text-lg font-bold tracking-tight text-white drop-shadow-md leading-tight">
-                        {title || "Untitled"}
+                        {title}
                     </h3>
 
                     <div className="flex items-center justify-between">

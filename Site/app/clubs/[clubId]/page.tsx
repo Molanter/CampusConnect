@@ -14,10 +14,12 @@ import {
     joinClub
 } from "../../../lib/clubs";
 import { Post } from "../../../lib/posts";
+import { mapDocToPost } from "../../../lib/hooks/use-feed";
 import { ClubHeader } from "../../../components/clubs/club-header";
 import { ClubTabs, ClubTab } from "../../../components/clubs/club-tabs";
 import { MemberRow } from "../../../components/clubs/member-row";
 import { PostCard } from "../../../components/post-card";
+import { useRightSidebar } from "../../../components/right-sidebar-context";
 import { LockClosedIcon } from "@heroicons/react/24/outline";
 
 export default function ClubPage() {
@@ -28,6 +30,8 @@ export default function ClubPage() {
     const [club, setClub] = useState<Club | null>(null);
     const [membership, setMembership] = useState<ClubMember | null>(null); // My membership
     const [activeTab, setActiveTab] = useState<ClubTab>("posts");
+
+    const { openView, isNarrow } = useRightSidebar();
     const [loading, setLoading] = useState(true);
 
     // Content state
@@ -147,7 +151,7 @@ export default function ClubPage() {
             }
 
             const snap = await getDocs(q);
-            const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Post));
+            const items = snap.docs.map(d => mapDocToPost(d));
             if (activeTab === "posts") setPosts(items);
             else setEvents(items);
         }
@@ -239,7 +243,7 @@ export default function ClubPage() {
     if (!club) return <div className="pt-20 text-center text-white">Club not found</div>;
 
     return (
-        <div className="mx-auto min-h-screen w-full max-w-4xl px-4 py-8 pb-32 space-y-6">
+        <div className={`mx-auto min-h-screen w-full ${isNarrow ? 'px-0 py-4' : 'max-w-4xl px-4 py-8'} pb-32 space-y-6`}>
 
             <ClubHeader
                 club={club}
@@ -247,6 +251,7 @@ export default function ClubPage() {
                 joinStatus={membership?.status || null}
                 onJoin={handleJoin}
                 onLeave={handleLeave}
+                isNarrow={isNarrow}
             />
 
             {/* Access Control Check */}
@@ -261,20 +266,29 @@ export default function ClubPage() {
             ) : (
                 <>
                     {/* Tabs */}
-                    <ClubTabs activeTab={activeTab} onTabChange={setActiveTab} />
+                    <ClubTabs activeTab={activeTab} onTabChange={setActiveTab} isNarrow={isNarrow} />
 
                     <div className="space-y-6">
 
                         {/* Posts / Events Tab */}
                         {(activeTab === "posts" || activeTab === "events") && (
-                            <div className="space-y-6">
+                            <div className="mx-auto w-full max-w-[680px]">
                                 {(activeTab === "posts" ? posts : events).length === 0 ? (
                                     <div className="rounded-[28px] border border-dashed border-white/10 bg-[#1C1C1E]/50 p-12 text-center text-zinc-500">
                                         No {activeTab} yet.
                                     </div>
                                 ) : (
                                     (activeTab === "posts" ? posts : events).map(post => (
-                                        <PostCard key={post.id} post={post} onDeleted={fetchContent} />
+                                        <PostCard
+                                            key={post.id}
+                                            post={post}
+                                            variant="threads"
+                                            onCommentsClick={() => openView("comments", post)}
+                                            onLikesClick={() => openView("likes", post)}
+                                            onAttendanceClick={() => openView("attendance", post)}
+                                            onDetailsClick={() => openView("details", post)}
+                                            onDeleted={fetchContent}
+                                        />
                                     ))
                                 )}
                             </div>
@@ -283,7 +297,7 @@ export default function ClubPage() {
                         {/* Members Tab */}
                         {activeTab === "members" && (
                             <div className="space-y-3">
-                                <h2 className="px-6 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">
+                                <h2 className={`${isNarrow ? 'px-4' : 'px-6'} text-[13px] font-semibold uppercase tracking-wider text-neutral-500`}>
                                     Members ({members.length})
                                 </h2>
                                 <div className="rounded-[28px] border border-white/10 bg-[#1C1C1E] shadow-lg">
@@ -291,7 +305,7 @@ export default function ClubPage() {
                                         {members.map((mem, index) => (
                                             <div
                                                 key={mem.uid}
-                                                className={`px-6 py-4 transition-colors hover:bg-white/5 ${index === 0 ? "rounded-t-[28px]" : ""
+                                                className={`${isNarrow ? 'px-4' : 'px-6'} py-4 transition-colors hover:bg-white/5 ${index === 0 ? "rounded-t-[28px]" : ""
                                                     } ${index === members.length - 1 ? "rounded-b-[28px]" : ""
                                                     }`}
                                             >
@@ -318,11 +332,11 @@ export default function ClubPage() {
                         {activeTab === "about" && (
                             <div className="space-y-8">
                                 <div className="space-y-3">
-                                    <h2 className="px-6 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">
+                                    <h2 className={`${isNarrow ? 'px-4' : 'px-6'} text-[13px] font-semibold uppercase tracking-wider text-neutral-500`}>
                                         About {club.name}
                                     </h2>
                                     <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#1C1C1E] shadow-lg">
-                                        <div className="p-6">
+                                        <div className={`${isNarrow ? 'p-4' : 'p-6'}`}>
                                             <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-300">
                                                 {club.description}
                                             </p>
@@ -344,7 +358,7 @@ export default function ClubPage() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <h2 className="px-6 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">
+                                    <h2 className={`${isNarrow ? 'px-4' : 'px-6'} text-[13px] font-semibold uppercase tracking-wider text-neutral-500`}>
                                         Statistics
                                     </h2>
                                     <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#1C1C1E] shadow-lg">

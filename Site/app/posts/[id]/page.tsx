@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
+import { Menu, Transition } from "@headlessui/react";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { ChevronLeftIcon, EllipsisHorizontalIcon, ArrowUpTrayIcon, BellIcon } from "@heroicons/react/24/outline";
@@ -10,20 +11,20 @@ import { Post } from "@/lib/posts";
 import { PostMediaStrip } from "@/components/post-detail/post-media-strip";
 import { PostCard } from "@/components/post-card";
 import { MediaHorizontalScroll } from "@/components/post-detail/media-horizontal-scroll";
-// import { PostMainInfo } from "@/components/post-detail/post-main-info";
-import { PostTabs } from "@/components/post-detail/post-tabs";
-import { PostTabContent } from "@/components/post-detail/post-tab-content-wrapper";
+import { PostDetailMainInfo } from "@/components/post-detail/post-detail-main-info";
 import { useRightSidebar } from "@/components/right-sidebar-context";
+import { TabDiscussion } from "@/components/event-sheet/tab-discussion";
+
+
 
 export default function PostDetailPage() {
     const params = useParams();
     const router = useRouter();
-    const { toggle } = useRightSidebar();
-    const postId = params.id as string; // Renamed from eventId to postId for clarity
+    const { toggle, openView } = useRightSidebar();
+    const postId = params.id as string;
     const [post, setPost] = useState<Post | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"details" | "comments" | "attendance" | "likes">("details");
 
     useEffect(() => {
         if (!postId) return;
@@ -55,7 +56,11 @@ export default function PostDetailPage() {
                         maybeUids: data.maybeUids || [],
                         notGoingUids: data.notGoingUids || [],
                         mood: data.mood || [],
-                        priceLevel: data.priceLevel
+                        priceLevel: data.priceLevel,
+                        createdAt: data.createdAt,
+                        clubId: data.clubId,
+                        clubName: data.clubName,
+                        clubAvatarUrl: data.clubAvatarUrl,
                     });
                 } else {
                     setError("Post not found");
@@ -68,12 +73,12 @@ export default function PostDetailPage() {
             }
         };
         void loadPost();
-    }, [postId, toggle]);
+    }, [postId]);
 
     if (loading) {
         return (
             <div className="flex h-screen items-center justify-center bg-neutral-950 text-neutral-400">
-                <div className="animate-pulse">Loading...</div>
+                <div>Loading...</div>
             </div>
         );
     }
@@ -89,45 +94,84 @@ export default function PostDetailPage() {
 
     return (
         <div className="min-h-screen bg-neutral-950 pb-32">
-            {/* Sticky Header */}
-            {/* Header - Not Sticky, App-like Back Button */}
-            <header className="flex h-16 items-center justify-between px-4 pt-2">
+            {/* Header - Minimal app bar */}
+            <header className="flex h-12 items-center justify-between px-4 sticky top-0 bg-neutral-950/80 backdrop-blur-md z-40 border-b border-white/5">
                 <button
                     onClick={() => router.back()}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800/50 backdrop-blur-md text-white border border-white/5 active:opacity-70 active:scale-95 transition-all"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-all"
                 >
-                    <ChevronLeftIcon className="h-6 w-6" />
+                    <ChevronLeftIcon className="h-5 w-5" />
                 </button>
 
-                <div className="flex items-center gap-2">
-                    <button className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800/50 backdrop-blur-md text-white border border-white/5 active:opacity-70 active:scale-95 transition-all">
-                        {/* Share */}
-                        <ArrowUpTrayIcon className="h-5 w-5" />
+                <div className="flex-1 flex justify-center">
+                    <span className="text-[13px] font-bold text-white/90">Details</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                    <button className="flex h-9 w-9 items-center justify-center rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-all">
+                        <ArrowUpTrayIcon className="h-4 w-4" />
                     </button>
-                    <button className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800/50 backdrop-blur-md text-white border border-white/5 active:opacity-70 active:scale-95 transition-all">
-                        <EllipsisHorizontalIcon className="h-5 w-5" />
-                    </button>
+                    <Menu as="div" className="relative">
+                        <Menu.Button className="flex h-9 w-9 items-center justify-center rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-all outline-none">
+                            <EllipsisHorizontalIcon className="h-5 w-5" />
+                        </Menu.Button>
+                        <Transition
+                            enter="transition duration-100 ease-out"
+                            enterFrom="transform scale-95 opacity-0"
+                            enterTo="transform scale-100 opacity-100"
+                            leave="transition duration-75 ease-out"
+                            leaveFrom="transform scale-100 opacity-100"
+                            leaveTo="transform scale-95 opacity-0"
+                        >
+                            <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right rounded-xl border border-white/10 bg-[#1C1C1E]/90 shadow-xl backdrop-blur-xl focus:outline-none z-50 overflow-hidden">
+                                <div className="p-1.5">
+                                    <Menu.Item>
+                                        {({ active }) => (
+                                            <button
+                                                onClick={() => {
+                                                    if (post) {
+                                                        openView("report", { id: post.id, type: post.isEvent ? "event" : "post" });
+                                                    }
+                                                }}
+                                                className={`${active ? 'bg-white/10 text-white' : 'text-neutral-400'
+                                                    } flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors`}
+                                            >
+                                                <span className="font-medium">Report</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </Menu.Item>
+                                </div>
+                            </Menu.Items>
+                        </Transition>
+                    </Menu>
                 </div>
             </header>
 
-            <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
-                {/* Row 1: Media Strip */}
-                {/* Row 1: Media Strip - Removed in favor of Details Tab Scroll */}
-                {/* <PostMediaStrip post={post} /> */}
+            <main className="mx-auto max-w-2xl">
+                {/* 1) Top: Media section (hero) if available */}
+                {(post.imageUrls && post.imageUrls.length > 0 || post.coordinates) && (
+                    <div className="px-4 mb-4 mt-2">
+                        <MediaHorizontalScroll
+                            post={post}
+                            noPadding
+                            fullWidth
+                            className="h-[300px] md:h-[400px] rounded-[18px]"
+                        />
+                    </div>
+                )}
 
-                {/* Row 2,3,4: Main Info Card - Moved to Details Tab */}
-                {/* <PostCard ... /> */}
+                <div className="px-4">
+                    {/* 2) Post content block (Threads-style message) */}
+                    <PostDetailMainInfo post={post} />
 
-                {/* Media Scroll - Above Tabs */}
-                <div className="mb-6">
-                    <MediaHorizontalScroll post={post} />
+                    {/* 3) Embedded Comments */}
+                    <div className="mt-0.5 pt-2 border-t border-white/5">
+                        <TabDiscussion post={post} />
+                    </div>
                 </div>
-
-                {/* Segmented Picker */}
-                <PostTabs activeTab={activeTab} onChange={setActiveTab} />
-
-                {/* Content */}
-                <PostTabContent activeTab={activeTab} post={post} onTabChange={setActiveTab} />
             </main>
 
             {/* Floating Bell Button */}
@@ -140,3 +184,4 @@ export default function PostDetailPage() {
         </div>
     );
 }
+

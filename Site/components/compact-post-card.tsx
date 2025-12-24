@@ -96,7 +96,9 @@ export function CompactPostCard({
 
     const dateTime = isEvent ? getFormattedDateTime() : null;
 
-    // Media Rendering
+    const hasMedia = (imageUrls && imageUrls.length > 0) || (coordinates && isLoaded);
+
+    // Media Rendering (returns null for text-only)
     const renderMedia = () => {
         const primaryImage = imageUrls && imageUrls.length > 0 ? imageUrls[0] : null;
 
@@ -124,24 +126,11 @@ export function CompactPostCard({
                             mapTypeControl: false,
                             fullscreenControl: false,
                             draggable: false,
-                            // Dark mode map styles could be added here for better aesthetic
                             styles: [
-                                {
-                                    featureType: "all",
-                                    elementType: "geometry",
-                                    stylers: [{ color: "#242f3e" }]
-                                },
-                                {
-                                    featureType: "all",
-                                    elementType: "labels.text.stroke",
-                                    stylers: [{ color: "#242f3e" }]
-                                },
-                                {
-                                    featureType: "all",
-                                    elementType: "labels.text.fill",
-                                    stylers: [{ color: "#746855" }]
-                                },
-                                // ... truncated purely for brevity, standard dark map
+                                { featureType: "all", elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+                                { featureType: "all", elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+                                { featureType: "all", elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+                                // Simplified for brevity as in original
                             ]
                         }}
                     >
@@ -151,32 +140,50 @@ export function CompactPostCard({
             );
         }
 
-        // Fallback Gradient
-        return (
-            <div className="h-full w-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center p-4">
-                {/* Icon or simplified placeholder */}
-                <div className="h-12 w-12 rounded-full bg-white/5 flex items-center justify-center text-white/20">
-                    <ArrowTopRightOnSquareIcon className="h-6 w-6" />
-                </div>
-            </div>
-        );
+        return null; // For text-only posts
     };
 
     return (
         <article
             onClick={handleCardClick}
-            className="group relative aspect-square w-full cursor-pointer overflow-hidden rounded-[24px] border border-white/10 bg-[#1C1C1E] shadow-sm transition-all hover:border-white/20 hover:shadow-md active:scale-[0.98]"
+            className={`group relative aspect-square w-full cursor-pointer overflow-hidden rounded-[24px] border border-white/10 shadow-sm transition-all active:scale-[0.98] ${hasMedia
+                ? "bg-[#1C1C1E] hover:border-white/20"
+                : "bg-gradient-to-br from-white/[0.08] to-white/[0.03] hover:border-white/30"
+                }`}
         >
-            {/* 1. Full Media Layer */}
-            <div className="absolute inset-0 h-full w-full bg-neutral-900">
-                {renderMedia()}
-            </div>
+            {/* 1. Media Layer (if exists) */}
+            {hasMedia && (
+                <div className="absolute inset-0 h-full w-full bg-neutral-900">
+                    {renderMedia()}
+                </div>
+            )}
 
-            {/* 2. Overlays Layer */}
+            {/* 2. Text-Only Content Layer (if no media) */}
+            {!hasMedia && (
+                <div className="flex h-full w-full items-center justify-center p-6 text-center">
+                    <div className="relative z-10 space-y-2">
+                        {isEvent && title && (
+                            <h3 className="line-clamp-1 text-[13px] font-bold uppercase tracking-wider text-white/40">
+                                {title}
+                            </h3>
+                        )}
+                        <p className="line-clamp-4 text-[16px] font-medium leading-[1.4] text-white/90">
+                            {content?.trim() || <span className="text-white/20 italic">No text</span>}
+                        </p>
+                    </div>
+                    {/* Subtle Background Glyph */}
+                    <div className="absolute -right-2 -top-2 opacity-[0.03]">
+                        <ChatBubbleLeftIcon className="h-24 w-24 text-white" />
+                    </div>
+                </div>
+            )}
 
-            {/* Top Overlay: Date/Time (Top Right as requested) */}
+            {/* 3. Overlays Layer */}
+
+            {/* Top Overlay: Date/Time */}
             {dateTime && (
-                <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-md shadow-sm">
+                <div className={`absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-md shadow-sm ${hasMedia ? "bg-black/40" : "bg-white/10"
+                    }`}>
                     <span>{dateTime.dateStr}</span>
                     {dateTime.timeStr && (
                         <>
@@ -188,36 +195,41 @@ export function CompactPostCard({
             )}
 
             {/* Bottom Overlay: Content + Actions */}
-            <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/60 to-transparent pb-3 pt-12 px-3.5">
+            <div className={`absolute inset-x-0 bottom-0 z-20 flex flex-col justify-end pb-3 pt-12 px-3.5 ${hasMedia ? "bg-gradient-to-t from-black/90 via-black/60 to-transparent" : "bg-transparent"
+                }`}>
 
-                {/* Text Content */}
-                <div className="mb-2.5">
-                    {isEvent && title ? (
-                        <h3 className="mb-0.5 line-clamp-1 text-[15px] font-semibold text-white drop-shadow-sm">
-                            {title}
-                        </h3>
-                    ) : null}
+                {/* Media-Post Text Snippet */}
+                {hasMedia && (
+                    <div className="mb-2.5">
+                        {isEvent && title ? (
+                            <h3 className="mb-0.5 line-clamp-1 text-[15px] font-semibold text-white drop-shadow-sm">
+                                {title}
+                            </h3>
+                        ) : null}
 
-                    <p className="line-clamp-2 text-[13px] leading-relaxed text-neutral-200 drop-shadow-sm">
-                        {content || (imageUrls && imageUrls.length > 0 ? "View image" : "View details")}
-                    </p>
-                </div>
+                        <p className="line-clamp-2 text-[13px] leading-relaxed text-neutral-200 drop-shadow-sm">
+                            {content || (imageUrls && imageUrls.length > 0 ? "View image" : "View details")}
+                        </p>
+                    </div>
+                )}
 
-                {/* Action Buttons Row */}
+                {/* Unified Actions Row (matches feed style) */}
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                         <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); /* visual */ }}
-                            className={`group/btn flex items-center gap-1.5 transition-colors ${isLiked ? "text-[#ffb200]" : "text-neutral-300 hover:text-white"
+                            onClick={(e) => { e.stopPropagation(); /* visual only in compact */ }}
+                            className={`flex items-center gap-1 transition-colors ${isLiked ? "text-amber-400" : "text-white/60 hover:text-white"
                                 }`}
                         >
                             {isLiked ? (
-                                <HeartIconSolid className="h-4 w-4 drop-shadow-md" />
+                                <HeartIconSolid className="h-[18px] w-[18px]" />
                             ) : (
-                                <HeartIcon className="h-4 w-4 drop-shadow-md transition-transform group-hover/btn:scale-110" />
+                                <HeartIcon className="h-[18px] w-[18px]" />
                             )}
-                            <span className="text-xs font-medium drop-shadow-md">{likeCount || 0}</span>
+                            <span className="text-xs font-semibold tabular-nums leading-none">
+                                {likeCount || 0}
+                            </span>
                         </button>
 
                         <button
@@ -226,14 +238,16 @@ export function CompactPostCard({
                                 e.stopPropagation();
                                 if (onCommentsClick) onCommentsClick();
                             }}
-                            className="group/btn flex items-center gap-1.5 text-neutral-300 transition hover:text-white"
+                            className="flex items-center gap-1 text-white/60 transition hover:text-white"
                         >
-                            <ChatBubbleLeftIcon className="h-4 w-4 drop-shadow-md transition-transform group-hover/btn:scale-110" />
-                            <span className="text-xs font-medium drop-shadow-md">Comments</span>
+                            <ChatBubbleLeftIcon className="h-[17px] w-[17px]" />
+                            <span className="text-xs font-semibold tabular-nums leading-none">
+                                {post.commentsCount || 0}
+                            </span>
                         </button>
                     </div>
 
-                    {/* Detail Indicator */}
+                    {/* Detail Indicator for events */}
                     {isEvent && (
                         <button
                             type="button"

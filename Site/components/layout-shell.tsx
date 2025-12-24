@@ -1,14 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Navbar } from "@/components/navbar";
 import { RightSidebarProvider, useRightSidebar } from "@/components/right-sidebar-context";
 import { RightSidebar } from "@/components/right-sidebar";
+import { UserProfilesProvider } from "@/components/user-profiles-context";
+import { ClubProfilesProvider } from "@/components/club-profiles-context";
 
 function InnerLayout({ children }: { children: React.ReactNode }) {
     const [sidebarVisible, setSidebarVisible] = useState(true);
     const [viewportWidth, setViewportWidth] = useState<number | null>(null);
-    const { isVisible: isRightSidebarVisible, sidebarWidth } = useRightSidebar();
+    const { isVisible: isRightSidebarVisible, sidebarWidth, isNarrow, setIsNarrow, close, view } = useRightSidebar();
+    const contentRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!contentRef.current) return;
+
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const width = entry.contentRect.width;
+                const threshold = 750;
+                const narrow = width < threshold;
+                if (narrow !== isNarrow) {
+                    setIsNarrow(narrow);
+                }
+            }
+        });
+
+        observer.observe(contentRef.current);
+        return () => observer.disconnect();
+    }, [isNarrow, setIsNarrow]);
+
+    // Auto-hide right sidebar if we enter narrow mode and it's just showing notifications
+    useEffect(() => {
+        if (isNarrow && isRightSidebarVisible && view === "notifications") {
+            close();
+        }
+    }, [isNarrow, isRightSidebarVisible, view, close]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -51,7 +79,8 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
 
             <main className="flex-1 w-full overflow-y-auto overflow-x-hidden relative scrollbar-track-transparent">
                 <div
-                    className={`mx-auto max-w-[1600px] w-full pt-20 px-4 md:px-6 transition-all duration-200 ${leftSidebarClass}`}
+                    ref={contentRef}
+                    className={`mx-auto max-w-[1600px] w-full pt-20 px-4 md:px-6 transition-all duration-200 [@container] ${leftSidebarClass}`}
                     style={{ paddingRight: rightPadding > 0 ? `${rightPadding}px` : undefined }}
                 >
                     {children}
@@ -65,8 +94,12 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
     return (
-        <RightSidebarProvider>
-            <InnerLayout>{children}</InnerLayout>
-        </RightSidebarProvider>
+        <UserProfilesProvider>
+            <ClubProfilesProvider>
+                <RightSidebarProvider>
+                    <InnerLayout>{children}</InnerLayout>
+                </RightSidebarProvider>
+            </ClubProfilesProvider>
+        </UserProfilesProvider>
     );
 }

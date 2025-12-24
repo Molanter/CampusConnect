@@ -91,7 +91,7 @@ export function MemberRow({
                         </span>
                     </div>
                     <span className="text-xs text-neutral-500">
-                        {member.username ? `@${member.username}` : ""}
+                        {member.username || ""}
                     </span>
                 </div>
             </div>

@@ -31,7 +31,7 @@ export function PostRow({ post }: PostRowProps) {
                     </div>
 
                     <h3 className="line-clamp-2 text-sm font-medium text-slate-200 group-hover:text-white transition-colors">
-                        {title || content || "Untitled Post"}
+                        {title || content}
                     </h3>
                 </div>
             </div>

@@ -112,7 +112,7 @@ export default function EventsPage() {
           const data = doc.data();
           return {
             id: doc.id,
-            title: data.title ?? "Untitled",
+            title: data.title,
             content: data.content ?? data.description ?? "",
             isEvent: data.isEvent ?? true, // Assume mostly events in "events" collection for now
             date: data.date,
@@ -429,7 +429,7 @@ export default function EventsPage() {
                 <ExplorePostCard
                   key={`campus-${post.id}`}
                   id={post.id}
-                  title={post.title || "Untitled Event"}
+                  title={post.title || ""}
                   description={post.content || ""}
                   image={(post.imageUrls && post.imageUrls[0]) || undefined}
                   date={post.date || "Date"}

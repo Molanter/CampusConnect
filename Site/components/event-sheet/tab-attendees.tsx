@@ -101,7 +101,7 @@ export function TabAttendees({ post }: TabAttendeesProps) {
                                 </p>
                                 {user.username && (
                                     <p className="truncate text-[10px] text-neutral-500">
-                                        @{user.username}
+                                        {user.username}
                                     </p>
                                 )}
                             </div>

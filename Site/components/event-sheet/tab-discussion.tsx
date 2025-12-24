@@ -10,7 +10,7 @@ interface TabDiscussionProps {
 export function TabDiscussion({ post }: TabDiscussionProps) {
     // Reuse the full CommentsView extraction
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 min-h-[400px] px-2 h-[600px]">
+        <div className="min-h-[400px] px-2">
             <CommentsView data={post} />
         </div>
     );
