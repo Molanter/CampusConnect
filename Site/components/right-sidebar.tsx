@@ -3,6 +3,7 @@
 import { BellIcon, XMarkIcon, ChevronLeftIcon, PaperAirplaneIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { useRightSidebar } from "./right-sidebar-context";
 import { useEffect, useState, useRef, useMemo } from "react";
+import { MobileFullScreenModal } from "./mobile-full-screen-modal";
 import { UserRow } from "./user-row";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -37,6 +38,7 @@ import { type Post } from "@/lib/posts";
 
 import { PostDetailMainInfo } from "./post-detail/post-detail-main-info";
 import { MediaHorizontalScroll } from "./post-detail/media-horizontal-scroll";
+import { MyClubsView } from "./my-clubs-view";
 
 export function RightSidebar({ headerVisible = false }: { headerVisible?: boolean }) {
     const { isVisible, view, data, toggle, showNotifications, sidebarWidth, setSidebarWidth } = useRightSidebar();
@@ -44,6 +46,12 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
     const [isResizing, setIsResizing] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [isTablet, setIsTablet] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
+
+    useEffect(() => {
+        const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
+        return () => unsub();
+    }, []);
 
     useEffect(() => {
         setMounted(true);
@@ -91,72 +99,32 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
     // Mobile bottom sheet
     if (isMobile) {
         if (!isVisible) {
-            // Show only bell button when sidebar is closed
-            return (
-                <button
-                    onClick={toggle}
-                    className="fixed right-5 bottom-5 z-50 flex h-[60px] w-[60px] items-center justify-center rounded-full bg-black/40 backdrop-blur-2xl text-white shadow-[0_8px_32px_rgba(0,0,0,0.2)] ring-1 ring-inset ring-white/10 transition-transform active:animate-bell-tap animate-fade-slide-in"
-                >
-                    <BellIcon className="h-6 w-6" />
-                </button>
-            );
+            // Don't show bell button on mobile - removed per user request
+            return null;
         }
 
+        const getTitle = () => {
+            if (view === "notifications") return "Notifications";
+            if (view === "comments") return "Comments";
+            if (view === "attendance") return "Guest List";
+            if (view === "report") return "Report Content";
+            if (view === "likes") return "Likes";
+            if (view === "my-clubs") return "My Clubs";
+            return "Details";
+        };
+
         return (
-            <>
-                {/* Backdrop */}
-                <div
-                    className="fixed inset-0 bg-black/30 z-40 animate-backdrop-fade-in"
-                    onClick={toggle}
-                />
-
-                {/* Bell Button - Bottom Right (always visible) */}
-                <button
-                    onClick={toggle}
-                    className="fixed right-5 bottom-5 z-[60] flex h-[60px] w-[60px] items-center justify-center rounded-full bg-black/40 backdrop-blur-2xl text-white shadow-[0_8px_32px_rgba(0,0,0,0.2)] ring-1 ring-inset ring-white/10 transition-transform active:animate-bell-tap"
-                >
-                    <XMarkIcon className="h-6 w-6" />
-                </button>
-
-                {/* Bottom Sheet */}
-                <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-[#121212]/40 backdrop-blur-3xl rounded-t-[2rem] border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.9)] max-h-[85vh] animate-slide-up pb-20">
-                    {/* Handle */}
-                    <div className="flex justify-center py-3">
-                        <div className="w-10 h-1 bg-white/20 rounded-full" />
-                    </div>
-
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-5 pb-3 border-b border-white/5">
-                        <div className="flex items-center gap-2">
-                            {view !== "notifications" && (
-                                <button
-                                    onClick={showNotifications}
-                                    className="mr-1 rounded-full p-1 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
-                                >
-                                    <ChevronLeftIcon className="h-5 w-5" />
-                                </button>
-                            )}
-                            <h2 className="text-lg font-semibold text-white">
-                                {view === "notifications" && "Notifications"}
-                                {view === "comments" && "Comments"}
-                                {view === "attendance" && "Guest List"}
-                                {view === "report" && "Report Content"}
-                                {view === "likes" && "Likes"}
-                            </h2>
-                        </div>
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 overflow-y-auto px-2 py-4">
-                        {view === "notifications" && <NotificationsView />}
-                        {view === "comments" && <CommentsView data={data} />}
-                        {view === "details" && <PostDetailsSidebarView data={data} />}
-                        {view === "attendance" && <AttendanceView data={data} />}
-                        {view === "report" && <ReportView data={data} />}
-                        {view === "likes" && <LikesView data={data} />}
-                    </div>
+            <MobileFullScreenModal isOpen={isVisible} onClose={toggle} title={getTitle()}>
+                <div className="px-4 py-4">
+                    {view === "notifications" && <NotificationsView />}
+                    {view === "comments" && <CommentsView data={data} />}
+                    {view === "details" && <PostDetailsSidebarView data={data} />}
+                    {view === "attendance" && <AttendanceView data={data} />}
+                    {view === "report" && <ReportView data={data} />}
+                    {view === "likes" && <LikesView data={data} />}
+                    {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
                 </div>
-            </>
+            </MobileFullScreenModal>
         );
     }
 
@@ -200,6 +168,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                             {view === "attendance" && "Guest List"}
                             {view === "report" && "Report Content"}
                             {view === "likes" && "Likes"}
+                            {view === "my-clubs" && "My Clubs"}
                         </h2>
                     </div>
                     <button
@@ -218,6 +187,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     {view === "attendance" && <AttendanceView data={data} />}
                     {view === "report" && <ReportView data={data} />}
                     {view === "likes" && <LikesView data={data} />}
+                    {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
                 </div>
             </aside>
         </>

@@ -1139,7 +1139,7 @@ export function PostCard({
                     <div className="shrink-0 self-start">
                         {isClubPost ? (
                             <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()}>
-                                <div className="h-10 w-10 overflow-hidden rounded-full bg-neutral-700">
+                                <div className={`h-10 w-10 overflow-hidden rounded-full ${clubProfile?.avatarUrl?.toLowerCase().endsWith('.png') ? 'bg-transparent' : 'bg-neutral-700'}`}>
                                     {clubProfile?.avatarUrl ? (
                                         <img src={clubProfile.avatarUrl} alt={clubProfile.name} className="h-full w-full object-cover" />
                                     ) : (
@@ -1151,7 +1151,7 @@ export function PostCard({
                             </Link>
                         ) : (
                             <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
-                                <div className="h-10 w-10 overflow-hidden rounded-full bg-neutral-700">
+                                <div className={`h-10 w-10 overflow-hidden rounded-full ${displayedPhotoUrl?.toLowerCase().endsWith('.png') ? 'bg-transparent' : 'bg-neutral-700'}`}>
                                     {displayedPhotoUrl ? (
                                         <img src={displayedPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />
                                     ) : (
@@ -1483,8 +1483,7 @@ export function PostCard({
                 {isClubPost ? (
                     <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()}>
                         <div
-                            className={`overflow-hidden rounded-full bg-neutral-700 ring-2 ring-[#1C1C1E] transition-opacity hover:opacity-80 ${compact ? "h-9 w-9" : "h-10 w-10"
-                                }`}
+                            className={`overflow-hidden rounded-full ring-2 ring-[#1C1C1E] transition-opacity hover:opacity-80 ${compact ? "h-9 w-9" : "h-10 w-10"} ${clubProfile?.avatarUrl?.toLowerCase().endsWith('.png') ? 'bg-transparent' : 'bg-neutral-700'}`}
                         >
                             {clubProfile?.avatarUrl ? (
                                 <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="h-full w-full object-cover" />
@@ -1498,8 +1497,7 @@ export function PostCard({
                 ) : (
                     <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
                         <div
-                            className={`overflow-hidden rounded-full bg-neutral-700 ring-2 ring-[#1C1C1E] transition-opacity hover:opacity-80 ${compact ? "h-9 w-9" : "h-10 w-10"
-                                }`}
+                            className={`overflow-hidden rounded-full ring-2 ring-[#1C1C1E] transition-opacity hover:opacity-80 ${compact ? "h-9 w-9" : "h-10 w-10"} ${displayedPhotoUrl?.toLowerCase().endsWith('.png') ? 'bg-transparent' : 'bg-neutral-700'}`}
                         >
                             {displayedPhotoUrl ? (
                                 <img src={displayedPhotoUrl} alt={displayedName} className="h-full w-full object-cover" />

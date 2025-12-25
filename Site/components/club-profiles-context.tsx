@@ -37,7 +37,7 @@ export function ClubProfilesProvider({ children }: { children: ReactNode }) {
                     const profile: ClubProfile = {
                         id: clubId,
                         name: data.name || "Club",
-                        avatarUrl: data.avatarUrl || data.photoURL || null,
+                        avatarUrl: data.logoUrl || data.avatarUrl || data.photoURL || null,
                         handle: data.handle || null,
                     };
                     setClubProfiles((prev) => ({ ...prev, [clubId]: profile }));

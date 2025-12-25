@@ -93,7 +93,7 @@ export default function HomePage() {
     );
   }
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="min-h-screen text-white">
       {/* Feed Container - Centered with max-width */}
       <div className="mx-auto w-full max-w-[680px] px-4 sm:px-6 lg:px-8">
         {/* Header */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
@@ -13,6 +13,8 @@ import { useRightSidebar } from "@/components/right-sidebar-context";
 import { Post } from "@/lib/posts";
 import { TextPostListItem } from "@/components/text-post-list-item";
 import { UserProfileHeader } from "@/components/profile/user-profile-header";
+import { ProfileTabs, type Tab } from "@/components/profile-tabs";
+import { MyClubsView } from "@/components/my-clubs-view";
 
 type UserProfile = {
   username?: string;
@@ -36,7 +38,12 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("my-events");
+  const [clubsCount, setClubsCount] = useState(0);
   const { openView } = useRightSidebar();
+
+
+  const pagerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -147,6 +154,71 @@ export default function UserProfilePage() {
     void loadPosts();
   }, [targetUid]);
 
+  // Load clubs count
+  useEffect(() => {
+    if (!targetUid) return;
+
+    const fetchClubsCount = async () => {
+      try {
+        const clubsRef = collection(db, "clubs");
+        const clubsSnapshot = await getDocs(clubsRef);
+
+        let count = 0;
+        for (const clubDoc of clubsSnapshot.docs) {
+          const membersRef = collection(db, "clubs", clubDoc.id, "members");
+          const memberQuery = query(membersRef, where("uid", "==", targetUid));
+          const memberSnapshot = await getDocs(memberQuery);
+
+          if (!memberSnapshot.empty) {
+            count++;
+          }
+        }
+
+        setClubsCount(count);
+      } catch (error) {
+        console.error("Error fetching clubs count:", error);
+        setClubsCount(0);
+      }
+    };
+
+    fetchClubsCount();
+  }, [targetUid]);
+
+  const TABS = [
+    { key: "my-events", label: "Posts" },
+    { key: "clubs", label: "Clubs" },
+  ];
+
+  const TABS_ORDER: Tab[] = ["my-events", "clubs"];
+
+  const handleTabChange = (tabKey: string) => {
+    const tab = tabKey as Tab;
+    setActiveTab(tab);
+    if (!pagerRef.current) return;
+
+    const index = TABS_ORDER.indexOf(tab);
+    const pageWidth = pagerRef.current.clientWidth;
+    const targetLeft = index * pageWidth;
+
+    pagerRef.current.scrollTo({
+      left: targetLeft,
+      behavior: "smooth"
+    });
+  };
+
+  const handleScroll = () => {
+    if (!pagerRef.current) return;
+    const scrollLeft = pagerRef.current.scrollLeft;
+    const pageWidth = pagerRef.current.clientWidth;
+    if (pageWidth === 0) return;
+
+    const index = Math.round(scrollLeft / pageWidth);
+    const newTab = TABS_ORDER[index];
+    if (newTab && newTab !== activeTab) {
+      setActiveTab(newTab);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center text-neutral-300">
@@ -196,7 +268,7 @@ export default function UserProfilePage() {
           isOwnProfile={user?.uid === targetUid}
           stats={{
             posts: userPosts.length,
-            clubs: 0,
+            clubs: clubsCount,
             followers: 0,
             following: 0,
           }}
@@ -213,40 +285,60 @@ export default function UserProfilePage() {
           onReport={() => {
             openView("report", { id: targetUid, type: "user" });
           }}
+          onPostsClick={() => handleTabChange("my-events")}
+          onClubsClick={() => handleTabChange("clubs")}
         />
 
-        {/* User's Posts */}
-        <div className="space-y-4">
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/30">
-            Posts by {displayName}
-          </h2>
+        {/* Tabs */}
+        <ProfileTabs
+          tabs={TABS}
+          value={activeTab}
+          onChange={handleTabChange}
+        />
 
-          {postsLoading && (
-            <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
-              Loading posts...
-            </div>
-          )}
-
-          {!postsLoading && userPosts.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-8 text-center text-sm text-neutral-400">
-              No posts yet.
-            </div>
-          )}
-
-          {!postsLoading && userPosts.length > 0 && (
+        {/* Tab Content - Swipeable Pager */}
+        <div
+          ref={pagerRef}
+          onScroll={handleScroll}
+          className="flex overflow-x-auto scrollbar-hide touch-pan-x snap-x snap-mandatory"
+          style={{ width: "100%" }}
+        >
+          {/* Page: Posts */}
+          <div className="w-full shrink-0 snap-start px-1">
             <div className="space-y-4">
-              {userPosts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  variant="threads"
-                  onCommentsClick={() => openView("comments", post)}
-                  onAttendanceClick={() => openView("attendance", post)}
-                  onDetailsClick={() => openView("details", post)}
-                />
-              ))}
+              {postsLoading && (
+                <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
+                  Loading posts...
+                </div>
+              )}
+
+              {!postsLoading && userPosts.length === 0 && (
+                <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-8 text-center text-sm text-neutral-400">
+                  No posts yet.
+                </div>
+              )}
+
+              {!postsLoading && userPosts.length > 0 && (
+                <div className="space-y-4">
+                  {userPosts.map((post) => (
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      variant="threads"
+                      onCommentsClick={() => openView("comments", post)}
+                      onAttendanceClick={() => openView("attendance", post)}
+                      onDetailsClick={() => openView("details", post)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Page: Clubs */}
+          <div className="w-full shrink-0 snap-start px-1">
+            <MyClubsView userId={targetUid} />
+          </div>
         </div>
       </div>
     </div>

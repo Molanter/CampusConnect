@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, type SVGProps } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
-import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon, UserGroupIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { UserRow } from "./user-row";
+import { useAdminMode } from "./admin-mode-context";
 
 function RadarIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -69,6 +70,7 @@ export function Navbar({
   viewportWidth,
 }: NavbarProps) {
   const [uid, setUid] = useState<string | null>(null);
+  const { isGlobalAdminUser, adminModeOn, setAdminModeOn } = useAdminMode();
 
   const pathname = usePathname();
 
@@ -175,7 +177,7 @@ export function Navbar({
       )}
       {/* iPadOS-style sidebar (md and up) */}
       <aside
-        className={`fixed z-30 flex-col rounded-none md:rounded-[1.8rem] border border-white/10 bg-gradient-to-b from-[#111111]/40 to-[#151515]/40 backdrop-blur-3xl px-5 py-6 shadow-[0_30px_80px_rgba(0,0,0,0.5)] transition-all duration-300 ${sidebarLayoutClasses} ${sidebarVisible ? "flex" : "hidden"
+        className={`fixed z-30 flex-col rounded-[2rem] md:rounded-[1.8rem] border border-white/10 bg-[#111111] backdrop-blur-3xl px-5 py-6 transition-all duration-300 ${sidebarLayoutClasses} ${sidebarVisible ? "flex" : "hidden"
           }`}
       >
         {/* App name + sidebar toggle */}
@@ -259,7 +261,29 @@ export function Navbar({
         </nav>
 
         {/* Signed-in account - Capsule hover style */}
-        <div className="mt-auto pt-4">
+        <div className="mt-auto pt-4 space-y-2">
+          {/* Admin View Toggle - Only for Global Admins (above account) */}
+          {isGlobalAdminUser && (
+            <button
+              onClick={() => {
+                setAdminModeOn(!adminModeOn);
+              }}
+              className="flex w-full items-center justify-between gap-3 rounded-full px-4 py-3 transition-all duration-200 hover:bg-white/[0.06]"
+            >
+              <div className="flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5 text-amber-500">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="text-[15px] font-medium text-white/80">Admin View</span>
+              </div>
+              {/* Toggle Switch */}
+              <div className={`relative h-6 w-11 rounded-full transition-colors ${adminModeOn ? 'bg-amber-500' : 'bg-neutral-700'}`}>
+                <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${adminModeOn ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </div>
+            </button>
+          )}
+
           <Link
             href="/profile"
             onClick={handleSidebarLinkClick}

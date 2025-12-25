@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-export type RightSidebarView = "notifications" | "comments" | "details" | "attendance" | "report" | "likes";
+export type RightSidebarView = "notifications" | "comments" | "details" | "attendance" | "report" | "likes" | "my-clubs";
 
 interface RightSidebarContextType {
     isVisible: boolean;

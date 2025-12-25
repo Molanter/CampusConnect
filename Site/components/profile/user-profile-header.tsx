@@ -29,6 +29,10 @@ interface UserProfileHeaderProps {
     onMore?: () => void;
     onSignOut?: () => void;
     onReport?: () => void;
+    onPostsClick?: () => void;
+    onClubsClick?: () => void;
+    onFollowersClick?: () => void;
+    onFollowingClick?: () => void;
 }
 
 export function UserProfileHeader({
@@ -48,6 +52,10 @@ export function UserProfileHeader({
     onMore,
     onSignOut,
     onReport,
+    onPostsClick,
+    onClubsClick,
+    onFollowersClick,
+    onFollowingClick,
 }: UserProfileHeaderProps) {
     const initials = displayName.charAt(0).toUpperCase();
     const [universityLogoUrl, setUniversityLogoUrl] = useState<string | null>(null);
@@ -169,22 +177,34 @@ export function UserProfileHeader({
 
                         {/* Stats Row - Capsules with Strokes */}
                         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5">
-                            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10">
+                            <button
+                                onClick={onPostsClick}
+                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10 cursor-pointer active:scale-95"
+                            >
                                 <span className="text-xs font-bold text-white">{stats.posts}</span>
                                 <span className="text-[9px] font-bold uppercase tracking-tight text-neutral-400">Posts</span>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10">
+                            </button>
+                            <button
+                                onClick={onClubsClick}
+                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10 cursor-pointer active:scale-95"
+                            >
                                 <span className="text-xs font-bold text-white">{stats.clubs || 0}</span>
                                 <span className="text-[9px] font-bold uppercase tracking-tight text-neutral-400">Clubs</span>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10">
+                            </button>
+                            <button
+                                onClick={onFollowersClick}
+                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10 cursor-pointer active:scale-95"
+                            >
                                 <span className="text-xs font-bold text-white">{stats.followers}</span>
                                 <span className="text-[9px] font-bold uppercase tracking-tight text-neutral-400">Followers</span>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10">
+                            </button>
+                            <button
+                                onClick={onFollowingClick}
+                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10 cursor-pointer active:scale-95"
+                            >
                                 <span className="text-xs font-bold text-white">{stats.following}</span>
                                 <span className="text-[9px] font-bold uppercase tracking-tight text-neutral-400">Following</span>
-                            </div>
+                            </button>
                         </div>
                     </div>
                 </div>

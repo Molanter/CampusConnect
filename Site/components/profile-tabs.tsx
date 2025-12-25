@@ -219,7 +219,7 @@ export function ProfileTabs({ tabs, value, onChange, progress }: ProfileTabsProp
                 {/* Render only if we have metrics to avoid jumping */}
                 {isHydrated && (
                     <motion.div
-                        className="absolute bottom-0 left-0 h-[4px] bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)] pointer-events-none"
+                        className="absolute bottom-0 left-0 h-[4px] bg-amber-500 rounded-full pointer-events-none"
                         style={{
                             x,
                             width,

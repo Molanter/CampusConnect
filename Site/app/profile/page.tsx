@@ -19,6 +19,7 @@ import { Post } from "@/lib/posts";
 import { TextPostListItem } from "@/components/text-post-list-item";
 import { useFeed } from "@/lib/hooks/use-feed";
 import { useUserComments } from "@/lib/hooks/use-user-comments";
+import { MyClubsView } from "@/components/my-clubs-view";
 
 // Utility function for relative time display
 function getRelativeTime(date: Date): string {
@@ -93,6 +94,7 @@ function ProfileContent({ user }: { user: User }) {
   // const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // Removed unused state
   const [attendedPosts, setAttendedPosts] = useState<Post[]>([]);
   const [attendedLoading, setAttendedLoading] = useState(false);
+  const [clubsCount, setClubsCount] = useState(0);
 
   // Use the same feed as the main page, but filtered to only this user
   const { posts: myPosts, loading: myPostsLoading } = useFeed(user, user.uid);
@@ -279,6 +281,35 @@ function ProfileContent({ user }: { user: User }) {
     return () => unsubscribe();
   }, [user.uid, activeTab]);
 
+  // Load Clubs Count
+  useEffect(() => {
+    const fetchClubsCount = async () => {
+      try {
+        // Query all clubs where user is a member
+        const clubsRef = collection(db, "clubs");
+        const clubsSnapshot = await getDocs(clubsRef);
+
+        let count = 0;
+        for (const clubDoc of clubsSnapshot.docs) {
+          const membersRef = collection(db, "clubs", clubDoc.id, "members");
+          const memberQuery = query(membersRef, where("uid", "==", user.uid));
+          const memberSnapshot = await getDocs(memberQuery);
+
+          if (!memberSnapshot.empty) {
+            count++;
+          }
+        }
+
+        setClubsCount(count);
+      } catch (error) {
+        console.error("Error fetching clubs count:", error);
+        setClubsCount(0);
+      }
+    };
+
+    fetchClubsCount();
+  }, [user.uid]);
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -336,7 +367,7 @@ function ProfileContent({ user }: { user: User }) {
           isOwnProfile
           stats={{
             posts: myPosts.length,
-            clubs: 0,
+            clubs: clubsCount,
             followers: 0,
             following: 0,
           }}
@@ -351,6 +382,10 @@ function ProfileContent({ user }: { user: User }) {
             }
           }}
           onSignOut={handleSignOut}
+          onPostsClick={() => handleTabChange("my-events")}
+          onClubsClick={() => handleTabChange("clubs")}
+          onFollowersClick={() => {/* TODO: implement followers view */ }}
+          onFollowingClick={() => {/* TODO: implement following view */ }}
         />
 
         {/* Tabs - Real-time progress passing */}
@@ -500,9 +535,7 @@ function ProfileContent({ user }: { user: User }) {
 
           {/* Page: Clubs */}
           <div className="w-full shrink-0 snap-start px-1">
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-12 text-center text-sm text-neutral-400">
-              Clubs feature coming soon.
-            </div>
+            <MyClubsView userId={user.uid} />
           </div>
         </div>
       </div>

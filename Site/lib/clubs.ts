@@ -25,14 +25,21 @@ export interface Club {
     name: string;
     description: string;
     coverImageUrl?: string;
+    logoUrl?: string; // New: Club logo/avatar
     isPrivate: boolean;
     memberCount: number;
     tags?: string[];
+    category?: string;
     createdAt: any;
     createdBy: string;
 
     // Settings
     allowMemberPosts: boolean;
+    postingPermission?: 'anyone' | 'admins'; // New: Who can post
+
+    // Verification
+    isVerified?: boolean; // New: Campus verified badge
+    verificationStatus?: 'none' | 'pending' | 'approved' | 'rejected'; // New: Request flow
 
     // Computed/Client-side
     isMember?: boolean;
@@ -160,6 +167,14 @@ export async function getClubMembers(clubId: string, status: JoinStatus = "appro
 export async function getPublicClubs(): Promise<Club[]> {
     const clubsRef = collection(db, "clubs");
     const q = query(clubsRef, where("isPrivate", "==", false), orderBy("memberCount", "desc"), limit(20));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Club));
+}
+
+export async function getAllClubs(): Promise<Club[]> {
+    const clubsRef = collection(db, "clubs");
+    // For admins, we want to see everything, ordered by size or creation
+    const q = query(clubsRef, orderBy("memberCount", "desc"), limit(50));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as Club));
 }

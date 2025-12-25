@@ -6,6 +6,7 @@ import { RightSidebarProvider, useRightSidebar } from "@/components/right-sideba
 import { RightSidebar } from "@/components/right-sidebar";
 import { UserProfilesProvider } from "@/components/user-profiles-context";
 import { ClubProfilesProvider } from "@/components/club-profiles-context";
+import { AdminModeProvider } from "@/components/admin-mode-context";
 
 function InnerLayout({ children }: { children: React.ReactNode }) {
     const [sidebarVisible, setSidebarVisible] = useState(true);
@@ -94,12 +95,14 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
     return (
-        <UserProfilesProvider>
-            <ClubProfilesProvider>
-                <RightSidebarProvider>
-                    <InnerLayout>{children}</InnerLayout>
-                </RightSidebarProvider>
-            </ClubProfilesProvider>
-        </UserProfilesProvider>
+        <AdminModeProvider>
+            <UserProfilesProvider>
+                <ClubProfilesProvider>
+                    <RightSidebarProvider>
+                        <InnerLayout>{children}</InnerLayout>
+                    </RightSidebarProvider>
+                </ClubProfilesProvider>
+            </UserProfilesProvider>
+        </AdminModeProvider>
     );
 }

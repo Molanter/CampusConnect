@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../../lib/firebase";
-import { Club, getPublicClubs, getUserClubs } from "../../lib/clubs";
+import { auth, db } from "../../lib/firebase";
+import { Club, getPublicClubs, getUserClubs, getAllClubs } from "../../lib/clubs";
 import { ClubCard } from "../../components/clubs/club-card";
 import Link from "next/link";
 import { PlusIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { fetchGlobalAdminEmails, isGlobalAdmin } from "../../lib/admin-utils";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 
 export default function ClubsHome() {
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -20,11 +22,34 @@ export default function ClubsHome() {
 
             setLoading(true);
             try {
-                const [publicList, userList] = await Promise.all([
-                    getPublicClubs(),
+                // 1. Check Admin Status
+                let isAdmin = false;
+                if (u && u.email) {
+                    const globalAdmins = await fetchGlobalAdminEmails();
+                    if (isGlobalAdmin(u.email, globalAdmins)) {
+                        isAdmin = true;
+                    } else {
+                        // Check if Campus Admin (admin for at least one university)
+                        // Note: We use array-contains. Ensure emails in DB are lowercased if u.email is.
+                        // Ideally we should handle case sensitivity, but standard query here is:
+                        const qUni = query(
+                            collection(db, "universities"),
+                            where("adminEmails", "array-contains", u.email.toLowerCase())
+                        );
+                        const snapUni = await getDocs(qUni);
+                        if (!snapUni.empty) {
+                            isAdmin = true;
+                        }
+                    }
+                }
+
+                // 2. Fetch Clubs - show all clubs including private (users can request to join private clubs)
+                const [clubsList, userList] = await Promise.all([
+                    getAllClubs(), // Show all clubs to everyone
                     u ? getUserClubs(u.uid) : Promise.resolve([])
                 ]);
-                setPublicClubs(publicList);
+
+                setPublicClubs(clubsList);
                 setMyClubs(userList);
             } catch (err) {
                 console.error("Error loading clubs:", err);
