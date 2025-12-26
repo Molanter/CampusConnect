@@ -9,7 +9,6 @@ import { ClubProfilesProvider } from "@/components/club-profiles-context";
 import { AdminModeProvider } from "@/components/admin-mode-context";
 
 function InnerLayout({ children }: { children: React.ReactNode }) {
-    const [sidebarVisible, setSidebarVisible] = useState(true);
     const [viewportWidth, setViewportWidth] = useState<number | null>(null);
     const { isVisible: isRightSidebarVisible, sidebarWidth, isNarrow, setIsNarrow, close, view } = useRightSidebar();
     const contentRef = useRef<HTMLDivElement>(null);
@@ -45,13 +44,6 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
         const handleResize = () => {
             const width = window.innerWidth;
             setViewportWidth(width);
-
-            // Hide sidebar for tablet (769-1024) and mobile (<= 768)
-            if (width <= 1024) {
-                setSidebarVisible(false);
-            } else {
-                setSidebarVisible(true);
-            }
         };
 
         handleResize();
@@ -60,21 +52,24 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
     }, []);
 
     const width = viewportWidth ?? 1024;
-    const leftSidebarClass = sidebarVisible && width > 768 ? "md:pl-[312px]" : "";
+    // Sidebar width (72px) + Left Margin (12px) + Gap (16px) = 100px approximately
+    // Using pl-[112px] for a bit more breathing room
+    // Left styling is applied if width > 768 (Desktop/Tablet)
+    const leftSidebarClass = width > 768 ? "md:pl-[120px]" : "";
 
     // Calculate right padding based on sidebar width + margins (12px on each side = 24px total)
     // Apply for tablet (769-1024) and desktop (>1024) to prevent overlay
     const rightPadding = isRightSidebarVisible && width > 768 ? sidebarWidth + 24 : 0;
 
-    // Header is shown if sidebar is hidden (tabbar behavior).
-    // If sidebar is open, header is hidden.
-    const showHeader = !sidebarVisible;
+    // Header is shown if we are on mobile (<= 768)
+    // Actually header visibility logic was based on sidebarVisible before.
+    // Now sidebar (left tabbar) is ALWAYS visible on desktop and NEVER on mobile.
+    // So header (top tabbar) should be visible on mobile.
+    const showHeader = width <= 768;
 
     return (
         <div className="flex h-full flex-col overflow-hidden">
             <Navbar
-                sidebarVisible={sidebarVisible}
-                setSidebarVisible={setSidebarVisible}
                 viewportWidth={viewportWidth}
             />
 

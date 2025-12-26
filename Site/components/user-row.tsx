@@ -75,10 +75,13 @@ export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElem
     const photoURL = profile?.photoURL;
     const initials = displayName.charAt(0).toUpperCase();
 
+    // Allow overriding the default size (h-8 w-8)
+    const avatarClass = onlyAvatar ? "h-full w-full" : "h-8 w-8";
+
     return (
-        <div className="flex w-full items-center justify-between py-1">
-            <div className="flex items-center gap-3">
-                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10">
+        <div className={`flex w-full items-center ${onlyAvatar ? 'justify-center h-full' : 'justify-between py-1'}`}>
+            <div className={`flex items-center ${onlyAvatar ? 'justify-center w-full h-full' : 'gap-3'}`}>
+                <div className={`${avatarClass} shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10`}>
                     {photoURL ? (
                         <img src={photoURL} alt={displayName} className="h-full w-full object-cover" />
                     ) : (

@@ -1,43 +1,25 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect, type SVGProps } from "react";
+import { useState, useEffect, type SVGProps, Fragment } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
-import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon, UserGroupIcon, ShieldCheckIcon, BuildingLibraryIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
+import {
+  HomeIcon,
+  UserIcon,
+  Cog6ToothIcon,
+  ShieldCheckIcon,
+  BuildingLibraryIcon,
+  ChatBubbleLeftRightIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  PowerIcon,
+} from "@heroicons/react/24/outline";
 import { UserRow } from "./user-row";
 import { useAdminMode } from "./admin-mode-context";
-
-function RadarIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      {/* Outer circle */}
-      <circle cx="12" cy="12" r="8.5" />
-
-      {/* Mid circle */}
-      <circle cx="12" cy="12" r="5.5" opacity={0.7} />
-
-      {/* Center dot */}
-      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-
-      {/* Sweep line (like Find My scan) */}
-      <path d="M12 12 L18 9" />
-
-      {/* Small ping dot near edge */}
-      <circle cx="18" cy="9" r="1.1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
+import { Menu, Transition } from "@headlessui/react";
 
 function SidebarIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -59,19 +41,15 @@ function SidebarIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 type NavbarProps = {
-  sidebarVisible: boolean;
-  setSidebarVisible: Dispatch<SetStateAction<boolean>>;
   viewportWidth: number | null;
 };
 
 export function Navbar({
-  sidebarVisible,
-  setSidebarVisible,
   viewportWidth,
 }: NavbarProps) {
   const [uid, setUid] = useState<string | null>(null);
   const { isGlobalAdminUser, adminModeOn, setAdminModeOn } = useAdminMode();
-
+  const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -127,204 +105,87 @@ export function Navbar({
     return () => unsubscribe();
   }, []);
 
-  // Helper to close sidebar on small screens when clicking a link
-  const handleSidebarLinkClick = () => {
-    const width = viewportWidth ?? 1024;
-    if (width <= 768) {
-      setSidebarVisible(false);
-    }
-  };
-
   const width = viewportWidth ?? 1024;
+  const isDesktop = width > 768; // Desktop includes tablet for this design
+  const isMobile = width <= 768;
 
-  // Layout variants:
-  // - width < 500: sidebar is full-screen overlay
-  // - 500 <= width <= 768: sidebar overlays main content but not full-screen
-  // - width > 768: sidebar is primary fixed panel
-  let sidebarLayoutClasses = "";
+  // Sidebar styling - Only used for Desktop now
+  const sidebarClasses = "fixed z-30 flex flex-col items-center w-[72px] rounded-[2rem] border border-white/10 bg-[#111111]/95 backdrop-blur-2xl py-3 transition-all duration-300 left-4 top-1/2 -translate-y-1/2 shadow-2xl shadow-black/50 h-fit";
 
-  if (width < 500) {
-    // Full-screen overlay on very small screens
-    sidebarLayoutClasses = "inset-0 w-full";
-  } else if (width <= 768) {
-    // Overlay panel, narrower and anchored to the left (not full width)
-    sidebarLayoutClasses = "inset-y-3 left-3 w-72";
-  } else {
-    // Desktop: primary sidebar panel
-    sidebarLayoutClasses = "inset-y-3 left-3 w-72";
-  }
+  // Nav item styling
+  const navItemBase = isDesktop
+    ? "group flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 relative"
+    : "group flex items-center gap-3 rounded-full px-4 py-3.5 text-[17px] font-medium transition-all duration-200 ease-out";
 
-  // Constants for iPadOS style
-  const navItemBase =
-    "group flex items-center gap-3 rounded-full px-4 py-3.5 text-[17px] font-medium transition-all duration-200 ease-out";
-  const navItemInactive =
-    "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100 hover:scale-[1.02] active:scale-95";
-  const navItemActive = "bg-[#ffb200] text-black shadow-md shadow-[#ffb200]/20 font-semibold";
+  const navItemInactive = isDesktop
+    ? "text-zinc-500 hover:text-zinc-100 hover:bg-white/10"
+    : "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100 hover:scale-[1.02] active:scale-95";
 
-  // Hide header (tab bar) if sidebar is open, regardless of screen size.
-  // This satisfies: "on table when show sidebar button was pressed hide tabbar"
-  const showHeader = !sidebarVisible;
+  // Active State: Just color change (no background) for regular items
+  const navItemActive = isDesktop
+    ? "text-[#ffb200]"
+    : "bg-[#ffb200] text-black shadow-md shadow-[#ffb200]/20 font-semibold";
+
+  // Header is always shown on mobile
+  const showHeader = isMobile;
+
+  const NavItem = ({ href, icon: Icon, label, isActive, onClick }: { href: string, icon: any, label: string, isActive: boolean, onClick?: () => void }) => (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`${navItemBase} ${isActive ? navItemActive : navItemInactive}`}
+      title={isDesktop ? label : undefined}
+    >
+      <Icon className={isDesktop ? "h-[26px] w-[26px]" : "h-[22px] w-[22px]"} strokeWidth={isDesktop ? 1.8 : 2} />
+      {!isDesktop && <span>{label}</span>}
+      {/* Helper tooltip on hover for desktop */}
+      {isDesktop && (
+        <span className="absolute left-full ml-3 px-2 py-1 rounded-md bg-zinc-800 border border-white/10 text-xs font-medium text-white opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+          {label}
+        </span>
+      )}
+    </Link>
+  );
 
   return (
     <>
-      {/* Backdrop for mobile/tablet when sidebar is active */}
-      {/* "when user clicked somewhere but not sidebar hide it. add light blur of main page when left sidebar is active" */}
-      {sidebarVisible && width <= 1024 && (
-        <div
-          className="fixed inset-0 z-20 bg-black/10 backdrop-blur-sm transition-opacity duration-300"
-          onClick={() => setSidebarVisible(false)}
-        />
-      )}
-      {/* iPadOS-style sidebar (md and up) */}
-      <aside
-        className={`fixed z-30 flex-col rounded-[2rem] md:rounded-[1.8rem] border border-white/10 bg-[#111111] backdrop-blur-3xl px-5 py-6 transition-all duration-300 ${sidebarLayoutClasses} ${sidebarVisible ? "flex" : "hidden"
-          }`}
-      >
-        {/* App name + sidebar toggle */}
-        <div className="mb-8 flex items-center justify-between px-2">
-          <span className="font-display text-[21px] font-semibold tracking-tight text-white/90">
-            Campus Connect
-          </span>
-          <button
-            onClick={() => setSidebarVisible(false)}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-100 transition-colors"
-          >
-            <SidebarIcon className="h-6 w-6 rotate-180" />
-          </button>
-        </div>
+      {/* Sidebar - Desktop Only */}
+      {isDesktop && (
+        <aside className={sidebarClasses}>
+          {/* No Logo on Desktop as requested */}
 
-        {/* Navigation list */}
-        <nav className="flex flex-1 flex-col gap-2">
-          {isGlobalAdminUser && adminModeOn ? (
-            <>
-              {/* Admin Mode Navigation */}
-              {/* Settings */}
-              <Link
-                href="/settings"
-                onClick={handleSidebarLinkClick}
-                className={`${navItemBase} ${pathname === "/settings" ? navItemActive : navItemInactive
-                  }`}
-              >
-                <Cog6ToothIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-                <span>Settings</span>
-              </Link>
+          {/* Navigation list */}
+          <nav className={`flex flex-1 flex-col gap-4 items-center justify-center w-full`}>
+            {isGlobalAdminUser && adminModeOn ? (
+              <>
+                <NavItem href="/settings" icon={Cog6ToothIcon} label="Settings" isActive={pathname === "/settings"} />
+                <NavItem href="/admin/moderation" icon={ShieldCheckIcon} label="Reports" isActive={pathname === "/admin/moderation"} />
+                <NavItem href="/admin/universities" icon={BuildingLibraryIcon} label="Manage Campuses" isActive={pathname.startsWith("/admin/universities")} />
+                <NavItem href="/admin/support" icon={ChatBubbleLeftRightIcon} label="Support" isActive={pathname.startsWith("/admin/support")} />
+              </>
+            ) : (
+              <>
+                <NavItem href="/" icon={HomeIcon} label="Feed" isActive={pathname === "/"} />
+                <NavItem href="/explore" icon={MagnifyingGlassIcon} label="Explore" isActive={pathname === "/explore"} />
+                <NavItem href="/posts/new" icon={PlusIcon} label="Create Post" isActive={pathname === "/posts/new"} />
+              </>
+            )}
 
-              {/* Reports / Moderation */}
-              <Link
-                href="/admin/moderation"
-                onClick={handleSidebarLinkClick}
-                className={`${navItemBase} ${pathname === "/admin/moderation" ? navItemActive : navItemInactive
-                  }`}
-              >
-                <ShieldCheckIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-                <span>Reports</span>
-              </Link>
-
-              <Link
-                href="/admin/universities"
-                onClick={handleSidebarLinkClick}
-                className={`${navItemBase} ${pathname.startsWith("/admin/universities") ? navItemActive : navItemInactive
-                  }`}
-              >
-                <BuildingLibraryIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-                <span>Manage Universities</span>
-              </Link>
-
-              {/* Support */}
-              <Link
-                href="/admin/support"
-                onClick={handleSidebarLinkClick}
-                className={`${navItemBase} ${pathname.startsWith("/admin/support") ? navItemActive : navItemInactive
-                  }`}
-              >
-                <ChatBubbleLeftRightIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-                <span>Support</span>
-              </Link>
-            </>
-          ) : (
-            <>
-              {/* Regular Navigation */}
-              {/* Feed */}
-              <Link
-                href="/"
-                onClick={handleSidebarLinkClick}
-                className={`${navItemBase} ${pathname === "/" ? navItemActive : navItemInactive
-                  }`}
-              >
-                <HomeIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-                <span>Feed</span>
-              </Link>
-
-              {/* Explore */}
-              <Link
-                href="/explore"
-                onClick={handleSidebarLinkClick}
-                className={`${navItemBase} ${pathname === "/explore" ? navItemActive : navItemInactive
-                  }`}
-              >
-                <MagnifyingGlassIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-                <span>Explore</span>
-              </Link>
-
-              {/* Create Post */}
-              <Link
-                href="/posts/new"
-                onClick={handleSidebarLinkClick}
-                className={`${navItemBase} ${navItemInactive}`}
-              >
-                <PlusIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-                <span>Create Post</span>
-              </Link>
-
-              {/* Profile */}
-              <Link
-                href="/profile"
-                onClick={handleSidebarLinkClick}
-                className={`${navItemBase} ${pathname === "/profile" ? navItemActive : navItemInactive
-                  }`}
-              >
-                <UserIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-                <span>Profile</span>
-              </Link>
-            </>
-          )}
-        </nav>
-
-        {/* Signed-in account - Capsule hover style */}
-        <div className="mt-auto pt-4 space-y-2">
-          {/* Admin View Toggle - Only for Global Admins (above account) */}
-          {isGlobalAdminUser && (
-            <button
-              onClick={() => {
-                setAdminModeOn(!adminModeOn);
-              }}
-              className="flex w-full items-center justify-between gap-3 rounded-full px-4 py-3 transition-all duration-200 hover:bg-white/[0.06]"
+            {/* Desktop User Menu (Profile Link) */}
+            <Link
+              href="/profile"
+              className={`relative flex h-10 w-10 items-center justify-center rounded-full overflow-hidden transition-all hover:scale-105 ${pathname === "/profile" ? "ring-2 ring-[#ffb200]" : "hover:ring-2 hover:ring-white/20"
+                }`}
             >
-              <div className="flex items-center gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5 text-amber-500">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span className="text-[15px] font-medium text-white/80">Admin View</span>
+              <div className="h-full w-full">
+                <UserRow uid={uid || undefined} onlyAvatar={true} />
               </div>
-              {/* Toggle Switch */}
-              <div className={`relative h-6 w-11 rounded-full transition-colors ${adminModeOn ? 'bg-amber-500' : 'bg-neutral-700'}`}>
-                <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${adminModeOn ? 'translate-x-5' : 'translate-x-0.5'}`} />
-              </div>
-            </button>
-          )}
+            </Link>
+          </nav>
+        </aside>
+      )}
 
-          <Link
-            href="/profile"
-            onClick={handleSidebarLinkClick}
-            className="flex items-center gap-3 rounded-full px-2 py-3 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] active:scale-95 group"
-          >
-            <UserRow uid={uid || undefined} />
-          </Link>
-        </div>
-      </aside>
-
-      {/* Top navbar / tab bar */}
+      {/* Top navbar / tab bar (MOBILE ONLY) */}
       <header
         className={`fixed top-0 left-0 right-0 z-20 flex justify-center py-3 text-sm text-slate-100 pointer-events-none ${showHeader ? "block" : "hidden"
           }`}
@@ -333,16 +194,8 @@ export function Navbar({
           {/* Centered capsule tab bar */}
           <nav className="flex items-center justify-center">
             <div className="inline-flex items-center gap-0 rounded-full border border-white/10 bg-black/60 backdrop-blur-xl p-1 text-[12px] text-slate-200 shadow-lg ring-1 ring-white/5">
-              {/* Sidebar toggle icon */}
-              <button
-                onClick={() => setSidebarVisible(true)}
-                className="inline-flex items-center justify-center rounded-full px-2 py-1.5 hover:bg-white/10"
-                aria-label="Show sidebar"
-              >
-                <SidebarIcon className="h-4 w-4" />
-              </button>
+              {/* REMOVED Sidebar toggle icon */}
 
-              {/* Feed tab */}
               <Link
                 href="/"
                 className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/"
@@ -354,7 +207,6 @@ export function Navbar({
                 Home
               </Link>
 
-              {/* Explore tab */}
               <Link
                 href="/explore"
                 className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/explore"
@@ -366,7 +218,6 @@ export function Navbar({
                 Explore
               </Link>
 
-              {/* Create Post tab */}
               <Link
                 href="/posts/new"
                 className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/posts/new"
@@ -378,7 +229,6 @@ export function Navbar({
                 Create
               </Link>
 
-              {/* Profile tab */}
               <Link
                 href="/profile"
                 className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/profile"
