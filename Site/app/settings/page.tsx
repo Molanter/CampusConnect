@@ -21,7 +21,8 @@ import {
   InformationCircleIcon,
   ArrowRightOnRectangleIcon,
   UserGroupIcon,
-  PlusIcon
+  PlusIcon,
+  ChatBubbleLeftRightIcon
 } from "@heroicons/react/24/outline";
 
 export default function SettingsPage() {
@@ -268,6 +269,18 @@ export default function SettingsPage() {
             </div>
             <div className="flex-1">
               <p className="text-[15px] font-normal text-white">Help & Support</p>
+            </div>
+            <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
+          </Link>
+          <Link
+            href="/help-support/tickets"
+            className="flex items-center gap-3 px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600">
+              <ChatBubbleLeftRightIcon className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-normal text-white">My Support Tickets</p>
             </div>
             <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
           </Link>

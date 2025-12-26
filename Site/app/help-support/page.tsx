@@ -4,7 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ChevronDownIcon, ChevronUpIcon, ChevronLeftIcon, XMarkIcon, PaperClipIcon } from "@heroicons/react/24/outline";
 import Toast, { ToastData } from "@/components/Toast";
-import { serverTimestamp } from "firebase/firestore";
+import { serverTimestamp, collection, addDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
 
 // --- Types ---
 
@@ -89,6 +91,24 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (checked: b
 // --- Main Page ---
 
 export default function HelpSupportPage() {
+    const [user, setUser] = useState<User | null>(null);
+
+    // Monitor auth state
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser);
+            if (currentUser?.displayName) {
+                // Optional: pre-fill name if available
+                setName(currentUser.displayName);
+            }
+            if (currentUser?.email) {
+                // Optional: pre-fill email if available
+                setEmail(currentUser.email);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
+
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [category, setCategory] = useState("General Inquiry");
@@ -161,29 +181,38 @@ export default function HelpSupportPage() {
     const handleConfirmSend = async () => {
         setSending(true);
 
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        try {
+            // Construct data payload
+            const payload = {
+                name,
+                email,
+                uid: user?.uid || null, // Attach UID if logged in
+                category,
+                priority,
+                message,
+                status: "open", // Default status
+                deviceInfo: attachDeviceInfo ? {
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform,
+                    language: navigator.language,
+                } : null,
+                attachmentNames: screenshots.map(f => f.name), // Just names for now, upload logic would be separate
+                createdAt: serverTimestamp(),
+            };
 
-        // Construct data payload (mock)
-        const payload = {
-            name,
-            email,
-            category,
-            priority,
-            message,
-            deviceInfo: attachDeviceInfo ? {
-                os: "iOS/Web", // Mock
-                version: "1.0.0" // Mock
-            } : null,
-            attachments: screenshots.map(f => f.name), // Mock sending filenames
-            createdAt: serverTimestamp(),
-        };
+            console.log("Saving support ticket:", payload);
 
-        console.log("Sending support request:", payload);
+            // Write to Firestore
+            await addDoc(collection(db, "supportTickets"), payload);
 
-        setSending(false);
-        setIsModalOpen(false);
-        setToast({ type: "success", message: "Your support request has been sent." });
+            setToast({ type: "success", message: "Your support request has been sent." });
+        } catch (error) {
+            console.error("Error creating ticket:", error);
+            setToast({ type: "error", message: "Failed to send request. Please try again." });
+        } finally {
+            setSending(false);
+            setIsModalOpen(false);
+        }
 
         // Reset form slightly after to improve UX
         setTimeout(() => {

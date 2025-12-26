@@ -6,7 +6,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
-import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon, UserGroupIcon, ShieldCheckIcon, BuildingLibraryIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon, UserGroupIcon, ShieldCheckIcon, BuildingLibraryIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 import { UserRow } from "./user-row";
 import { useAdminMode } from "./admin-mode-context";
 
@@ -220,7 +220,6 @@ export function Navbar({
                 <span>Reports</span>
               </Link>
 
-              {/* Manage Universities */}
               <Link
                 href="/admin/universities"
                 onClick={handleSidebarLinkClick}
@@ -229,6 +228,17 @@ export function Navbar({
               >
                 <BuildingLibraryIcon className="h-[22px] w-[22px]" strokeWidth={2} />
                 <span>Manage Universities</span>
+              </Link>
+
+              {/* Support */}
+              <Link
+                href="/admin/support"
+                onClick={handleSidebarLinkClick}
+                className={`${navItemBase} ${pathname.startsWith("/admin/support") ? navItemActive : navItemInactive
+                  }`}
+              >
+                <ChatBubbleLeftRightIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+                <span>Support</span>
               </Link>
             </>
           ) : (
