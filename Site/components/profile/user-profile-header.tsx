@@ -277,7 +277,47 @@ function ActionControls({
                 {isOwnProfile && onSettings && (
                     <IconButton onClick={onSettings} icon={Cog6ToothIcon} />
                 )}
-                <IconButton onClick={onMore} icon={EllipsisHorizontalIcon} />
+
+                {/* Desktop Overflow Menu */}
+                <Menu as="div" className="relative">
+                    <Menu.Button className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2C2C2E]/80 text-white backdrop-blur-md transition-all active:scale-95 hover:bg-[#3A3A3C]">
+                        <EllipsisHorizontalIcon className="h-6 w-6" />
+                    </Menu.Button>
+
+                    <Transition
+                        enter="transition ease-out duration-200"
+                        enterFrom="transform opacity-0 scale-95"
+                        enterTo="transform opacity-100 scale-100"
+                        leave="transition ease-in duration-150"
+                        leaveFrom="transform opacity-100 scale-100"
+                        leaveTo="transform opacity-0 scale-95"
+                    >
+                        <Menu.Items className="absolute right-0 top-full mt-2 z-50 w-56 origin-top-right divide-y divide-white/5 rounded-3xl border border-white/10 bg-[#1C1C1E]/90 backdrop-blur-xl shadow-2xl ring-1 ring-black/5 focus:outline-none">
+                            <div className="p-1.5">
+                                {isOwnProfile && onSignOut && (
+                                    <Menu.Item>
+                                        {({ active }) => (
+                                            <button onClick={onSignOut} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-red-500 transition-colors`}>
+                                                <ArrowRightOnRectangleIcon className="h-[22px] w-[22px]" />
+                                                <span>Sign Out</span>
+                                            </button>
+                                        )}
+                                    </Menu.Item>
+                                )}
+                                {!isOwnProfile && onReport && (
+                                    <Menu.Item>
+                                        {({ active }) => (
+                                            <button onClick={onReport} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-red-500 transition-colors`}>
+                                                <ExclamationTriangleIcon className="h-[22px] w-[22px]" />
+                                                <span>Report User</span>
+                                            </button>
+                                        )}
+                                    </Menu.Item>
+                                )}
+                            </div>
+                        </Menu.Items>
+                    </Transition>
+                </Menu>
             </div>
 
             {/* Mobile: Single Menu Button */}

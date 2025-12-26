@@ -567,48 +567,34 @@ export default function CreateEventPage() {
     <>
       <Toast toast={toast} onClear={() => setToast(null)} />
 
-      {/* Background with abstract mesh for glass effect */}
-      <div className="fixed inset-0 -z-10 bg-neutral-950">
-        <div className="absolute top-[-10%] left-[-10%] h-[500px] w-[500px] rounded-full bg-neutral-800/20 blur-[100px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-neutral-800/20 blur-[100px]" />
-      </div>
+      {/* Main Content using Layout Grid */}
+      <div className="mx-auto w-full max-w-7xl px-4 lg:px-8 py-6 lg:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
 
-      <div className="min-h-screen px-4 py-8 text-neutral-200 md:px-8 md:py-12 @container">
-        <div className="mx-auto w-full max-w-3xl lg:max-w-4xl xl:max-w-5xl @min-[1100px]:max-w-[1600px]">
+          {/* Left Column: Form */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Header */}
+            <header className="space-y-1">
+              <h1 className="text-2xl font-bold tracking-tight text-white">Create Post</h1>
+              <p className="text-neutral-400 text-sm">Share what's happening on campus.</p>
+            </header>
 
-          {/* Header */}
-          <header className="mb-8 text-center md:text-left w-full max-w-xl mx-auto @min-[1100px]:max-w-none @min-[1100px]:mx-0">
-            <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-              Create Post
-            </h1>
-            <p className="mt-2 text-neutral-400">
-              Share what's happening on campus.
-            </p>
-          </header>
+            <form onSubmit={handleCreateEvent} className="space-y-6">
 
-          <form onSubmit={handleCreateEvent} className="grid gap-8 @min-[1100px]:grid-cols-12">
-
-            {/* Left Column: Main Form Inputs */}
-            <div className="space-y-6 @min-[1100px]:col-span-7 w-full max-w-xl mx-auto @min-[1100px]:max-w-none @min-[1100px]:mx-0">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-500">
-                Post Details
-              </h2>
-
-              {/* Section: Post As */}
-              <div className="space-y-2 mb-6">
-                <h3 className="ml-4 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                  Post As
-                </h3>
-                <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
-                  <div className="relative bg-neutral-800/30 rounded-[20px] hover:bg-neutral-800/50 transition-colors">
+              {/* Post As */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Post As</label>
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-white/5 rounded-3xl blur-sm transition-opacity opacity-0 group-hover:opacity-100" />
+                  <div className="relative bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg transition-transform active:scale-[0.99]">
                     <select
                       value={selectedClubId || ""}
                       onChange={(e) => setSelectedClubId(e.target.value || null)}
-                      className="w-full appearance-none bg-transparent px-4 py-3 text-sm text-white focus:outline-none"
+                      className="w-full appearance-none bg-transparent px-4 py-3.5 text-sm text-white focus:outline-none"
                     >
-                      <option value="" className="bg-neutral-900 text-white">Personal (Your Account)</option>
+                      <option value="" className="bg-[#1A1A1A] text-white">Personal (Your Account)</option>
                       {userClubs.map((club) => (
-                        <option key={club.id} value={club.id} className="bg-neutral-900 text-white">
+                        <option key={club.id} value={club.id} className="bg-[#1A1A1A] text-white">
                           Club: {club.name} ({club.role})
                         </option>
                       ))}
@@ -620,247 +606,170 @@ export default function CreateEventPage() {
                     </div>
                   </div>
                 </div>
-                {loadingClubs && (
-                  <p className="ml-4 text-[10px] text-neutral-500 animate-pulse">Loading your clubs...</p>
-                )}
+                {loadingClubs && <p className="text-xs text-neutral-500 animate-pulse ml-1">Loading clubs...</p>}
               </div>
 
-              {/* Section: Basic Info */}
-              <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
-                <div className="space-y-[1px]">
-
-
-                  <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                    <textarea
-                      rows={3}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="peer w-full resize-none bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                      placeholder="Description"
-                    />
-                  </div>
+              {/* Main Input Details */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Details</label>
+                <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                  {/* Description */}
+                  <textarea
+                    rows={4}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:bg-white/[0.02] transition-colors"
+                    placeholder="What's going on?"
+                  />
 
                   {/* Image Upload */}
-                  <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                    <div className="flex flex-col gap-3 px-4 py-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-neutral-400">
-                          {selectedFiles.length > 0
-                            ? `${selectedFiles.length} photo${selectedFiles.length > 1 ? 's' : ''} selected`
-                            : "Add Photos"}
-                        </span>
-                        <label className="cursor-pointer rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20">
-                          Choose Files
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            onChange={handleImageSelect}
-                          />
-                        </label>
-                      </div>
-
-                      {/* Thumbnail Preview List */}
-                      {previewUrls.length > 0 && (
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                          {previewUrls.map((url, idx) => (
-                            <div key={url} className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-white/10">
-                              <img src={url} alt="Preview" className="h-full w-full object-cover" />
-                              <button
-                                type="button"
-                                onClick={() => removeImage(idx)}
-                                className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-[10px] text-white hover:bg-red-500"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                  <div className="flex flex-col gap-3 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-400">
+                        {selectedFiles.length > 0 ? `${selectedFiles.length} photo(s)` : "Photos"}
+                      </span>
+                      <label className="cursor-pointer rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 transition-colors">
+                        Add Photos
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
+                      </label>
                     </div>
+                    {previewUrls.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                        {previewUrls.map((url, idx) => (
+                          <div key={url} className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 group">
+                            <img src={url} alt="Preview" className="h-full w-full object-cover" />
+                            <button type="button" onClick={() => removeImage(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Make Event Toggle */}
-              <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10 mt-6">
-                <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 rounded-[20px] hover:bg-neutral-800/50 transition-colors">
-                  <span className="text-sm font-medium text-white">Make this an event?</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={isEvent}
-                    onClick={() => setIsEvent(!isEvent)}
-                    style={{
-                      backgroundColor: isEvent ? '#ffb200' : '#525252'
-                    }}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEvent ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                    />
-                  </button>
-                </div>
+              {/* Is Event Toggle */}
+              <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl px-4 py-3 flex items-center justify-between shadow-lg">
+                <span className="text-sm font-medium text-white">Is this an event?</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isEvent}
+                  onClick={() => setIsEvent(!isEvent)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isEvent ? 'bg-[#ffb200]' : 'bg-neutral-700'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEvent ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
               </div>
 
-              {/* Section: Logistics */}
+              {/* Event Logistics */}
               {isEvent && (
-                <div className="space-y-2">
-                  <h3 className="ml-4 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                    Time & Location
-                  </h3>
-                  <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
-                    <div className="space-y-[1px]">
-                      <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                        <span className="text-sm text-neutral-300">Date</span>
-                        <input
-                          type="date"
-                          value={eventDate}
-                          onChange={(e) => setEventDate(e.target.value)}
-                          className="bg-transparent text-right text-sm text-white focus:outline-none [color-scheme:dark]"
-                          required={isEvent}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                        <span className="text-sm text-neutral-300">Start Time</span>
-                        <input
-                          type="time"
-                          value={startTime}
-                          onChange={(e) => setStartTime(e.target.value)}
-                          className="bg-transparent text-right text-sm text-white focus:outline-none [color-scheme:dark]"
-                          required={isEvent}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                        <span className="text-sm text-neutral-300">End Time</span>
-                        <input
-                          type="time"
-                          value={endTime}
-                          onChange={(e) => setEndTime(e.target.value)}
-                          className="bg-transparent text-right text-sm text-white focus:outline-none [color-scheme:dark]"
-                          required={isEvent}
-                        />
-                      </div>
-                      <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors flex items-center">
-                        <input
-                          value={locationUrl}
-                          onChange={(e) => setLocationUrl(e.target.value)}
-                          className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                          placeholder="Paste Map URL (Apple/Google)"
-                        />
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Event Details</label>
+                  <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                    {/* Date */}
+                    <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
+                      <span className="text-sm text-neutral-300">Date</span>
+                      <input
+                        type="date"
+                        value={eventDate}
+                        onChange={(e) => setEventDate(e.target.value)}
+                        className="bg-transparent text-right text-sm text-white focus:outline-none focus:text-[#ffb200] [color-scheme:dark]"
+                        required={isEvent}
+                      />
+                    </div>
+                    {/* Start Time */}
+                    <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
+                      <span className="text-sm text-neutral-300">Start Time</span>
+                      <input
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        className="bg-transparent text-right text-sm text-white focus:outline-none focus:text-[#ffb200] [color-scheme:dark]"
+                        required={isEvent}
+                      />
+                    </div>
+                    {/* End Time */}
+                    <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
+                      <span className="text-sm text-neutral-300">End Time</span>
+                      <input
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        className="bg-transparent text-right text-sm text-white focus:outline-none focus:text-[#ffb200] [color-scheme:dark]"
+                        required={isEvent}
+                      />
+                    </div>
+
+                    {/* Location URL */}
+                    <div className="relative flex items-center px-4 py-1 hover:bg-white/[0.02] transition-colors">
+                      <input
+                        value={locationUrl}
+                        onChange={(e) => setLocationUrl(e.target.value)}
+                        className="w-full bg-transparent py-2.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                        placeholder="Paste Map URL (Apple/Google)"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsMapHelpOpen(true)}
+                        className="ml-2 text-neutral-500 hover:text-[#ffb200] transition-colors"
+                        title="Help"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.06 5.312 5.312 0 017.56 0 .75.75 0 01-1.06 1.06 3.812 3.812 0 00-5.44 0zM8.94 13.06a.75.75 0 11-1.06-1.06 2.31 2.31 0 013.25 0 .75.75 0 01-1.06 1.06 1.5 1.5 0 00-1.13 0z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                    {/* Location Label */}
+                    <input
+                      value={locationLabel}
+                      onChange={(e) => setLocationLabel(e.target.value)}
+                      className="w-full bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none hover:bg-white/[0.02] transition-colors"
+                      placeholder="Location Label (e.g. Library)"
+                    />
+                    {/* Map Toggle */}
+                    {coordinates && (
+                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
+                        <span className="text-sm text-neutral-300">Show map preview</span>
                         <button
                           type="button"
-                          onClick={() => setIsMapHelpOpen(true)}
-                          className="mr-3 text-neutral-500 hover:text-white transition-colors"
-                          title="How to get link?"
+                          role="switch"
+                          onClick={() => setShowMapPreview(!showMapPreview)}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${showMapPreview ? 'bg-[#ffb200]' : 'bg-neutral-700'}`}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-                          </svg>
+                          <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${showMapPreview ? 'translate-x-5' : 'translate-x-1'}`} />
                         </button>
                       </div>
-                      <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                        <input
-                          value={locationLabel}
-                          onChange={(e) => setLocationLabel(e.target.value)}
-                          className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                          placeholder="Location Label (e.g. Student Center)"
-                        />
-                      </div>
-                      {coordinates && (
-                        <div className="flex items-center justify-between bg-neutral-800/30 px-4 py-3 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                          <span className="text-sm text-neutral-300">Show map in preview</span>
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={showMapPreview}
-                            onClick={() => setShowMapPreview(!showMapPreview)}
-                            style={{
-                              backgroundColor: showMapPreview ? '#ffb200' : '#525252'
-                            }}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showMapPreview ? 'translate-x-6' : 'translate-x-1'
-                                }`}
-                            />
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Section: Extra Details */}
+              {/* Extra Notes */}
               {isEvent && (
                 <div className="space-y-2">
-                  <h3 className="ml-4 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                    More Info
-                  </h3>
-                  <div className="rounded-3xl bg-neutral-900/40 p-1 backdrop-blur-2xl ring-1 ring-white/10">
-                    <div className="space-y-[1px]">
-                      <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                        <input
-                          value={dressCode}
-                          onChange={(e) => setDressCode(e.target.value)}
-                          className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                          placeholder="Dress Code (Optional)"
-                        />
-                      </div>
-                      <div className="relative bg-neutral-800/30 first:rounded-t-[20px] last:rounded-b-[20px] hover:bg-neutral-800/50 transition-colors">
-                        <input
-                          value={extraNotes}
-                          onChange={(e) => setExtraNotes(e.target.value)}
-                          className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                          placeholder="Extra Notes (Optional)"
-                        />
-                      </div>
-                    </div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Additional Info</label>
+                  <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                    <textarea
+                      rows={2}
+                      value={dressCode}
+                      onChange={(e) => setDressCode(e.target.value)}
+                      className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-white focus:outline-none hover:bg-white/[0.02] transition-colors placeholder:text-neutral-500"
+                      placeholder="Dress Code (Optional)"
+                    />
+                    <textarea
+                      rows={2}
+                      value={extraNotes}
+                      onChange={(e) => setExtraNotes(e.target.value)}
+                      className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-white focus:outline-none hover:bg-white/[0.02] transition-colors placeholder:text-neutral-500"
+                      placeholder="Other Notes (Optional)"
+                    />
                   </div>
                 </div>
               )}
-
-            </div>
-
-            {/* Right Column: Preview / Actions */}
-            <div className="space-y-6 @min-[1100px]:col-span-5 @min-[1100px]:sticky @min-[1100px]:top-8 @min-[1100px]:h-fit w-full max-w-xl mx-auto @min-[1100px]:max-w-none @min-[1100px]:mx-0">
-              <div>
-                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-500 text-center">
-                  Preview
-                </h2>
-
-                <div className="flex flex-col gap-4 mx-auto w-full">
-                  {/* Details Card with integrated Media Grid (PostCard handles it all) */}
-                  <PostCard
-                    post={{
-                      id: "preview",
-                      title: "",
-                      content: description,
-                      imageUrls: previewUrls,
-                      date: isEvent ? eventDate : undefined,
-                      startTime: isEvent ? startTime : undefined,
-                      endTime: isEvent ? endTime : undefined,
-                      locationLabel: isEvent ? locationLabel : undefined,
-                      authorId: user?.uid || "current",
-                      authorName: selectedClubName || profile?.preferredName || user?.displayName || "You",
-                      authorUsername: selectedClubId ? undefined : profile?.username,
-                      authorAvatarUrl: selectedClubId ? undefined : (profile?.photoURL || user?.photoURL), // Fallback to generic icon for clubs for now
-                      coordinates: isEvent && showMapPreview && coordinates ? coordinates : undefined,
-                      isEvent: isEvent,
-                      likes: [],
-                      goingUids: [],
-                      maybeUids: [],
-                      notGoingUids: [],
-                      clubId: selectedClubId || undefined,
-                    }}
-                    previewMode={true}
-                    variant="threads"
-                  />
-                </div>
-              </div>
 
               {formError && (
                 <div className="w-full rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
@@ -890,9 +799,58 @@ export default function CreateEventPage() {
                   Cancel
                 </button>
               </div>
-            </div>
+            </form>
+          </div>
 
-          </form>
+          {/* Right Column: Preview (Stacked on mobile, sticky on desktop) */}
+          <div className="lg:col-span-5 sticky top-24">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Live Preview</h2>
+              </div>
+
+              {/* Preview Card Wrapper */}
+              <div className="opacity-90 transition-opacity hover:opacity-100">
+                <PostCard
+
+                  post={{
+                    id: "preview",
+                    title: description || "New Post",
+                    content: description, // Old field
+                    imageUrls: previewUrls,
+                    date: eventDate,
+                    startTime: startTime,
+                    endTime: endTime,
+                    locationLabel: locationLabel,
+
+                    authorName: (selectedClubId ? userClubs.find(c => c.id === selectedClubId)?.name : profile?.preferredName) || user?.displayName || "You",
+                    authorUsername: selectedClubId ? undefined : profile?.username,
+                    authorAvatarUrl: selectedClubId ? undefined : (profile?.photoURL || user?.photoURL),
+
+                    authorId: user?.uid || "user", // Dummy ID
+                    coordinates: isEvent && showMapPreview && coordinates ? coordinates : undefined,
+                    isEvent: isEvent,
+                    likes: [],
+                    goingUids: [],
+                    maybeUids: [],
+                    notGoingUids: [],
+                    commentsCount: 0,
+                    repliesCommentsCount: 0,
+                    clubId: selectedClubId || undefined,
+                    createdAt: new Date() as any, // Mock timestamp
+                  }}
+                  previewMode={true}
+                  variant="threads"
+                  hideCommentPreview={true}
+                />
+              </div>
+
+              <p className="text-xs text-neutral-500 text-center px-4">
+                This is how your post will appear in the feed.
+              </p>
+            </div>
+          </div>
+
         </div>
       </div>
       <MapHelpModal isOpen={isMapHelpOpen} onClose={() => setIsMapHelpOpen(false)} />

@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "What To Do Right Now",
-  description: "Find the best thing you can do in the next few hours.",
+  title: "Campus Connect",
+  description: "Connect with your campus community.",
 };
 
 export default function RootLayout({

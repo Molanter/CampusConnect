@@ -52,6 +52,13 @@ export default function UserProfilePage() {
     return () => unsubscribe();
   }, []);
 
+  // Redirect to /profile if viewing own profile
+  useEffect(() => {
+    if (user && user.uid === targetUid) {
+      router.replace("/profile");
+    }
+  }, [user, targetUid, router]);
+
   useEffect(() => {
     if (!targetUid) return;
 

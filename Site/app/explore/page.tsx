@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, UserGroupIcon, BookOpenIcon, QuestionMarkCircleIcon } from "@heroicons/react/24/solid";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Post } from "@/lib/posts";
@@ -243,17 +244,40 @@ export default function ExplorePage() {
                         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Helpful Resources</h3>
                         <div className="grid grid-cols-2 gap-3">
                             {[
-                                { label: "Create Event", href: "/posts/new" },
-                                { label: "Start a Club", href: "/clubs/create" },
-                                { label: "Guidelines", href: "/guidelines" },
-                                { label: "Help Center", href: "/help-support" },
+                                {
+                                    label: "Create Event",
+                                    href: "/posts/new",
+                                    icon: PlusIcon,
+                                    color: "bg-blue-500"
+                                },
+                                {
+                                    label: "Start a Club",
+                                    href: "/clubs/create",
+                                    icon: UserGroupIcon,
+                                    color: "bg-purple-500" // Closer to the 'Popular' red/orange in the image, but kept distinctive
+                                },
+                                {
+                                    label: "Guidelines",
+                                    href: "/guidelines",
+                                    icon: BookOpenIcon,
+                                    color: "bg-orange-500"
+                                },
+                                {
+                                    label: "Help Center",
+                                    href: "/help-support",
+                                    icon: QuestionMarkCircleIcon,
+                                    color: "bg-green-600"
+                                },
                             ].map(link => (
                                 <Link
                                     key={link.label}
                                     href={link.href}
-                                    className="flex items-center justify-center rounded-2xl border border-white/5 bg-[#1C1C1E] p-6 text-center transition hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98]"
+                                    className="flex flex-col items-start justify-center gap-2 rounded-[24px] border border-white/5 bg-[#1C1C1E] p-4 transition-all hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98]"
                                 >
-                                    <span className="font-medium text-white">{link.label}</span>
+                                    <div className={`h-9 w-9 flex items-center justify-center rounded-full ${link.color} text-white`}>
+                                        <link.icon className="h-5 w-5" />
+                                    </div>
+                                    <span className="font-bold text-sm text-white">{link.label}</span>
                                 </Link>
                             ))}
                         </div>
