@@ -207,7 +207,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
     const isOwner = currentUser?.uid === authorId;
 
     return (
-        <div className="space-y-2.5 text-leading-none">
+        <div className="text-leading-none">
             {/* Header: Chat-style Author row */}
             <div className="flex items-center gap-3">
                 {isClubPost ? (
@@ -280,7 +280,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
             </div>
 
             {/* Post/Event Title and Text */}
-            <div className="space-y-1">
+            <div className="mt-2.5 space-y-1">
                 {title && (
                     <h1 className="text-[17px] font-bold text-white/90 leading-tight">
                         {title}
@@ -294,7 +294,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
             </div>
 
             {/* Actions Row (Compact) */}
-            <div className="flex items-center gap-1 ml-[-8px]">
+            <div className="mt-2.5 flex items-center gap-1 ml-[-8px]">
                 {/* Like Button */}
                 <div className={`flex h-8 items-center justify-center rounded-full hover:bg-white/[0.08] ${likesCount > 0 ? "gap-1.5 px-2" : "w-8"}`}>
                     <button

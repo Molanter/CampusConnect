@@ -109,6 +109,9 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                 createdAt: serverTimestamp(),
                 isEvent: false, // Standard post
                 likes: [],
+                // Moderation fields
+                visibility: "visible",
+                reportCount: 0,
             };
 
             if (uploadedImageUrls.length > 0) {

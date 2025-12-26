@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 
-export type RightSidebarView = "notifications" | "comments" | "details" | "attendance" | "report" | "likes" | "my-clubs";
+export type RightSidebarView = "notifications" | "comments" | "details" | "attendance" | "report" | "likes" | "my-clubs" | "report-details" | "post-history";
 
 interface RightSidebarContextType {
     isVisible: boolean;
@@ -35,21 +35,21 @@ export function RightSidebarProvider({ children }: { children: ReactNode }) {
     const [sidebarWidth, setSidebarWidth] = useState(300);
     const [isNarrow, setIsNarrow] = useState(false);
 
-    const toggle = () => setIsVisible((prev) => !prev);
+    const toggle = useCallback(() => setIsVisible((prev) => !prev), []);
 
-    const openView = (newView: RightSidebarView, newData?: any) => {
+    const openView = useCallback((newView: RightSidebarView, newData?: any) => {
         setView(newView);
         if (newData !== undefined) setData(newData);
         setIsVisible(true);
-    };
+    }, []);
 
-    const close = () => setIsVisible(false);
+    const close = useCallback(() => setIsVisible(false), []);
 
-    const showNotifications = () => {
+    const showNotifications = useCallback(() => {
         setView("notifications");
         setData(null);
         setIsVisible(true);
-    };
+    }, []);
 
     return (
         <RightSidebarContext.Provider

@@ -1,0 +1,8 @@
+/**
+ * Cloud Functions Entry Point
+ * 
+ * Exports all cloud functions for the CampusConnect application
+ */
+
+// Export moderation functions
+export { onReportCreated, moderatePost } from './moderation';

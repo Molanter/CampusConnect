@@ -46,6 +46,15 @@ export type Post = {
     commentsCount?: number;
     repliesCommentsCount?: number;
     campusName?: string;
+
+    // Moderation fields
+    visibility?: "visible" | "under_review" | "hidden";
+    reportCount?: number;
+    reportedAt?: any; // Timestamp
+    hiddenAt?: any; // Timestamp
+    hiddenBy?: string; // admin uid
+    moderationNote?: string;
+    ownerUid?: string; // For clarity, same as authorId
 };
 
 export const moodFilters: Mood[] = [

@@ -470,7 +470,7 @@ export default function CreateEventPage() {
         }
       }
 
-      // 2. Create post document in "events" collection (keeping collection name for data continuity)
+      // 2. Create post document in \"events\" collection (keeping collection name for data continuity)
       // 2. Create post document in "posts" collection
       const baseData: any = {
         description: description.trim(),
@@ -481,6 +481,9 @@ export default function CreateEventPage() {
         createdAt: serverTimestamp(),
         likes: [],
         isEvent: isEvent,
+        // Moderation fields
+        visibility: "visible",
+        reportCount: 0,
       };
 
       if (imageUrls.length > 0) {

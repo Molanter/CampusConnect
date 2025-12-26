@@ -1210,6 +1210,14 @@ export function PostCard({
                                 <div className="text-xs text-white/40 shrink-0">
                                     {eventTimeLabel || timeLabel || (date ? date : "now")}
                                 </div>
+                                {post.visibility === "under_review" && (
+                                    <>
+                                        <span className="text-xs text-white/30 shrink-0">•</span>
+                                        <span className="px-2 py-0.5 rounded-md bg-yellow-500/20 text-yellow-400 text-xs font-medium shrink-0">
+                                            Under Review
+                                        </span>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -1538,6 +1546,14 @@ export function PostCard({
                             <div className="text-xs text-neutral-500">
                                 {eventTimeLabel || timeLabel || (date ? date : "now")}
                             </div>
+                            {post.visibility === "under_review" && (
+                                <>
+                                    <span className="text-neutral-500 text-xs">•</span>
+                                    <span className="px-2 py-0.5 rounded-md bg-yellow-500/20 text-yellow-400 text-xs font-medium">
+                                        Under Review
+                                    </span>
+                                </>
+                            )}
                         </div>
                         {isClubPost && (
                             <Link

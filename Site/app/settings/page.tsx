@@ -19,7 +19,9 @@ import {
   QuestionMarkCircleIcon,
   DocumentTextIcon,
   InformationCircleIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  UserGroupIcon,
+  PlusIcon
 } from "@heroicons/react/24/outline";
 
 export default function SettingsPage() {
@@ -89,6 +91,37 @@ export default function SettingsPage() {
             </div>
             <div className="flex-1">
               <p className="text-[15px] font-normal text-white">Complete Profile</p>
+            </div>
+            <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
+          </Link>
+        </div>
+      </section>
+
+      {/* Clubs Section */}
+      <section className="space-y-3">
+        <h2 className="px-4 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">Clubs</h2>
+        <div className="overflow-hidden rounded-2xl bg-[#1C1C1E]">
+          <Link
+            href="/clubs"
+            className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-violet-600">
+              <UserGroupIcon className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-normal text-white">Browse Clubs</p>
+            </div>
+            <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
+          </Link>
+          <Link
+            href="/clubs/create"
+            className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-fuchsia-600">
+              <PlusIcon className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-normal text-white">Create Club</p>
             </div>
             <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
           </Link>

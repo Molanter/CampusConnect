@@ -7,6 +7,7 @@ import { MobileFullScreenModal } from "./mobile-full-screen-modal";
 import { UserRow } from "./user-row";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { formatDistanceToNow } from "date-fns";
 
 // Note: We now use the full firebase/firestore SDK across the project to support real-time listeners.
 // The db instance from lib/firebase.ts is already configured with the full SDK.
@@ -33,6 +34,8 @@ import { db } from "../lib/firebase";
 import { CommentMessage, type CommentRecord } from "./comment-message";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "@/lib/admin-utils";
 import { ReportSheet } from "./report-sheet";
+import { ReportModal } from "./report-modal";
+import { REPORT_REASON_LABELS } from "@/lib/types/moderation";
 import { CommentsView } from "./comments-view";
 import { type Post } from "@/lib/posts";
 
@@ -108,6 +111,8 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
             if (view === "comments") return "Comments";
             if (view === "attendance") return "Guest List";
             if (view === "report") return "Report Content";
+            if (view === "report-details") return "Report Details";
+            if (view === "post-history") return "Post History";
             if (view === "likes") return "Likes";
             if (view === "my-clubs") return "My Clubs";
             return "Details";
@@ -121,8 +126,10 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     {view === "details" && <PostDetailsSidebarView data={data} />}
                     {view === "attendance" && <AttendanceView data={data} />}
                     {view === "report" && <ReportView data={data} />}
+                    {view === "report-details" && <ReportDetailsView data={data} />}
                     {view === "likes" && <LikesView data={data} />}
                     {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
+                    {view === "post-history" && <PostHistoryView data={data} />}
                 </div>
             </MobileFullScreenModal>
         );
@@ -167,16 +174,12 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                             {view === "comments" && "Comments"}
                             {view === "attendance" && "Guest List"}
                             {view === "report" && "Report Content"}
+                            {view === "report-details" && "Report Details"}
+                            {view === "post-history" && "Post History"}
                             {view === "likes" && "Likes"}
                             {view === "my-clubs" && "My Clubs"}
                         </h2>
                     </div>
-                    <button
-                        onClick={toggle}
-                        className="rounded-full p-2 text-neutral-400 hover:bg-white/10 hover:text-white transition-colors"
-                    >
-                        <BellIcon className="h-6 w-6" />
-                    </button>
                 </div>
 
                 {/* Content */}
@@ -188,6 +191,8 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     {view === "report" && <ReportView data={data} />}
                     {view === "likes" && <LikesView data={data} />}
                     {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
+                    {view === "report-details" && <ReportDetailsView data={data} />}
+                    {view === "post-history" && <PostHistoryView data={data} />}
                 </div>
             </aside>
         </>
@@ -198,6 +203,7 @@ function NotificationsView() {
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const { close, view } = useRightSidebar();
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
@@ -224,6 +230,13 @@ function NotificationsView() {
 
         return () => unsubscribe();
     }, [currentUser]);
+
+    // Auto-close sidebar when viewing notifications and there are none
+    useEffect(() => {
+        if (!loading && view === "notifications" && notifications.length === 0) {
+            close();
+        }
+    }, [loading, notifications.length, view, close]);
 
     if (loading) {
         return <div className="text-center text-sm text-neutral-500 py-10">Loading...</div>;
@@ -395,132 +408,152 @@ function AttendanceView({ data }: { data: any }) {
 // Wait, I should update UserRow to support `onlyAvatar` or just style it here.
 // I'll just use the standard UserRow for now.
 
-const REPORT_REASONS = [
-    "Spam or misleading",
-    "Harassment or hate speech",
-    "Inappropriate content",
-    "False information",
-    "Violence or dangerous content",
-    "Other",
-];
-
 function ReportView({ data }: { data: any }) {
     const { close } = useRightSidebar();
     const [selectedReason, setSelectedReason] = useState<string | null>(null);
     const [details, setDetails] = useState("");
-    const [pending, setPending] = useState(false);
-    const [submitted, setSubmitted] = useState(false);
-    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
 
-    useEffect(() => {
-        const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
-        return () => unsub();
-    }, []);
+    if (!data || !data.id) {
+        return <div className="text-neutral-500 text-sm">No content selected.</div>;
+    }
 
-    const handleSubmit = async () => {
-        if (!selectedReason || pending || !data?.id || !currentUser) return;
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
 
-        setPending(true);
+        if (!selectedReason) {
+            setError("Please select a reason");
+            return;
+        }
+
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            setError("You must be signed in to report posts");
+            return;
+        }
+
+        setSubmitting(true);
+        setError(null);
+
         try {
-            const reportRef = collection(db, "reports");
+            // TESTING MODE: Using addDoc to allow multiple reports from same user
+            const reportsRef = collection(db, "posts", data.id, "reports");
 
-            await addDoc(reportRef, {
-                targetId: data.id,
-                targetType: data.type || "unknown", // 'post', 'comment', 'event'
+            await addDoc(reportsRef, {
+                reporterUid: currentUser.uid,
                 reason: selectedReason,
-                details: details.trim(),
-                reportedByUid: currentUser.uid,
+                details: details.trim().slice(0, 500),
                 createdAt: serverTimestamp(),
-                status: "pending"
             });
 
-            setSubmitted(true);
+            setSuccess(true);
+
+            // Close sidebar after brief delay
             setTimeout(() => {
                 close();
-            }, 2000);
-        } catch (error) {
-            console.error("Error submitting report:", error);
+                // Reset state
+                setSelectedReason(null);
+                setDetails("");
+                setSuccess(false);
+            }, 1500);
+
+        } catch (err: any) {
+            console.error("Error submitting report:", err);
+
+            if (err.code === "permission-denied" || err.message?.includes("already exists")) {
+                setError("You have already reported this post");
+            } else {
+                setError("Failed to submit report. Please try again.");
+            }
         } finally {
-            setPending(false);
+            setSubmitting(false);
         }
     };
 
-    if (!data) return <div className="text-neutral-500 text-sm">No content selected.</div>;
-
-    if (submitted) {
+    if (success) {
         return (
-            <div className="flex flex-col items-center justify-center py-10 gap-4 animate-in fade-in zoom-in">
-                <div className="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center text-green-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            <div className="p-6 text-center">
+                <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20 mb-4">
+                    <svg className="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <h3 className="text-xl font-bold text-white">Report Submitted</h3>
-                <p className="text-neutral-400 text-center text-sm px-6">
-                    Thank you for keeping our community safe. We will review this content shortly.
-                </p>
-                <button
-                    onClick={close}
-                    className="mt-4 px-6 py-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors text-sm font-medium"
-                >
-                    Close
-                </button>
+                <p className="text-white font-medium">Report submitted</p>
+                <p className="text-sm text-neutral-400 mt-1">Thank you for helping keep our community safe</p>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-6">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            {/* Reason Selection */}
             <div>
-                <h3 className="text-lg font-bold text-white mb-2">Why are you reporting this?</h3>
-                <p className="text-sm text-neutral-400">
-                    Your report is anonymous. If someone is in immediate danger, call local emergency services - don't wait.
+                <label className="block text-sm font-medium text-neutral-300 mb-3">
+                    Why are you reporting this post?
+                </label>
+                <div className="space-y-2">
+                    {(Object.keys(REPORT_REASON_LABELS) as Array<keyof typeof REPORT_REASON_LABELS>).map((reason) => (
+                        <label
+                            key={reason}
+                            className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${selectedReason === reason
+                                ? "bg-red-500/20 ring-1 ring-red-500/50"
+                                : "bg-white/5 hover:bg-white/10"
+                                }`}
+                        >
+                            <input
+                                type="radio"
+                                name="reason"
+                                value={reason}
+                                checked={selectedReason === reason}
+                                onChange={(e) => setSelectedReason(e.target.value)}
+                                className="h-4 w-4 text-red-500 focus:ring-red-500 focus:ring-offset-neutral-900"
+                            />
+                            <span className="text-sm text-white">{REPORT_REASON_LABELS[reason]}</span>
+                        </label>
+                    ))}
+                </div>
+            </div>
+
+            {/* Optional Details */}
+            <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Additional details (optional)
+                </label>
+                <textarea
+                    value={details}
+                    onChange={(e) => setDetails(e.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    placeholder="Provide more context about this report..."
+                    className="w-full resize-none rounded-xl bg-white/5 px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 border border-white/10"
+                />
+                <p className="text-xs text-neutral-500 mt-1">
+                    {details.length}/500 characters
                 </p>
             </div>
 
-            <div className="space-y-2">
-                {REPORT_REASONS.map((reason) => (
-                    <button
-                        key={reason}
-                        type="button"
-                        className={`w-full rounded-2xl border p-4 text-left transition-colors ${selectedReason === reason
-                            ? "border-white bg-white/10 text-white"
-                            : "border-white/10 text-neutral-300 hover:border-white/20 hover:bg-white/5"
-                            }`}
-                        onClick={() => setSelectedReason(reason)}
-                        disabled={pending}
-                    >
-                        {reason}
-                    </button>
-                ))}
-            </div>
-
-            {selectedReason === "Other" && (
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-neutral-300">
-                        Additional details (optional)
-                    </label>
-                    <textarea
-                        className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none min-h-[100px]"
-                        placeholder="Provide more information..."
-                        value={details}
-                        onChange={(e) => setDetails(e.target.value)}
-                        disabled={pending}
-                    />
+            {/* Error Message */}
+            {error && (
+                <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-3">
+                    <p className="text-sm text-red-400">{error}</p>
                 </div>
             )}
 
-            <div className="pt-2">
-                <button
-                    type="button"
-                    className="w-full rounded-full bg-red-600 py-3.5 font-semibold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
-                    onClick={handleSubmit}
-                    disabled={!selectedReason || pending}
-                >
-                    {pending ? "Submitting..." : "Submit Report"}
-                </button>
-            </div>
-        </div>
+            {/* Submit Button */}
+            <button
+                type="submit"
+                disabled={!selectedReason || submitting}
+                className="w-full rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white transition-all hover:bg-red-600 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-500"
+            >
+                {submitting ? "Submitting..." : "Submit Report"}
+            </button>
+
+            <p className="text-xs text-center text-neutral-500">
+                Reports are reviewed by our moderation team. False reports may result in action against your account.
+            </p>
+        </form>
     );
 }
 
@@ -562,6 +595,276 @@ function LikesView({ data }: { data: any }) {
                     </div>
                 )}
             </div>
+        </div>
+    );
+}
+
+function ReportDetailsView({ data }: { data: any }) {
+    if (!data) {
+        return (
+            <div className="p-4 text-center">
+                <p className="text-neutral-500 text-sm">No report data available</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-4 space-y-4">
+            <div>
+                <p className="text-xs text-neutral-500 mb-1">Reported by</p>
+                <p className="text-sm text-white">@{data.username || "Unknown"}</p>
+            </div>
+
+            <div>
+                <p className="text-xs text-neutral-500 mb-1">Reason</p>
+                <p className="text-sm text-white">{data.reason || "No reason provided"}</p>
+            </div>
+
+            {data.details && (
+                <div>
+                    <p className="text-xs text-neutral-500 mb-1">Details</p>
+                    <p className="text-sm text-neutral-300 whitespace-pre-wrap">{data.details}</p>
+                </div>
+            )}
+
+            {data.createdAt && (
+                <div>
+                    <p className="text-xs text-neutral-500 mb-1">Submitted</p>
+                    <p className="text-sm text-neutral-400">
+                        {formatDistanceToNow(data.createdAt.toDate(), { addSuffix: true })}
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function PostHistoryView({ data }: { data: any }) {
+    const [historyData, setHistoryData] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!data?.postId) {
+            setLoading(false);
+            return;
+        }
+
+        const fetchHistory = async () => {
+            try {
+                const db = (await import("@/lib/firebase")).db;
+                const { doc, getDoc, collection, getDocs } = await import("firebase/firestore");
+
+                // Fetch post creation data
+                const postDoc = await getDoc(doc(db, "posts", data.postId));
+                const postData = postDoc.exists() ? postDoc.data() : null;
+
+                // Fetch author username
+                let authorUsername = "Unknown";
+                if (postData?.authorId) {
+                    try {
+                        const authorDoc = await getDoc(doc(db, "users", postData.authorId));
+                        if (authorDoc.exists()) {
+                            authorUsername = authorDoc.data().username || "Unknown";
+                        }
+                    } catch {
+                        console.error("Failed to fetch author");
+                    }
+                }
+
+                // Fetch hiddenBy username if applicable
+                let hiddenByUsername = "Unknown Admin";
+                if (postData?.hiddenBy) {
+                    try {
+                        const adminDoc = await getDoc(doc(db, "users", postData.hiddenBy));
+                        if (adminDoc.exists()) {
+                            hiddenByUsername = adminDoc.data().username || "Unknown Admin";
+                        }
+                    } catch {
+                        console.error("Failed to fetch admin info");
+                    }
+                }
+
+                // Fetch all reports
+                const reportsSnapshot = await getDocs(collection(db, `posts/${data.postId}/reports`));
+                const reports = await Promise.all(
+                    reportsSnapshot.docs.map(async (reportDoc) => {
+                        const reportData = reportDoc.data();
+                        // Fetch reporter username
+                        try {
+                            const userDoc = await getDoc(doc(db, "users", reportData.uid));
+                            const username = userDoc.exists() ? userDoc.data().username : "Unknown";
+                            return {
+                                id: reportDoc.id,
+                                username,
+                                ...reportData,
+                            };
+                        } catch {
+                            return {
+                                id: reportDoc.id,
+                                username: "Unknown",
+                                ...reportData,
+                            };
+                        }
+                    })
+                );
+
+                // Sort reports by createdAt (oldest first)
+                reports.sort((a: any, b: any) => {
+                    if (!a.createdAt || !b.createdAt) return 0;
+                    return a.createdAt.toMillis() - b.createdAt.toMillis();
+                });
+
+                setHistoryData({
+                    createdAt: postData?.createdAt,
+                    authorId: postData?.authorId,
+                    authorUsername,
+                    visibility: postData?.visibility || "visible",
+                    hiddenAt: postData?.hiddenAt,
+                    hiddenBy: postData?.hiddenBy,
+                    hiddenByUsername,
+                    moderationReason: postData?.moderationReason || postData?.moderationNote,
+                    reports,
+                });
+            } catch (error) {
+                console.error("Error fetching post history:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchHistory();
+    }, [data?.postId]);
+
+    if (loading) {
+        return (
+            <div className="p-4 text-center">
+                <p className="text-neutral-500 text-sm">Loading history...</p>
+            </div>
+        );
+    }
+
+    if (!historyData) {
+        return (
+            <div className="p-4 text-center">
+                <p className="text-neutral-500 text-sm">No history data available</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-4 space-y-6">
+            {/* Creation Info */}
+            <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-white">Post Created</h3>
+                {historyData.createdAt && (
+                    <div className="text-sm text-neutral-300">
+                        <p>
+                            On <span className="font-medium">{new Date(historyData.createdAt.toDate()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span> at <span className="font-medium">{new Date(historyData.createdAt.toDate()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                        </p>
+                        <p className="mt-1">
+                            By <span className="font-medium text-[#ffb200]">@{historyData.authorUsername}</span>
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* Current Status */}
+            <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-white">Current Status</h3>
+                <div>
+                    {historyData.visibility === "under_review" && (
+                        <p className="text-sm px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400">
+                            ⏳ Under Review - Awaiting moderation decision
+                        </p>
+                    )}
+                    {historyData.visibility === "hidden" && (
+                        <p className="text-sm px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
+                            🚫 Hidden - Post removed from public view
+                        </p>
+                    )}
+                    {historyData.visibility === "visible" && (
+                        <p className="text-sm px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400">
+                            ✓ Visible - Post is publicly visible
+                        </p>
+                    )}
+
+                    {/* Display moderation details if hidden */}
+                    {historyData.visibility === "hidden" && (
+                        <div className="mt-4 p-4 rounded-[20px] bg-red-500/5 backdrop-blur-xl border border-red-500/10 shadow-[0_8px_32px_rgba(239,68,68,0.05)] space-y-3">
+                            <div className="text-sm text-neutral-200 flex flex-col gap-1">
+                                <p className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]"></span>
+                                    Hidden by <span className="font-semibold text-red-300">@{historyData.hiddenByUsername}</span>
+                                </p>
+                                {historyData.hiddenAt && (
+                                    <p className="text-xs text-neutral-400 pl-3.5 border-l border-white/10 ml-[2.5px]">
+                                        {new Date(historyData.hiddenAt.toDate()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {new Date(historyData.hiddenAt.toDate()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                    </p>
+                                )}
+                            </div>
+                            {historyData.moderationReason && (
+                                <div className="bg-black/20 rounded-[14px] p-3 border border-white/5 backdrop-blur-sm">
+                                    <p className="text-[10px] text-neutral-400 mb-1 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-red-400">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                        </svg>
+                                        Reason
+                                    </p>
+                                    <p className="text-sm text-neutral-200 font-medium pl-0.5 leading-relaxed">
+                                        {historyData.moderationReason}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Reports Section */}
+            {historyData.reports && historyData.reports.length > 0 && (
+                <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-white">
+                        Reports ({historyData.reports.length})
+                    </h3>
+                    <div className="space-y-3">
+                        {historyData.reports.map((report: any, idx: number) => (
+                            <div
+                                key={report.id || idx}
+                                className="p-3 rounded-lg bg-neutral-800/50 border border-white/5 space-y-2"
+                            >
+                                <div className="text-sm text-neutral-300">
+                                    <p>
+                                        Reported by <span className="font-medium text-white">@{report.username}</span>
+                                    </p>
+                                    {report.createdAt && (
+                                        <p className="text-xs text-neutral-500 mt-1">
+                                            On {new Date(report.createdAt.toDate()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} at {new Date(report.createdAt.toDate()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                        </p>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-xs text-neutral-500 mb-1">Reason</p>
+                                    <p className="text-sm text-white">{report.reason || "No reason provided"}</p>
+                                </div>
+                                {report.details && (
+                                    <div>
+                                        <p className="text-xs text-neutral-500 mb-1">Details</p>
+                                        <p className="text-sm text-neutral-300 whitespace-pre-wrap">
+                                            {report.details}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {historyData.reports && historyData.reports.length === 0 && (
+                <div className="text-center py-4">
+                    <p className="text-sm text-neutral-500">No reports for this post</p>
+                </div>
+            )}
         </div>
     );
 }

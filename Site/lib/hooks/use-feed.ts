@@ -57,7 +57,36 @@ export const mapDocToPost = (doc: QueryDocumentSnapshot<DocumentData>): Post => 
         clubId: data.clubId,
         clubName: data.clubName,
         clubAvatarUrl: data.clubAvatarUrl,
+
+        // Moderation fields
+        visibility: data.visibility,
+        reportCount: data.reportCount,
+        reportedAt: data.reportedAt,
+        hiddenAt: data.hiddenAt,
+        hiddenBy: data.hiddenBy,
+        moderationNote: data.moderationNote,
+        ownerUid: data.ownerUid ?? data.authorId,
     } as Post;
+};
+
+// Helper to filter posts by visibility
+// Shows posts that are either "visible" OR don't have a visibility field (legacy posts)
+// Shows "under_review" posts only to the owner
+// Hides "hidden" posts from everyone
+export const shouldShowPostInFeed = (post: Post, currentUserUid?: string): boolean => {
+    // If no visibility field, it's a legacy post - show it
+    if (!post.visibility) return true;
+
+    // Always show visible posts
+    if (post.visibility === "visible") return true;
+
+    // Show under_review posts only to the owner
+    if (post.visibility === "under_review" && currentUserUid && post.authorId === currentUserUid) {
+        return true;
+    }
+
+    // Hide all other statuses (hidden, etc.)
+    return false;
 };
 
 export function useFeed(user: any, targetUserId?: string) {
@@ -167,12 +196,15 @@ export function useFeed(user: any, targetUserId?: string) {
                 empty = fallback.empty;
             }
 
-            const todayPosts = todayDocs.map(mapDocToPost);
+            const todayPosts = todayDocs.map(mapDocToPost).filter(p => shouldShowPostInFeed(p, user.uid));
             const feedPostsRaw = feedDocs.map(doc => ({ post: mapDocToPost(doc), doc }));
+
+            // Filter by visibility client-side to include legacy posts and owner's under_review posts
+            const visibleFeedPosts = feedPostsRaw.filter(x => shouldShowPostInFeed(x.post, user.uid));
 
             // Deduplicate (Today's events might be in the feed too)
             const todayIds = new Set(todayPosts.map(p => p.id));
-            const uniqueFeed = feedPostsRaw.filter(x => !todayIds.has(x.post.id));
+            const uniqueFeed = visibleFeedPosts.filter(x => !todayIds.has(x.post.id));
 
             let newPosts = [...todayPosts, ...uniqueFeed.map(x => x.post)];
 

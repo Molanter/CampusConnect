@@ -6,7 +6,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
-import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon, UserGroupIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, UserIcon, Cog6ToothIcon, ChevronLeftIcon, MagnifyingGlassIcon, CalendarIcon, PlusIcon, UserGroupIcon, ShieldCheckIcon, BuildingLibraryIcon } from "@heroicons/react/24/outline";
 import { UserRow } from "./user-row";
 import { useAdminMode } from "./admin-mode-context";
 
@@ -195,69 +195,89 @@ export function Navbar({
 
         {/* Navigation list */}
         <nav className="flex flex-1 flex-col gap-2">
-          {/* Feed */}
-          <Link
-            href="/"
-            onClick={handleSidebarLinkClick}
-            className={`${navItemBase} ${pathname === "/" ? navItemActive : navItemInactive
-              }`}
-          >
-            <HomeIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-            <span>Feed</span>
-          </Link>
+          {isGlobalAdminUser && adminModeOn ? (
+            <>
+              {/* Admin Mode Navigation */}
+              {/* Settings */}
+              <Link
+                href="/settings"
+                onClick={handleSidebarLinkClick}
+                className={`${navItemBase} ${pathname === "/settings" ? navItemActive : navItemInactive
+                  }`}
+              >
+                <Cog6ToothIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+                <span>Settings</span>
+              </Link>
 
-          {/* Explore */}
-          <Link
-            href="/explore"
-            onClick={handleSidebarLinkClick}
-            className={`${navItemBase} ${pathname === "/explore" ? navItemActive : navItemInactive
-              }`}
-          >
-            <MagnifyingGlassIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-            <span>Explore</span>
-          </Link>
+              {/* Reports / Moderation */}
+              <Link
+                href="/admin/moderation"
+                onClick={handleSidebarLinkClick}
+                className={`${navItemBase} ${pathname === "/admin/moderation" ? navItemActive : navItemInactive
+                  }`}
+              >
+                <ShieldCheckIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+                <span>Reports</span>
+              </Link>
 
-          {/* Clubs */}
-          <Link
-            href="/clubs"
-            onClick={handleSidebarLinkClick}
-            className={`${navItemBase} ${pathname.startsWith("/clubs") ? navItemActive : navItemInactive}`}
-          >
-            <UserGroupIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-            <span>Clubs</span>
-          </Link>
+              {/* Manage Universities */}
+              <Link
+                href="/admin/universities"
+                onClick={handleSidebarLinkClick}
+                className={`${navItemBase} ${pathname.startsWith("/admin/universities") ? navItemActive : navItemInactive
+                  }`}
+              >
+                <BuildingLibraryIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+                <span>Manage Universities</span>
+              </Link>
+            </>
+          ) : (
+            <>
+              {/* Regular Navigation */}
+              {/* Feed */}
+              <Link
+                href="/"
+                onClick={handleSidebarLinkClick}
+                className={`${navItemBase} ${pathname === "/" ? navItemActive : navItemInactive
+                  }`}
+              >
+                <HomeIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+                <span>Feed</span>
+              </Link>
 
-          {/* Profile */}
-          <Link
-            href="/profile"
-            onClick={handleSidebarLinkClick}
-            className={`${navItemBase} ${pathname === "/profile" ? navItemActive : navItemInactive
-              }`}
-          >
-            <UserIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-            <span>Profile</span>
-          </Link>
+              {/* Explore */}
+              <Link
+                href="/explore"
+                onClick={handleSidebarLinkClick}
+                className={`${navItemBase} ${pathname === "/explore" ? navItemActive : navItemInactive
+                  }`}
+              >
+                <MagnifyingGlassIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+                <span>Explore</span>
+              </Link>
 
-          {/* Settings */}
-          <Link
-            href="/settings"
-            onClick={handleSidebarLinkClick}
-            className={`${navItemBase} ${pathname === "/settings" ? navItemActive : navItemInactive
-              }`}
-          >
-            <Cog6ToothIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-            <span>Settings</span>
-          </Link>
+              {/* Create Post */}
+              <Link
+                href="/posts/new"
+                onClick={handleSidebarLinkClick}
+                className={`${navItemBase} ${navItemInactive}`}
+              >
+                <PlusIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+                <span>Create Post</span>
+              </Link>
 
-          {/* Create Post Button (Sidebar Only) */}
-          <Link
-            href="/posts/new"
-            onClick={handleSidebarLinkClick}
-            className={`${navItemBase} ${navItemInactive}`}
-          >
-            <PlusIcon className="h-[22px] w-[22px]" strokeWidth={2} />
-            <span>Create Post</span>
-          </Link>
+              {/* Profile */}
+              <Link
+                href="/profile"
+                onClick={handleSidebarLinkClick}
+                className={`${navItemBase} ${pathname === "/profile" ? navItemActive : navItemInactive
+                  }`}
+              >
+                <UserIcon className="h-[22px] w-[22px]" strokeWidth={2} />
+                <span>Profile</span>
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* Signed-in account - Capsule hover style */}
@@ -336,7 +356,19 @@ export function Navbar({
                 Explore
               </Link>
 
-              {/* Profile tab (always visible) */}
+              {/* Create Post tab */}
+              <Link
+                href="/posts/new"
+                className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/posts/new"
+                  ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                  : "text-slate-200 hover:bg-white/10"
+                  }`}
+              >
+                <PlusIcon className="mr-1 h-4 w-4" />
+                Create
+              </Link>
+
+              {/* Profile tab */}
               <Link
                 href="/profile"
                 className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/profile"
@@ -346,18 +378,6 @@ export function Navbar({
               >
                 <UserIcon className="mr-1 h-4 w-4" />
                 Profile
-              </Link>
-
-              {/* Settings tab (hidden on very small screens) */}
-              <Link
-                href="/settings"
-                className={`hidden sm:inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/settings"
-                  ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                  : "text-slate-200 hover:bg-white/10"
-                  }`}
-              >
-                <Cog6ToothIcon className="mr-1 h-4 w-4" />
-                Settings
               </Link>
             </div>
           </nav>
