@@ -3,18 +3,20 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, getDocs, collection } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, storage, db } from "../../../lib/firebase";
 import Link from "next/link";
 import { ChevronLeftIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { getAllCampusesAndUniversities, getDormsForCampus } from "@/lib/firestore-paths";
 
 type UserProfile = {
     username?: string;
     displayName?: string;
     photoURL?: string;
     campus?: string;
-    universityId?: string;
+    universityId?: string; // Keeping field name for DB compat
+    campusId?: string;     // Support both
     campusLocation?: string;
     yearOfStudy?: string;
     major?: string;
@@ -31,8 +33,8 @@ export default function EditProfilePage() {
     // Form state
     const [displayName, setDisplayName] = useState("");
     const [username, setUsername] = useState("");
-    const [universityId, setUniversityId] = useState("");
-    const [universityName, setUniversityName] = useState("");
+    const [campusId, setCampusId] = useState("");
+    const [campusName, setCampusName] = useState("");
     const [major, setMajor] = useState("");
     const [yearOfStudy, setYearOfStudy] = useState("");
     const [dorm, setDorm] = useState("");
@@ -41,44 +43,41 @@ export default function EditProfilePage() {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState("");
 
-    // University and dorm data
-    const [universities, setUniversities] = useState<any[]>([]);
+    // Campus and dorm data
+    const [campuses, setCampuses] = useState<any[]>([]);
     const [dorms, setDorms] = useState<string[]>([]);
-    const [loadingUniversities, setLoadingUniversities] = useState(false);
+    const [loadingCampuses, setLoadingCampuses] = useState(false);
 
-    // Fetch universities
+    // Fetch campuses (merged new + legacy)
     useEffect(() => {
-        const fetchUniversities = async () => {
+        const fetchCampuses = async () => {
             try {
-                setLoadingUniversities(true);
-
-                const snapshot = await getDocs(collection(db, "universities"));
-                const univs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setUniversities(univs);
+                setLoadingCampuses(true);
+                const all = await getAllCampusesAndUniversities();
+                // Sort by name
+                all.sort((a, b) => a.name.localeCompare(b.name));
+                setCampuses(all);
             } catch (err) {
-                console.error("Error fetching universities:", err);
+                console.error("Error fetching campuses:", err);
             } finally {
-                setLoadingUniversities(false);
+                setLoadingCampuses(false);
             }
         };
-        fetchUniversities();
+        fetchCampuses();
     }, []);
 
-    // Fetch dorms when university changes
+    // Fetch dorms when campus changes
     useEffect(() => {
         const fetchDorms = async () => {
-            if (!universityId) {
+            if (!campusId) {
                 setDorms([]);
                 return;
             }
 
             try {
-
-                const dormsSnapshot = await getDocs(
-                    collection(db, "universities", universityId, "dorms")
-                );
-                const dormsList = dormsSnapshot.docs.map(doc => doc.data().name || doc.id);
-                setDorms(dormsList);
+                // Use dual-read helper
+                const dormsList = await getDormsForCampus(campusId);
+                setDorms(dormsList.map(d => d.name));
             } catch (err) {
                 console.error("Error fetching dorms:", err);
                 setDorms([]);
@@ -86,7 +85,7 @@ export default function EditProfilePage() {
         };
 
         fetchDorms();
-    }, [universityId]);
+    }, [campusId]);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -105,7 +104,6 @@ export default function EditProfilePage() {
 
         const loadProfile = async () => {
             try {
-
                 const ref = doc(db, "users", user.uid);
                 const snap = await getDoc(ref);
                 if (snap.exists()) {
@@ -114,8 +112,9 @@ export default function EditProfilePage() {
                     setDisplayName(data.displayName || user.displayName || "");
                     setUsername(data.username || "");
                     setPhotoPreview(data.photoURL || user.photoURL || null);
-                    setUniversityName(data.campus || "");
-                    setUniversityId(data.universityId || "");
+                    // Handle field variations
+                    setCampusName(data.campus || "");
+                    setCampusId(data.campusId || data.universityId || "");
                     setMajor(data.major || "");
                     setYearOfStudy(data.yearOfStudy || "");
                     setDorm(data.dorm || "");
@@ -145,15 +144,14 @@ export default function EditProfilePage() {
 
     const handleSave = async () => {
         if (!user) return;
-        if (!universityId) {
-            setError("Please select a university.");
+        if (!campusId) {
+            setError("Please select a campus.");
             return;
         }
 
         try {
             setSaving(true);
             setError("");
-
 
             // Check if username is already taken (if username is being changed)
             if (username.trim() && username.trim() !== profile?.username) {
@@ -187,8 +185,9 @@ export default function EditProfilePage() {
                 name: displayName.trim() || user.displayName || "",
                 username: username.trim() || "",
                 photoURL: photoURL || user.photoURL || "",
-                campus: universityName.trim() || "",
-                universityId: universityId || "",
+                campus: campusName.trim() || "",
+                campusId: campusId || "",           // Save as campusId (preferred)
+                universityId: campusId || "",      // Save as universityId (legacy compat)
                 major: major.trim() || "",
                 yearOfStudy: yearOfStudy || "",
                 dorm: dorm || "",
@@ -301,25 +300,25 @@ export default function EditProfilePage() {
                         />
                     </div>
 
-                    {/* University */}
+                    {/* Campus (renamed UI) */}
                     <div className="px-4 py-3">
-                        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">University</label>
+                        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">Campus</label>
                         <select
-                            value={universityId}
+                            value={campusId}
                             onChange={(e) => {
                                 const selectedId = e.target.value;
-                                setUniversityId(selectedId);
-                                const selectedUniv = universities.find(u => u.id === selectedId);
-                                setUniversityName(selectedUniv?.name || "");
+                                setCampusId(selectedId);
+                                const selectedCampus = campuses.find(u => u.id === selectedId);
+                                setCampusName(selectedCampus?.name || "");
                                 setDorm("");
                             }}
-                            disabled={loadingUniversities}
+                            disabled={loadingCampuses}
                             className="w-full bg-transparent text-white focus:outline-none"
                         >
-                            <option value="" className="bg-[#1C1C1E]">Select a university</option>
-                            {universities.map((univ) => (
-                                <option key={univ.id} value={univ.id} className="bg-[#1C1C1E]">
-                                    {univ.name}
+                            <option value="" className="bg-[#1C1C1E]">Select a campus</option>
+                            {campuses.map((c) => (
+                                <option key={c.id} value={c.id} className="bg-[#1C1C1E]">
+                                    {c.name}
                                 </option>
                             ))}
                         </select>
@@ -365,7 +364,7 @@ export default function EditProfilePage() {
                         <select
                             value={dorm}
                             onChange={(e) => setDorm(e.target.value)}
-                            disabled={!universityId || dorms.length === 0}
+                            disabled={!campusId || dorms.length === 0}
                             className="w-full bg-transparent text-white focus:outline-none disabled:opacity-50"
                         >
                             <option value="" className="bg-[#1C1C1E]">Select a dorm</option>
@@ -375,8 +374,8 @@ export default function EditProfilePage() {
                                 </option>
                             ))}
                         </select>
-                        {universityId && dorms.length === 0 && (
-                            <p className="text-xs text-neutral-500 mt-2">No dorms available for this university</p>
+                        {campusId && dorms.length === 0 && (
+                            <p className="text-xs text-neutral-500 mt-2">No dorms available (only available for university campuses)</p>
                         )}
                     </div>
                 </div>

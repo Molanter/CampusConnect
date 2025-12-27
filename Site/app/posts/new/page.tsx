@@ -32,7 +32,7 @@ type UserProfile = {
   photoURL?: string;
 };
 
-type University = {
+type Campus = {
   id: string;
   name: string;
   shortName?: string | null;
@@ -110,8 +110,8 @@ export default function CreateEventPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  const [universities, setUniversities] = useState<University[]>([]);
-  const [universitiesLoading, setUniversitiesLoading] = useState(false);
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [campusesLoading, setCampusesLoading] = useState(false);
 
   const [toast, setToast] = useState<ToastData | null>(null);
 
@@ -277,32 +277,33 @@ export default function CreateEventPage() {
     void loadProfile();
   }, [user]);
 
-  // ---- Load universities for colors (optional) ----
+  // ---- Load campuses for colors ----
   useEffect(() => {
-    const loadUniversities = async () => {
+    const loadCampuses = async () => {
       try {
-        setUniversitiesLoading(true);
-        const snap = await getDocs(collection(db, "universities"));
-        const items: University[] = snap.docs.map((d) => {
-          const data = d.data() as any;
-          return {
-            id: d.id,
-            name: data.name || "",
-            shortName: data.shortName ?? null,
-            primaryColor: data.primaryColor ?? data.themeColor ?? null,
-            secondaryColor: data.secondaryColor ?? null,
-            themeColor: data.themeColor ?? null,
-          };
-        });
-        setUniversities(items);
+        setCampusesLoading(true);
+        const { getAllCampusesAndUniversities } = await import("@/lib/firestore-paths");
+        const items = await getAllCampusesAndUniversities();
+
+        // Map to local Campus type (if needed, but structure matches closely)
+        const mapped: Campus[] = items.map(d => ({
+          id: d.id,
+          name: d.name,
+          shortName: d.shortName,
+          primaryColor: d.primaryColor ?? d.themeColor,
+          secondaryColor: d.secondaryColor,
+          themeColor: d.themeColor
+        }));
+
+        setCampuses(mapped);
       } catch (err) {
-        console.error("Error loading universities for event page", err);
+        console.error("Error loading campuses for event page", err);
       } finally {
-        setUniversitiesLoading(false);
+        setCampusesLoading(false);
       }
     };
 
-    void loadUniversities();
+    void loadCampuses();
   }, []);
 
   // ---- Load User's Clubs ----
@@ -368,13 +369,13 @@ export default function CreateEventPage() {
   // Determine university colors for this user (if any)
   const trimmedCampusName = (profile?.campus || "").trim();
   const selectedById =
-    profile?.campusId && universities.length
-      ? universities.find((u) => u.id === profile.campusId) || null
+    profile?.campusId && campuses.length
+      ? campuses.find((u) => u.id === profile.campusId) || null
       : null;
 
   const selectedByName =
-    !selectedById && trimmedCampusName && universities.length
-      ? universities.find((u) => {
+    !selectedById && trimmedCampusName && campuses.length
+      ? campuses.find((u) => {
         const name = (u.name || "").trim().toLowerCase();
         const short = (u.shortName || "").trim().toLowerCase();
         const target = trimmedCampusName.toLowerCase();
@@ -541,7 +542,7 @@ export default function CreateEventPage() {
   };
 
   // ---- Guards ----
-  if (authLoading || profileLoading || universitiesLoading) {
+  if (authLoading || profileLoading || campusesLoading) {
     return (
       <div className="flex h-screen items-center justify-center text-neutral-400">
         <div className="animate-pulse">Loading...</div>

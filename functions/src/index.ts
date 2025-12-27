@@ -6,3 +6,4 @@
 
 // Export moderation functions
 export { onReportCreated, moderatePost } from './moderation';
+export * from './commentCounts';

@@ -20,8 +20,8 @@ type Priority = "Low" | "Medium" | "High";
 
 const FAQS: FAQItem[] = [
     {
-        question: "How do I change my university?",
-        answer: "You can change your university in your Profile settings. Go to Profile > Edit Profile and select a new university from the dropdown."
+        question: "How do I change my campus?",
+        answer: "You can change your campus in your Profile settings. Go to Profile > Edit Profile and select a new campus from the dropdown."
     },
     {
         question: "Is my data private?",

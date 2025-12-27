@@ -91,53 +91,53 @@ export default function SettingsPage() {
             </div>
           )}
           <Link
-            href="/admin/universities/create"
+            href="/admin/campuses/create"
             className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600">
               <BuildingLibraryIcon className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1">
-              <p className="text-[15px] font-normal text-white">Create University</p>
+              <p className="text-[15px] font-normal text-white">Create Campus</p>
             </div>
             <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
           </Link>
           <Link
-            href="/admin/universities"
+            href="/admin/campuses"
             className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-600">
               <PencilSquareIcon className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1">
-              <p className="text-[15px] font-normal text-white">Edit Universities</p>
+              <p className="text-[15px] font-normal text-white">Edit Campuses</p>
             </div>
             <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
           </Link>
           {user?.email === "YOUR_APP_ADMIN_EMAIL" && (
             <Link
-              href="/admin/universities/edit-all"
+              href="/admin/campuses"
               className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-rose-600">
                 <BuildingLibraryIcon className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1">
-                <p className="text-[15px] font-normal text-white">Edit All Universities</p>
+                <p className="text-[15px] font-normal text-white">Edit All Campuses</p>
               </div>
               <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
             </Link>
           )}
           {user?.email && (
             <Link
-              href="/admin/universities/manage-my"
+              href="/admin/campuses/manage-my"
               className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-amber-600">
                 <PencilSquareIcon className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1">
-                <p className="text-[15px] font-normal text-white">Edit My University</p>
+                <p className="text-[15px] font-normal text-white">Edit My Campus</p>
               </div>
               <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
             </Link>

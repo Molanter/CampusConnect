@@ -16,6 +16,8 @@ import { useRightSidebar } from "@/components/right-sidebar-context";
 import { UserRow } from "@/components/user-row";
 import { ClubProfileView } from "@/components/clubs/club-profile-view";
 import { ClubTab } from "@/components/clubs/club-tabs";
+import { getCampusOrLegacy } from "@/lib/firestore-paths";
+import { Campus } from "@/lib/types/campus";
 
 type ViewMode = "requests" | "reports";
 type ReportTab = "posts" | "profiles" | "clubs";
@@ -28,7 +30,8 @@ interface ReportData {
     createdAt: any;
 }
 
-interface UniversityData {
+// Reusing Campus type partially or mapping to it
+interface CampusData {
     id: string;
     name: string;
     shortName: string;
@@ -40,7 +43,7 @@ interface QueueItemWithPost extends ModerationQueueItem {
     post?: Post | null;
     reporters?: string[];
     reportsData?: ReportData[];
-    university?: UniversityData | null;
+    campus?: CampusData | null;
 }
 
 export default function ModerationPage() {
@@ -57,8 +60,8 @@ export default function ModerationPage() {
     const [reportsLoading, setReportsLoading] = useState(true);
     const [reportsError, setReportsError] = useState<string | null>(null);
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
-    const [selectedUniversity, setSelectedUniversity] = useState<string>("all");
-    const [isUniversityDropdownOpen, setIsUniversityDropdownOpen] = useState(false);
+    const [selectedCampus, setSelectedCampus] = useState<string>("all");
+    const [isCampusDropdownOpen, setIsCampusDropdownOpen] = useState(false);
 
     const [pendingClubs, setPendingClubs] = useState<Club[]>([]);
     const [clubsLoading, setClubsLoading] = useState(true);
@@ -90,14 +93,14 @@ export default function ModerationPage() {
             try {
                 const userDoc = await getDoc(doc(db, "users", user.uid));
                 if (userDoc.exists()) {
-                    const campusId = userDoc.data().campusId;
+                    const campusId = userDoc.data().campusId || userDoc.data().universityId;
                     setUserCampusId(campusId || null);
 
                     const isCampus = !!(campusId && !isGlobalAdminUser);
                     setIsCampusAdmin(isCampus);
 
                     if (isCampus && campusId) {
-                        setSelectedUniversity(campusId);
+                        setSelectedCampus(campusId);
                     }
                 }
             } catch (err) {
@@ -182,7 +185,7 @@ export default function ModerationPage() {
                     let post: Post | null = null;
                     let reporters: string[] = [];
                     let reportsData: ReportData[] = [];
-                    let university: UniversityData | null = null;
+                    let campus: CampusData | null = null;
 
                     try {
                         const postDoc = await getDoc(doc(db, "posts", postId));
@@ -227,21 +230,22 @@ export default function ModerationPage() {
                             try {
                                 const authorDoc = await getDoc(doc(db, "users", post.authorId));
                                 if (authorDoc.exists()) {
-                                    const campusId = authorDoc.data().campusId;
-                                    if (campusId) {
-                                        const uniDoc = await getDoc(doc(db, "universities", campusId));
-                                        if (uniDoc.exists()) {
-                                            university = {
-                                                id: uniDoc.id,
-                                                name: uniDoc.data().name || "",
-                                                shortName: uniDoc.data().shortName || "",
-                                                logo: uniDoc.data().logo
+                                    const cId = authorDoc.data().campusId || authorDoc.data().universityId;
+                                    if (cId) {
+                                        // Use helper
+                                        const cData = await getCampusOrLegacy(cId);
+                                        if (cData) {
+                                            campus = {
+                                                id: cData.id,
+                                                name: cData.name || "",
+                                                shortName: cData.shortName || "",
+                                                logo: undefined // Logo handling might be tricky with legacy paths, but keeping undefined is safe for now if not critical
                                             };
                                         }
                                     }
                                 }
                             } catch (uniErr) {
-                                console.error(`Failed to fetch university for post ${postId}: `, uniErr);
+                                console.error(`Failed to fetch campus for post ${postId}: `, uniErr);
                             }
                         }
                     } catch (err) {
@@ -254,7 +258,7 @@ export default function ModerationPage() {
                         post,
                         reporters,
                         reportsData,
-                        university,
+                        campus,
                     });
                 }
 
@@ -271,21 +275,21 @@ export default function ModerationPage() {
     }, [viewMode, activeReportTab]);
 
     // Computed Values
-    const availableUniversities = useMemo(() => {
-        const univs = new Map<string, UniversityData>();
+    const availableCampuses = useMemo(() => {
+        const camps = new Map<string, CampusData>();
         queueItems.forEach(item => {
-            if (item.university && item.university.shortName) {
-                univs.set(item.university.id, item.university);
+            if (item.campus && item.campus.shortName) {
+                camps.set(item.campus.id, item.campus);
             }
         });
-        return Array.from(univs.values()).sort((a, b) =>
+        return Array.from(camps.values()).sort((a, b) =>
             a.shortName.localeCompare(b.shortName)
         );
     }, [queueItems]);
 
     const sortedQueueItems = useMemo(() => {
-        let filtered = selectedUniversity !== "all"
-            ? queueItems.filter(item => item.university?.id === selectedUniversity)
+        let filtered = selectedCampus !== "all"
+            ? queueItems.filter(item => item.campus?.id === selectedCampus)
             : queueItems;
 
         return [...filtered].sort((a, b) => {
@@ -297,7 +301,7 @@ export default function ModerationPage() {
             }
             return 0;
         });
-    }, [queueItems, selectedUniversity]);
+    }, [queueItems, selectedCampus]);
 
     const selectedClub = useMemo(() =>
         selectedClubId ? pendingClubs.find(c => c.id === selectedClubId) : null
@@ -583,52 +587,52 @@ export default function ModerationPage() {
                         {/* Reports Content */}
                         <div className="flex-1 overflow-y-auto min-w-0 p-0 py-2 custom-scrollbar">
                             <div className="max-w-4xl mx-auto">
-                                {/* University Filter for Reports */}
-                                {availableUniversities.length > 0 && (
+                                {/* Campus Filter for Reports */}
+                                {availableCampuses.length > 0 && (
                                     <div className="mb-6 flex gap-3 items-center">
                                         <label className="text-sm font-medium text-neutral-400">Filter:</label>
                                         {isCampusAdmin ? (
                                             <div className="px-4 py-2.5 rounded-[14px] bg-white/5 border border-white/10 text-white backdrop-blur-xl shadow-lg cursor-default flex items-center gap-2">
                                                 <span className="font-semibold text-[#ffb200]">
-                                                    {availableUniversities.find(u => u.id === userCampusId)?.shortName || "Your University"}
+                                                    {availableCampuses.find(u => u.id === userCampusId)?.shortName || "Your Campus"}
                                                 </span>
                                             </div>
                                         ) : (
                                             <div className="relative z-20">
                                                 <button
-                                                    onClick={() => setIsUniversityDropdownOpen(!isUniversityDropdownOpen)}
-                                                    className={`appearance-none pl-3 pr-8 py-2 rounded-full bg-white/5 border border-white/10 text-white text-xs font-medium backdrop-blur-[12px] hover:bg-white/10 transition-all focus:outline-none focus:ring-2 focus:ring-[#ffb200]/50 cursor-pointer min-w-[180px] text-left relative overflow-hidden group ${isUniversityDropdownOpen ? 'bg-white/10' : ''}`}
+                                                    onClick={() => setIsCampusDropdownOpen(!isCampusDropdownOpen)}
+                                                    className={`appearance-none pl-3 pr-8 py-2 rounded-full bg-white/5 border border-white/10 text-white text-xs font-medium backdrop-blur-[12px] hover:bg-white/10 transition-all focus:outline-none focus:ring-2 focus:ring-[#ffb200]/50 cursor-pointer min-w-[180px] text-left relative overflow-hidden group ${isCampusDropdownOpen ? 'bg-white/10' : ''}`}
                                                 >
                                                     <span className="block truncate flex items-center gap-2 relative z-10">
-                                                        {selectedUniversity === "all"
-                                                            ? "All Universities"
-                                                            : availableUniversities.find(u => u.id === selectedUniversity)?.name || "Select University"
+                                                        {selectedCampus === "all"
+                                                            ? "All Campuses"
+                                                            : availableCampuses.find(u => u.id === selectedCampus)?.name || "Select Campus"
                                                         }
                                                     </span>
                                                     <span className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-white/50 group-hover:text-white transition-colors duration-300">
-                                                        <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform duration-500 ${isUniversityDropdownOpen ? 'rotate-180' : ''}`} />
+                                                        <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform duration-500 ${isCampusDropdownOpen ? 'rotate-180' : ''}`} />
                                                     </span>
                                                 </button>
 
-                                                {isUniversityDropdownOpen && (
+                                                {isCampusDropdownOpen && (
                                                     <>
-                                                        <div className="fixed inset-0 z-10 cursor-default" onClick={() => setIsUniversityDropdownOpen(false)} />
+                                                        <div className="fixed inset-0 z-10 cursor-default" onClick={() => setIsCampusDropdownOpen(false)} />
                                                         <div className="absolute left-0 mt-2 w-full min-w-[220px] max-h-[260px] overflow-y-auto rounded-[20px] bg-[#121212]/95 backdrop-blur-xl border border-white/10 shadow-2xl z-30 p-1.5 custom-scrollbar">
                                                             <button
-                                                                onClick={() => { setSelectedUniversity("all"); setIsUniversityDropdownOpen(false); }}
+                                                                onClick={() => { setSelectedCampus("all"); setIsCampusDropdownOpen(false); }}
                                                                 className="w-full px-3 py-2.5 text-left text-[13px] font-medium rounded-full hover:bg-white/10 text-neutral-300 hover:text-white transition-all"
                                                             >
-                                                                All Universities
+                                                                All Campuses
                                                             </button>
                                                             <div className="h-px bg-white/10 my-1.5 mx-3" />
-                                                            {availableUniversities.map(uni => (
+                                                            {availableCampuses.map(camp => (
                                                                 <button
-                                                                    key={uni.id}
-                                                                    onClick={() => { setSelectedUniversity(uni.id); setIsUniversityDropdownOpen(false); }}
+                                                                    key={camp.id}
+                                                                    onClick={() => { setSelectedCampus(camp.id); setIsCampusDropdownOpen(false); }}
                                                                     className="w-full px-3 py-2.5 text-left text-[13px] rounded-full hover:bg-white/10 text-neutral-300 hover:text-white transition-all flex items-center gap-2"
                                                                 >
-                                                                    {uni.logo ? <img src={uni.logo} className="w-5 h-5 object-contain" /> : <span className="text-[#ffb200] font-bold text-xs">{uni.shortName}</span>}
-                                                                    <span className="truncate">{uni.name}</span>
+                                                                    {camp.logo ? <img src={camp.logo} className="w-5 h-5 object-contain" /> : <span className="text-[#ffb200] font-bold text-xs">{camp.shortName}</span>}
+                                                                    <span className="truncate">{camp.name}</span>
                                                                 </button>
                                                             ))}
                                                         </div>
@@ -711,18 +715,18 @@ function ModerationQueueItem({ item, onAction, isProcessing, onReportClick }: Mo
                                 {formatDistanceToNow(item.createdAt.toDate(), { addSuffix: true })}
                             </span>
                         )}
-                        {item.university && (
-                            item.university.logo ? (
+                        {item.campus && (
+                            item.campus.logo ? (
                                 <img
-                                    src={item.university.logo}
-                                    alt={item.university.shortName}
+                                    src={item.campus.logo}
+                                    alt={item.campus.shortName}
                                     className="w-5 h-5 object-contain"
-                                    title={item.university.name}
+                                    title={item.campus.name}
                                 />
                             ) : (
-                                item.university.shortName && (
+                                item.campus.shortName && (
                                     <span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-400 text-xs font-medium">
-                                        {item.university.shortName}
+                                        {item.campus.shortName}
                                     </span>
                                 )
                             )
@@ -803,24 +807,22 @@ function ModerationQueueItem({ item, onAction, isProcessing, onReportClick }: Mo
                                     disabled={isProcessing || !post}
                                     className="w-full px-3 py-2.5 text-left flex items-center gap-2.5 text-neutral-200 hover:bg-white/10 rounded-full disabled:opacity-40"
                                 >
-                                    <EyeSlashIcon className="h-5 w-5 text-red-400" />
-                                    Hide Post
+                                    <EyeSlashIcon className="h-5 w-5 text-yellow-500" />
+                                    Hide from Feed
                                 </button>
-                                <div className="h-px bg-white/10 my-0.5 mx-2" />
                                 <button
                                     onClick={() => { setShowMenu(false); onAction(item, "dismiss"); }}
                                     disabled={isProcessing}
-                                    className="w-full px-3 py-2.5 text-left flex items-center gap-2.5 text-neutral-300 hover:bg-white/10 rounded-full disabled:opacity-40"
+                                    className="w-full px-3 py-2.5 text-left flex items-center gap-2.5 text-neutral-200 hover:bg-white/10 rounded-full disabled:opacity-40"
                                 >
                                     <XMarkIcon className="h-5 w-5 text-neutral-400" />
-                                    Dismiss
+                                    Dismiss Reports
                                 </button>
                             </div>
                         </>
                     )}
                 </div>
             </div>
-            {isProcessing && <p className="mt-4 text-center text-sm text-neutral-400">Processing...</p>}
         </div>
     );
 }

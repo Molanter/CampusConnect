@@ -29,15 +29,19 @@ export default function ClubsHome() {
                     if (isGlobalAdmin(u.email, globalAdmins)) {
                         isAdmin = true;
                     } else {
-                        // Check if Campus Admin (admin for at least one university)
-                        // Note: We use array-contains. Ensure emails in DB are lowercased if u.email is.
-                        // Ideally we should handle case sensitivity, but standard query here is:
+                        // Check if Campus Admin (admin for at least one campus)
                         const qUni = query(
                             collection(db, "universities"),
                             where("adminEmails", "array-contains", u.email.toLowerCase())
                         );
-                        const snapUni = await getDocs(qUni);
-                        if (!snapUni.empty) {
+                        const qCampus = query(
+                            collection(db, "campuses"),
+                            where("adminEmails", "array-contains", u.email.toLowerCase())
+                        );
+
+                        const [snapUni, snapCampus] = await Promise.all([getDocs(qUni), getDocs(qCampus)]);
+
+                        if (!snapUni.empty || !snapCampus.empty) {
                             isAdmin = true;
                         }
                     }

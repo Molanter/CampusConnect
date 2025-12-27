@@ -37,7 +37,8 @@ type UserProfile = {
   username?: string;
   displayName?: string;
   photoURL?: string;
-  universityId?: string;
+  campusId?: string;       // Preferred
+  universityId?: string;   // Legacy
   campus?: string;
   campusLocation?: string;
   yearOfStudy?: string;
@@ -217,6 +218,7 @@ function ProfileContent({ user }: { user: User }) {
             username: data.username || "",
             displayName: data.name || data.fullName || data.preferredName || data.displayName || user.displayName || "",
             photoURL: data.photoURL || user.photoURL || "",
+            campusId: data.campusId || data.universityId || "", // Map both
             universityId: data.universityId || "",
             campus: data.campus || "",
             campusLocation: data.campusLocation || "",
@@ -360,8 +362,8 @@ function ProfileContent({ user }: { user: User }) {
           displayName={displayName}
           username={username}
           photoURL={photoURL}
-          universityId={profile?.universityId}
-          universityName={profile?.campus}
+          campusId={profile?.campusId || profile?.universityId}
+          campusName={profile?.campus}
           yearOfStudy={profile?.yearOfStudy}
           major={profile?.major}
           isOwnProfile

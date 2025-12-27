@@ -11,8 +11,8 @@ interface UserProfileHeaderProps {
     displayName: string;
     username?: string;
     photoURL?: string;
-    universityId?: string;
-    universityName?: string;
+    campusId?: string;       // Renamed from universityId
+    campusName?: string;     // Renamed from universityName
     yearOfStudy?: string;
     major?: string;
     backgroundImageUrl?: string;
@@ -39,8 +39,8 @@ export function UserProfileHeader({
     displayName,
     username,
     photoURL,
-    universityId,
-    universityName,
+    campusId,          // Renamed
+    campusName,        // Renamed
     yearOfStudy,
     major,
     backgroundImageUrl,
@@ -58,41 +58,50 @@ export function UserProfileHeader({
     onFollowingClick,
 }: UserProfileHeaderProps) {
     const initials = displayName.charAt(0).toUpperCase();
-    const [universityLogoUrl, setUniversityLogoUrl] = useState<string | null>(null);
+    const [campusLogoUrl, setCampusLogoUrl] = useState<string | null>(null); // Renamed state
     const [logoLoading, setLogoLoading] = useState(false);
 
-    // Fetch university logo
+    // Fetch campus logo
     useEffect(() => {
-        if (!universityId) return;
+        if (!campusId) return;
 
-        const fetchUniversityLogo = async () => {
+        const fetchCampusLogo = async () => {
             setLogoLoading(true);
             try {
-                // Fetch university document to get shortName
-                const uniDoc = await getDoc(doc(db, "universities", universityId));
-                if (uniDoc.exists()) {
-                    const shortName = uniDoc.data().shortName;
+                // Fetch campus document
+                const { getCampusOrLegacy } = await import("@/lib/firestore-paths");
+                const campusData = await getCampusOrLegacy(campusId);
+
+                if (campusData) {
+                    const shortName = campusData.shortName;
                     if (shortName) {
-                        // Get download URL from Storage
-                        const logoPath = `universities/${universityId}/${shortName}.png`;
-                        const logoRef = ref(storage, logoPath);
-                        const url = await getDownloadURL(logoRef);
-                        setUniversityLogoUrl(url);
+                        try {
+                            // Try to read logo. 
+                            // Current logic assumes legacy path until migration is confirmed:
+                            const logoPath = `universities/${campusId}/${shortName}.png`;
+                            // Note: If we start using a new path pattern, update here.
+
+                            const logoRef = ref(storage, logoPath);
+                            const url = await getDownloadURL(logoRef);
+                            setCampusLogoUrl(url);
+                        } catch (e) {
+                            console.log("Logo not found at legacy path");
+                        }
                     }
                 }
             } catch (error) {
-                console.error("Error fetching university logo:", error);
-                setUniversityLogoUrl(null);
+                console.error("Error fetching campus logo:", error);
+                setCampusLogoUrl(null);
             } finally {
                 setLogoLoading(false);
             }
         };
 
-        fetchUniversityLogo();
-    }, [universityId]);
+        fetchCampusLogo();
+    }, [campusId]);
 
-    // Build info line: University • Year • Major
-    const infoLine = [universityName, yearOfStudy, major]
+    // Build info line: Campus • Year • Major
+    const infoLine = [campusName, yearOfStudy, major]
         .filter(Boolean)
         .join(" • ");
 
@@ -135,17 +144,17 @@ export function UserProfileHeader({
                                     )}
                                 </div>
 
-                                {/* University Logo Badge */}
-                                {universityLogoUrl && (
+                                {/* Campus Logo Badge */}
+                                {campusLogoUrl && (
                                     <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/15 p-0.5 shadow-md backdrop-blur-xl">
                                         <img
-                                            src={universityLogoUrl}
-                                            alt="University logo"
+                                            src={campusLogoUrl}
+                                            alt="Campus logo"
                                             className="h-full w-full rounded-full object-contain"
                                         />
                                     </div>
                                 )}
-                                {!universityLogoUrl && universityId && !logoLoading && (
+                                {!campusLogoUrl && campusId && !logoLoading && (
                                     <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/15 shadow-md backdrop-blur-xl">
                                         <AcademicCapIcon className="h-3.5 w-3.5 text-white/40" />
                                     </div>

@@ -20,6 +20,7 @@ type UserProfile = {
   username?: string;
   displayName?: string;
   photoURL?: string;
+  campusId?: string;
   universityId?: string;
   campus?: string;
   campusLocation?: string;
@@ -73,6 +74,7 @@ export default function UserProfilePage() {
             username: data.username || "",
             displayName: data.name || data.fullName || data.preferredName || data.displayName || "User",
             photoURL: data.photoURL || "",
+            campusId: data.campusId || data.universityId || "",
             universityId: data.universityId || "",
             campus: data.campus || "",
             campusLocation: data.campusLocation || "",
@@ -268,8 +270,8 @@ export default function UserProfilePage() {
           displayName={displayName}
           username={username}
           photoURL={photoURL}
-          universityId={profile?.universityId}
-          universityName={profile?.campus}
+          campusId={profile?.campusId || profile?.universityId}
+          campusName={profile?.campus}
           yearOfStudy={profile?.yearOfStudy}
           major={profile?.major}
           isOwnProfile={user?.uid === targetUid}
