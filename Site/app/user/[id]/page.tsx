@@ -252,7 +252,7 @@ export default function UserProfilePage() {
 
   return (
     <div className="min-h-screen text-neutral-50">
-      <div className="mx-auto w-full max-w-2xl px-2 py-6 pb-32 space-y-6">
+      <div className="mx-auto w-full max-w-2xl px-2 py-6 md:py-2 pb-32 space-y-6">
         {/* Header Bar */}
         <div className="flex items-center justify-between">
           <button

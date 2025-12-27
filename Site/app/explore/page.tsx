@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, XMarkIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { PlusIcon, UserGroupIcon, BookOpenIcon, QuestionMarkCircleIcon } from "@heroicons/react/24/solid";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -9,6 +9,7 @@ import { Post } from "@/lib/posts";
 import { Club } from "@/lib/clubs";
 import { UserRow } from "@/components/user-row";
 import { EventCard } from "@/components/explore/event-card";
+import { ClubCard } from "@/components/explore/club-card";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -30,6 +31,7 @@ export default function ExplorePage() {
 
     const [allResults, setAllResults] = useState<SearchResult[]>([]);
     const [events, setEvents] = useState<Post[]>([]); // Separately store events for "Coming Soon"
+    const [clubs, setClubs] = useState<Club[]>([]); // Separately store clubs for "All Clubs"
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -97,10 +99,14 @@ export default function ExplorePage() {
 
                 // 3. Fetch Clubs
                 const clubsRef = collection(db, "clubs");
-                const clubsQ = query(clubsRef, orderBy("memberCount", "desc"), limit(20));
+                // Ordering by name for alphabetical grouping
+                const clubsQ = query(clubsRef, orderBy("name", "asc"), limit(100)); // Increased limit
                 const clubsSnap = await getDocs(clubsQ);
+                const fetchedClubs: Club[] = [];
+
                 clubsSnap.forEach(d => {
                     const data = d.data() as Club;
+                    fetchedClubs.push({ ...data, id: d.id });
                     results.push({
                         id: d.id,
                         type: "Club",
@@ -109,6 +115,7 @@ export default function ExplorePage() {
                         data
                     });
                 });
+                setClubs(fetchedClubs);
 
                 // 4. Fetch People
                 const usersRef = collection(db, "users");
@@ -174,8 +181,52 @@ export default function ExplorePage() {
         }
     };
 
+    const getGroupedClubs = () => {
+        const groups: { [key: string]: Club[] } = {};
+
+        clubs.forEach(club => {
+            const char = club.name.charAt(0).toUpperCase();
+            let groupKey = "#";
+
+            if (/[A-Z]/.test(char)) {
+                groupKey = char;
+            } else if (/[0-9]/.test(char)) {
+                groupKey = char;
+            }
+
+            if (!groups[groupKey]) groups[groupKey] = [];
+            groups[groupKey].push(club);
+        });
+
+        // Sort keys: Letters first, then Numbers, then #
+        const sortedKeys = Object.keys(groups).sort((a, b) => {
+            const isALetter = /[A-Z]/.test(a);
+            const isBLetter = /[A-Z]/.test(b);
+            const isANumber = /[0-9]/.test(a);
+            const isBNumber = /[0-9]/.test(b);
+
+            if (isALetter && isBLetter) return a.localeCompare(b);
+            if (isANumber && isBNumber) return a.localeCompare(b);
+
+            if (isALetter) return -1; // Letters before everything
+            if (isBLetter) return 1;
+
+            if (isANumber) return -1; // Numbers before symbols
+            if (isBNumber) return 1;
+
+            return 0; // Everything else (should just be # vs #)
+        });
+
+        return sortedKeys.map(key => ({
+            key,
+            clubs: groups[key]
+        }));
+    };
+
+    const clubGroups = getGroupedClubs();
+
     return (
-        <div className="min-h-screen px-4 py-8 md:px-8 max-w-2xl mx-auto">
+        <div className="min-h-screen px-4 py-8 md:py-4 md:px-8 max-w-2xl mx-auto">
 
             {/* Header */}
             <h1 className="text-3xl font-bold text-white mb-6">Explore</h1>
@@ -296,6 +347,47 @@ export default function ExplorePage() {
                             <p className="text-sm text-zinc-500">No upcoming events or posts yet.</p>
                         )}
                     </div>
+
+                    {/* All Clubs - Grouped List */}
+                    <div className="space-y-6">
+                        {/* <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">All Clubs</h3> */}
+                        {clubGroups.length > 0 ? (
+                            clubGroups.map(group => (
+                                <div key={group.key} className="space-y-2">
+                                    <h4 className="text-sm font-bold text-zinc-500 ml-1">{group.key}</h4>
+                                    <div className="rounded-[24px] bg-[#1C1C1E] border border-white/5 overflow-hidden">
+                                        <div className="divide-y divide-white/5">
+                                            {group.clubs.map(club => (
+                                                <div
+                                                    key={club.id}
+                                                    onClick={() => router.push(`/clubs/${club.id}`)}
+                                                    className="group relative flex cursor-pointer items-center px-4 py-3 transition-colors hover:bg-white/5"
+                                                >
+                                                    <UserRow
+                                                        userData={{
+                                                            displayName: club.name,
+                                                            photoURL: club.coverImageUrl,
+                                                        }}
+                                                        subtitle={`${club.memberCount} members`}
+                                                        onlyAvatar={false}
+                                                        isVerified={club.isVerified}
+                                                        rightElement={
+                                                            <ChevronRightIcon className="h-5 w-5 text-zinc-500 group-hover:text-white transition-colors" />
+                                                        }
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="space-y-3">
+                                <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">All Clubs</h3>
+                                <p className="text-sm text-zinc-500">No clubs found.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -324,8 +416,9 @@ export default function ExplorePage() {
                                         }}
                                         subtitle={item.type}
                                         onlyAvatar={false}
-                                    // Pass right element explicitly if we want small labels/icons, 
-                                    // but subtitle already does "Event", "Club" etc.
+                                        // Pass right element explicitly if we want small labels/icons, 
+                                        // but subtitle already does "Event", "Club" etc.
+                                        isVerified={item.data?.isVerified}
                                     />
                                 </div>
                             ))}

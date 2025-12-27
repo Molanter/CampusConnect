@@ -1,6 +1,6 @@
 "use client";
 
-import { BellIcon, XMarkIcon, ChevronLeftIcon, PaperAirplaneIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { BellIcon, XMarkIcon, ChevronLeftIcon, PaperAirplaneIcon, ExclamationTriangleIcon, LockClosedIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { useRightSidebar } from "./right-sidebar-context";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { MobileFullScreenModal } from "./mobile-full-screen-modal";
@@ -115,6 +115,8 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
             if (view === "post-history") return "Post History";
             if (view === "likes") return "Likes";
             if (view === "my-clubs") return "My Clubs";
+            if (view === "club-privacy-info") return "Club Privacy";
+            if (view === "support-ticket-info") return "Ticket Info";
             return "Details";
         };
 
@@ -130,6 +132,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     {view === "likes" && <LikesView data={data} />}
                     {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
                     {view === "post-history" && <PostHistoryView data={data} />}
+                    {view === "support-ticket-info" && <SupportTicketInfoView data={data} />}
                 </div>
             </MobileFullScreenModal>
         );
@@ -178,6 +181,8 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                             {view === "post-history" && "Post History"}
                             {view === "likes" && "Likes"}
                             {view === "my-clubs" && "My Clubs"}
+                            {view === "club-privacy-info" && "Club Privacy"}
+                            {view === "support-ticket-info" && "Ticket Info"}
                         </h2>
                     </div>
                 </div>
@@ -193,6 +198,8 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
                     {view === "report-details" && <ReportDetailsView data={data} />}
                     {view === "post-history" && <PostHistoryView data={data} />}
+                    {view === "club-privacy-info" && <ClubPrivacyInfoView />}
+                    {view === "support-ticket-info" && <SupportTicketInfoView data={data} />}
                 </div>
             </aside>
         </>
@@ -864,6 +871,366 @@ function PostHistoryView({ data }: { data: any }) {
                 <div className="text-center py-4">
                     <p className="text-sm text-neutral-500">No reports for this post</p>
                 </div>
+            )}
+        </div>
+    );
+}
+
+function ClubPrivacyInfoView() {
+    return (
+        <div className="p-4 space-y-6">
+            <div className="space-y-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 shadow-lg shadow-teal-500/20">
+                    <LockClosedIcon className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Private Clubs</h3>
+                <p className="text-sm text-neutral-300 leading-relaxed">
+                    Private clubs require users to request access before they can join.
+                    Club admins must review and approve these requests.
+                </p>
+                <div className="rounded-xl bg-white/5 p-4 border border-white/5">
+                    <ul className="space-y-2 text-sm text-neutral-400">
+                        <li className="flex items-start gap-2">
+                            <span className="mt-1 block h-1 w-1 rounded-full bg-teal-500" />
+                            <span>Posts are visible to members only by default</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <span className="mt-1 block h-1 w-1 rounded-full bg-teal-500" />
+                            <span>Non-members cannot see the member list</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div className="h-px bg-white/5" />
+
+            <div className="space-y-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-500/20">
+                    <PaperAirplaneIcon className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Post Visibility</h3>
+                <p className="text-sm text-neutral-300 leading-relaxed">
+                    Verified clubs can broadcast updates to the entire campus.
+                </p>
+                <div className="rounded-xl bg-white/5 p-4 border border-white/5">
+                    <ul className="space-y-3 text-sm text-neutral-400">
+                        <li className="flex gap-3">
+                            <UserGroupIcon className="h-5 w-5 text-indigo-400 shrink-0" />
+                            <div>
+                                <p className="text-white font-medium mb-0.5">Members Only</p>
+                                <p className="text-xs">Posts appear only in the club's feed and the user's "My Feed".</p>
+                            </div>
+                        </li>
+                        <li className="flex gap-3">
+                            <ExclamationTriangleIcon className="h-5 w-5 text-amber-400 shrink-0" />
+                            <div>
+                                <p className="text-white font-medium mb-0.5">Campus Wide</p>
+                                <p className="text-xs">Posts appear in the main "Explore" feed for everyone.</p>
+                                <p className="text-[10px] text-amber-500 mt-1 uppercase tracking-wider font-bold">Requires Verification</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SupportTicketInfoView({ data }: { data: any }) {
+    const [status, setStatus] = useState(data?.status || "open");
+    const [priority, setPriority] = useState(data?.priority || "3");
+    const [category, setCategory] = useState(data?.category || "General Inquiry");
+    const [updating, setUpdating] = useState(false);
+    const [userName, setUserName] = useState(data?.name || "Unknown User");
+    const [userEmail, setUserEmail] = useState(data?.email || "");
+    const [userUsername, setUserUsername] = useState("");
+
+    // Fetch user info by UID if available
+    useEffect(() => {
+        const fetchUserInfo = async () => {
+            if (data?.uid) {
+                try {
+                    const userDoc = await getDoc(doc(db, "users", data.uid));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        setUserName(userData.name || userData.displayName || userData.username || "Unknown User");
+                        setUserEmail(userData.email || "");
+                        setUserUsername(userData.username || "");
+                    } else {
+                        setUserName("User not found");
+                        setUserEmail("");
+                        setUserUsername("");
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch user info:", e);
+                    setUserName("Error loading");
+                    setUserEmail("");
+                }
+            } else {
+                // Fallback to ticket data for legacy tickets
+                setUserName(data?.name || "Unknown User");
+                setUserEmail(data?.email || "");
+                setUserUsername("");
+            }
+        };
+        fetchUserInfo();
+    }, [data?.uid, data?.name, data?.email]);
+
+    // Sync state when data changes
+    useEffect(() => {
+        if (data) {
+            setStatus(data.status || "open");
+            setPriority(data.priority || "3");
+            setCategory(data.category || "General Inquiry");
+        }
+    }, [data]);
+
+    if (!data) {
+        return <div className="p-4 text-neutral-500 text-sm">No ticket selected.</div>;
+    }
+
+    const handleStatusChange = async (newStatus: string) => {
+        if (newStatus === status || !data.id) return;
+        setUpdating(true);
+        try {
+            await updateDoc(doc(db, "supportTickets", data.id), {
+                status: newStatus,
+                updatedAt: serverTimestamp()
+            });
+            setStatus(newStatus);
+        } catch (err) {
+            console.error("Failed to update status:", err);
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    const handlePriorityChange = async (newPriority: string) => {
+        if (newPriority === priority || !data.id) return;
+        setUpdating(true);
+        try {
+            await updateDoc(doc(db, "supportTickets", data.id), {
+                priority: newPriority,
+                updatedAt: serverTimestamp()
+            });
+            setPriority(newPriority);
+        } catch (err) {
+            console.error("Failed to update priority:", err);
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    const getStatusStyle = (s: string) => {
+        switch (s) {
+            case "open": return "bg-green-500/15 text-green-400 border-green-500/30";
+            case "in_progress": return "bg-blue-500/15 text-blue-400 border-blue-500/30";
+            case "resolved": return "bg-neutral-500/15 text-neutral-400 border-neutral-500/30";
+            default: return "bg-neutral-500/15 text-neutral-400 border-neutral-500/30";
+        }
+    };
+
+    const getPriorityStyle = (p: string) => {
+        switch (p?.toLowerCase()) {
+            case "high": return "text-red-400 bg-red-500/10 border-red-500/20";
+            case "medium": return "text-orange-400 bg-orange-500/10 border-orange-500/20";
+            case "low": return "text-blue-400 bg-blue-500/10 border-blue-500/20";
+            default: return "text-neutral-400 bg-neutral-500/10 border-neutral-500/20";
+        }
+    };
+
+    return (
+        <div className="p-4 space-y-6">
+            {/* User Info */}
+            <div>
+                <h3 className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-3">Contact</h3>
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-500">Name</span>
+                        <span className="text-sm font-medium text-white">{userName}</span>
+                    </div>
+                    {userUsername && (
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs text-neutral-500">Username</span>
+                            <span className="text-xs text-neutral-300">@{userUsername}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-500">Email</span>
+                        <span className="text-xs text-neutral-300">{userEmail || "No email"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-500">UID</span>
+                        <span className="text-[10px] text-neutral-500 font-mono truncate max-w-[150px]">{data.uid || "N/A"}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="h-px bg-white/[0.06]" />
+
+            {/* Ticket Details */}
+            <div>
+                <h3 className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-3">Details</h3>
+                <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-500">Created</span>
+                        <span className="text-xs text-neutral-300">
+                            {data.createdAt?.toDate ? new Date(data.createdAt.toDate()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "-"}
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-500">Type</span>
+                        <div className="relative">
+                            <select
+                                value={category}
+                                onChange={async (e) => {
+                                    const newCategory = e.target.value;
+                                    if (newCategory === category || !data.id) return;
+                                    setUpdating(true);
+                                    try {
+                                        await updateDoc(doc(db, "supportTickets", data.id), {
+                                            category: newCategory,
+                                            updatedAt: serverTimestamp()
+                                        });
+                                        setCategory(newCategory);
+                                    } catch (err) {
+                                        console.error("Failed to update category:", err);
+                                    } finally {
+                                        setUpdating(false);
+                                    }
+                                }}
+                                disabled={updating}
+                                className="text-xs px-3 py-1 rounded-full border appearance-none cursor-pointer outline-none transition-all pr-6 bg-white/[0.05] border-white/10 text-neutral-300 hover:bg-white/[0.08] disabled:opacity-50"
+                            >
+                                <option value="General Inquiry" className="bg-[#1a1a1a]">General Inquiry</option>
+                                <option value="Bug Report" className="bg-[#1a1a1a]">Bug Report</option>
+                                <option value="Feature Request" className="bg-[#1a1a1a]">Feature Request</option>
+                                <option value="Account Issue" className="bg-[#1a1a1a]">Account Issue</option>
+                                <option value="Billing" className="bg-[#1a1a1a]">Billing</option>
+                                <option value="Other" className="bg-[#1a1a1a]">Other</option>
+                            </select>
+                            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Status Dropdown */}
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-500">Status</span>
+                        <div className="relative">
+                            <select
+                                value={status}
+                                onChange={(e) => handleStatusChange(e.target.value)}
+                                disabled={updating}
+                                className={`text-xs px-3 py-1 rounded-full border appearance-none cursor-pointer outline-none transition-all pr-6 ${getStatusStyle(status)} disabled:opacity-50`}
+                            >
+                                <option value="open" className="bg-[#1a1a1a] text-green-400">Open</option>
+                                <option value="in_progress" className="bg-[#1a1a1a] text-blue-400">In Progress</option>
+                                <option value="resolved" className="bg-[#1a1a1a] text-neutral-400">Resolved</option>
+                            </select>
+                            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-current opacity-60">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Priority Segment Picker */}
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-500">Priority</span>
+                        <div className="flex items-center gap-1.5 p-1 rounded-full bg-white/[0.03] border border-white/[0.05]">
+                            {[
+                                { value: "1", color: "bg-green-500", label: "Lowest" },
+                                { value: "2", color: "bg-blue-500", label: "Low" },
+                                { value: "3", color: "bg-yellow-500", label: "Medium" },
+                                { value: "4", color: "bg-orange-500", label: "High" },
+                                { value: "5", color: "bg-red-500", label: "Critical" }
+                            ].map((p) => (
+                                <button
+                                    key={p.value}
+                                    onClick={() => handlePriorityChange(p.value)}
+                                    disabled={updating}
+                                    title={p.label}
+                                    className={`w-5 h-5 rounded-full transition-all ${p.color} ${priority === p.value
+                                        ? "ring-2 ring-white ring-offset-1 ring-offset-black scale-110"
+                                        : "opacity-40 hover:opacity-70"
+                                        } disabled:cursor-not-allowed`}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="h-px bg-white/[0.06]" />
+
+            {/* Response Info */}
+            <div>
+                <h3 className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-3">Activity</h3>
+                <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-500">Last Response</span>
+                        <span className="text-xs text-neutral-300">
+                            {data.lastMessageAt?.toDate
+                                ? formatDistanceToNow(data.lastMessageAt.toDate(), { addSuffix: true })
+                                : data.createdAt?.toDate
+                                    ? formatDistanceToNow(data.createdAt.toDate(), { addSuffix: true })
+                                    : "-"
+                            }
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-500">Last Responder</span>
+                        <span className={`text-xs ${data.lastResponderIsStaff ? 'text-blue-400' : 'text-neutral-300'}`}>
+                            {data.lastResponderIsStaff ? "Support Staff" : userName}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Device Info */}
+            {data.deviceInfo && (
+                <>
+                    <div className="h-px bg-white/[0.06]" />
+                    <div>
+                        <h3 className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-3">Device</h3>
+                        <div className="space-y-3">
+                            {data.deviceInfo.platform && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-neutral-500">Platform</span>
+                                    <span className="text-xs text-neutral-300">
+                                        {data.deviceInfo.platform.includes("Mac") ? "macOS" :
+                                            data.deviceInfo.platform.includes("Win") ? "Windows" :
+                                                data.deviceInfo.platform.includes("Linux") ? "Linux" :
+                                                    data.deviceInfo.platform.includes("iPhone") || data.deviceInfo.platform.includes("iPad") ? "iOS" :
+                                                        data.deviceInfo.platform.includes("Android") ? "Android" : data.deviceInfo.platform}
+                                    </span>
+                                </div>
+                            )}
+                            {data.deviceInfo.userAgent && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-neutral-500">Browser</span>
+                                    <span className="text-xs text-neutral-300">
+                                        {data.deviceInfo.userAgent.includes("Chrome") ? "Chrome" :
+                                            data.deviceInfo.userAgent.includes("Safari") ? "Safari" :
+                                                data.deviceInfo.userAgent.includes("Firefox") ? "Firefox" :
+                                                    data.deviceInfo.userAgent.includes("Edge") ? "Edge" : "Unknown"}
+                                    </span>
+                                </div>
+                            )}
+                            {data.deviceInfo.language && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-neutral-500">Language</span>
+                                    <span className="text-xs text-neutral-300">{data.deviceInfo.language}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </>
             )}
         </div>
     );

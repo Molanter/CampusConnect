@@ -9,6 +9,7 @@ export interface ClubProfile {
     name: string;
     avatarUrl?: string | null;
     handle?: string | null;
+    isVerified?: boolean;
 }
 
 interface ClubProfilesContextType {
@@ -39,6 +40,7 @@ export function ClubProfilesProvider({ children }: { children: ReactNode }) {
                         name: data.name || "Club",
                         avatarUrl: data.logoUrl || data.avatarUrl || data.photoURL || null,
                         handle: data.handle || null,
+                        isVerified: data.isVerified || false,
                     };
                     setClubProfiles((prev) => ({ ...prev, [clubId]: profile }));
                     loadedClubIds.current.add(clubId);

@@ -3,6 +3,7 @@
 import { Club } from "@/lib/clubs";
 import { useRouter } from "next/navigation";
 import { ChevronRightIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 
 interface ClubRowProps {
     club: Club;
@@ -31,8 +32,11 @@ export function ClubRow({ club }: ClubRowProps) {
                 {/* Content */}
                 <div className="flex flex-col overflow-hidden">
                     <div className="flex items-center gap-2">
-                        <h3 className="truncate text-base font-semibold text-white group-hover:text-[#ffb200] transition-colors">
+                        <h3 className="truncate text-base font-semibold text-white group-hover:text-[#ffb200] transition-colors flex items-center gap-1">
                             {club.name}
+                            {club.isVerified && (
+                                <CheckBadgeIcon className="h-4 w-4 text-blue-500 shrink-0" />
+                            )}
                         </h3>
                         <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-zinc-500 uppercase tracking-wide">
                             Club

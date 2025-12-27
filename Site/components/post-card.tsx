@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { HandThumbUpIcon, HandThumbDownIcon, QuestionMarkCircleIcon, HeartIcon, CheckIcon, XMarkIcon, CalendarIcon, UserGroupIcon } from "@heroicons/react/24/solid";
+import { HandThumbUpIcon, HandThumbDownIcon, QuestionMarkCircleIcon, HeartIcon, CheckIcon, CheckBadgeIcon, XMarkIcon, CalendarIcon, UserGroupIcon } from "@heroicons/react/24/solid";
 import { HeartIcon as HeartIconOutline, PencilIcon, EllipsisVerticalIcon, FlagIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -1529,8 +1529,11 @@ export function PostCard({
                         <div className="flex items-center gap-2">
                             {isClubPost ? (
                                 <>
-                                    <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-bold text-white hover:underline">
+                                    <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-bold text-white hover:underline flex items-center gap-1">
                                         {clubProfile?.name || "Club"}
+                                        {clubProfile?.isVerified && (
+                                            <CheckBadgeIcon className="h-4 w-4 text-blue-500 shrink-0" />
+                                        )}
                                     </Link>
                                     {clubProfile?.handle && (
                                         <span className="text-xs text-neutral-500 truncate">@{clubProfile.handle}</span>

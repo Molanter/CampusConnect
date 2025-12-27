@@ -26,12 +26,14 @@ export interface Club {
     description: string;
     coverImageUrl?: string;
     logoUrl?: string; // New: Club logo/avatar
+    profileImageUrl?: string; // Alias for logoUrl often used in UI components
     isPrivate: boolean;
     memberCount: number;
     tags?: string[];
     category?: string;
     createdAt: any;
     createdBy: string;
+    adminUids?: string[]; // Denormalized list of admin UIDs
 
     // Settings
     allowMemberPosts: boolean;

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Club } from "../../lib/clubs";
 import { UserGroupIcon, LockClosedIcon } from "@heroicons/react/24/solid";
+import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 
 interface ClubCardProps {
     club: Club;
@@ -38,8 +39,9 @@ export function ClubCard({ club }: ClubCardProps) {
 
                 {/* Content */}
                 <div className="p-4">
-                    <h3 className="text-lg font-semibold text-white/90 group-hover:text-white truncate">
+                    <h3 className="text-lg font-semibold text-white/90 group-hover:text-white truncate flex items-center gap-1">
                         {club.name}
+                        {club.isVerified && <CheckBadgeIcon className="h-4 w-4 text-blue-500 shrink-0" />}
                     </h3>
 
                     <p className="mt-1 text-sm text-zinc-400 line-clamp-2 h-10 leading-relaxed">

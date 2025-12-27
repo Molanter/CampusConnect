@@ -62,7 +62,7 @@ export default function ClubsHome() {
 
     return (
         <div className="min-h-screen pb-20">
-            <div className="mx-auto max-w-7xl px-4 md:px-8">
+            <div className="mx-auto max-w-7xl px-4 md:px-8 md:pt-4">
 
                 {/* Header */}
                 <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

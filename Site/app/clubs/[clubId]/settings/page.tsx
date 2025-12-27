@@ -16,13 +16,17 @@ import {
     ArrowRightOnRectangleIcon,
     CheckBadgeIcon,
     SparklesIcon,
-    PencilIcon
+    PencilIcon,
+    ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 import { CheckBadgeIcon as CheckBadgeSolidIcon } from "@heroicons/react/24/solid";
 import { auth, db } from "../../../../lib/firebase";
 import { Club } from "../../../../lib/clubs";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "../../../../lib/admin-utils";
 import { useAdminMode } from "../../../../components/admin-mode-context";
+import { useRightSidebar } from "../../../../components/right-sidebar-context";
+import { InformationCircleIcon } from "@heroicons/react/24/outline";
+import Toast, { ToastData } from "@/components/Toast";
 
 export default function ClubSettingsPage() {
     const params = useParams();
@@ -34,7 +38,10 @@ export default function ClubSettingsPage() {
     const [membership, setMembership] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [isGlobalAdminUser, setIsGlobalAdminUser] = useState(false);
+    const [toast, setToast] = useState<ToastData | null>(null);
+
     const { adminModeOn } = useAdminMode();
+    const { openView } = useRightSidebar();
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (u) => {
@@ -117,6 +124,13 @@ export default function ClubSettingsPage() {
 
     const handlePostingPermissionChange = async (value: 'anyone' | 'admins') => {
         if (!club) return;
+
+        // Enforce verification requirement
+        if (value === 'anyone' && !club.isVerified && club.verificationStatus !== 'approved') {
+            setToast({ type: 'error', message: "Only verified clubs can post to the entire campus. Please request verification." });
+            return;
+        }
+
         try {
             await updateDoc(doc(db, "clubs", clubId), { postingPermission: value });
             setClub({ ...club, postingPermission: value });
@@ -180,8 +194,11 @@ export default function ClubSettingsPage() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
                     Club Settings
                 </p>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">
+                <h1 className="mt-2 text-3xl font-bold tracking-tight text-white flex items-center gap-2">
                     {club.name}
+                    {club.isVerified && (
+                        <CheckBadgeSolidIcon className="h-7 w-7 text-blue-500 shrink-0" />
+                    )}
                 </h1>
                 <p className="mt-2 text-sm text-neutral-400">
                     Manage club details, privacy, and members
@@ -266,22 +283,34 @@ export default function ClubSettingsPage() {
                 <h2 className="px-4 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">Privacy & Permissions</h2>
                 <div className="overflow-hidden rounded-2xl bg-[#1C1C1E]">
                     {/* Private Club Toggle */}
-                    <button
-                        onClick={handleTogglePrivate}
-                        className="flex w-full items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
-                    >
+                    {/* Private Club Toggle */}
+                    <div className="flex w-full items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 cursor-pointer">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-teal-600">
                             <LockClosedIcon className="h-5 w-5 text-white" />
                         </div>
                         <div className="flex-1 text-left">
-                            <p className="text-[15px] font-normal text-white">Private Club</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-[15px] font-normal text-white">Private Club</p>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openView("club-privacy-info");
+                                    }}
+                                    className="text-neutral-500 hover:text-white transition-colors"
+                                >
+                                    <InformationCircleIcon className="h-4 w-4" />
+                                </button>
+                            </div>
                             <p className="text-[11px] text-neutral-500">Require approval to join</p>
                         </div>
                         {/* Toggle Switch */}
-                        <div className={`relative h-7 w-12 rounded-full transition-colors ${club.isPrivate ? 'bg-[#ffb200]' : 'bg-neutral-700'}`}>
+                        <div
+                            onClick={handleTogglePrivate}
+                            className={`relative h-7 w-12 rounded-full transition-colors cursor-pointer ${club.isPrivate ? 'bg-[#ffb200]' : 'bg-neutral-700'}`}
+                        >
                             <div className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${club.isPrivate ? 'translate-x-5' : 'translate-x-0.5'}`} />
                         </div>
-                    </button>
+                    </div>
 
                     {/* Who Can Post Picker */}
                     <div className="flex items-center gap-3 px-4 py-3">
@@ -290,14 +319,22 @@ export default function ClubSettingsPage() {
                         </div>
                         <div className="flex-1">
                             <p className="text-[15px] font-normal text-white">Who Can Post</p>
+                            {!club.isVerified && club.verificationStatus !== 'approved' && (
+                                <p className="text-[10px] text-amber-500">
+                                    <ExclamationTriangleIcon className="inline h-3 w-3 mr-1" />
+                                    Verify club to enable Campus Wide posting
+                                </p>
+                            )}
                         </div>
                         <select
                             value={club.postingPermission || 'anyone'}
-                            onChange={(e) => handlePostingPermissionChange(e.target.value as 'anyone' | 'admins')}
+                            onChange={(e) => {
+                                handlePostingPermissionChange(e.target.value as 'anyone' | 'admins');
+                            }}
                             className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm text-white border border-white/10 focus:outline-none focus:ring-1 focus:ring-[#ffb200]"
                         >
-                            <option value="anyone">Anyone</option>
-                            <option value="admins">Admins Only</option>
+                            <option value="anyone">Anyone (Campus Wide)</option>
+                            <option value="admins">Club Members Only</option>
                         </select>
                     </div>
                 </div>
@@ -321,6 +358,8 @@ export default function ClubSettingsPage() {
                     </button>
                 </div>
             </section>
+
+            <Toast toast={toast} onClear={() => setToast(null)} />
         </div>
     );
 }

@@ -3,6 +3,7 @@
 import { Club } from "@/lib/clubs";
 import { useRouter } from "next/navigation";
 import { UserGroupIcon } from "@heroicons/react/24/outline";
+import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 
 interface ClubCardProps {
     club: Club;
@@ -31,8 +32,11 @@ export function ClubCard({ club }: ClubCardProps) {
                 </button>
             </div>
 
-            <h3 className="line-clamp-1 text-sm font-bold text-white group-hover:text-[#ffb200] transition-colors">
+            <h3 className="line-clamp-1 text-sm font-bold text-white group-hover:text-[#ffb200] transition-colors flex items-center gap-1">
                 {club.name}
+                {club.isVerified && (
+                    <CheckBadgeIcon className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                )}
             </h3>
 
             <p className="mt-1 line-clamp-2 text-xs text-zinc-400 h-8">

@@ -11,7 +11,10 @@ interface Club {
     description?: string;
     coverImageUrl?: string;
     memberCount?: number;
+    isVerified?: boolean;
 }
+
+import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 
 export function MyClubsView({ userId }: { userId: string }) {
     const router = useRouter();
@@ -40,6 +43,7 @@ export function MyClubsView({ userId }: { userId: string }) {
                             description: clubData.description,
                             coverImageUrl: clubData.coverImageUrl,
                             memberCount: clubData.memberCount || 0,
+                            isVerified: clubData.isVerified
                         });
                     }
                 }
@@ -114,8 +118,11 @@ export function MyClubsView({ userId }: { userId: string }) {
 
                     {/* Club Info */}
                     <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold text-white mb-0.5 truncate">
+                        <h3 className="text-sm font-semibold text-white mb-0.5 truncate flex items-center gap-1">
                             {club.name}
+                            {club.isVerified && (
+                                <CheckBadgeIcon className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                            )}
                         </h3>
                         {club.description && (
                             <p className="text-xs text-neutral-400 line-clamp-2 mb-1">

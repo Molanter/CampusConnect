@@ -1,47 +1,149 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { MagnifyingGlassIcon, FunnelIcon, ChartBarIcon, ClockIcon, CheckCircleIcon, InboxIcon, ArrowUpRightIcon } from "@heroicons/react/24/outline";
-import { format } from "date-fns";
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, Timestamp, getDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { MagnifyingGlassIcon, FunnelIcon, ChartBarIcon, ClockIcon, CheckCircleIcon, InboxIcon, ArrowUpRightIcon, PaperAirplaneIcon, ArrowPathIcon, InformationCircleIcon, ChatBubbleLeftRightIcon, ChevronLeftIcon } from "@heroicons/react/24/outline";
+import { format, formatDistanceToNow } from "date-fns";
+import Toast, { ToastData } from "@/components/Toast";
+import { useRightSidebar } from "@/components/right-sidebar-context";
 
 type SupportTicket = {
     id: string;
-    name: string;
-    email: string;
+    name?: string;
+    email?: string;
     category: string;
-    priority: "Low" | "Medium" | "High";
+    priority: string;
     status: "open" | "in_progress" | "resolved" | "closed";
     message: string;
     createdAt: any;
+    lastMessageAt?: any;
+    lastResponderIsStaff?: boolean;
     uid?: string;
+    attachments?: string[];
+    deviceInfo?: {
+        platform?: string;
+        language?: string;
+        userAgent?: string;
+    };
+};
+
+type UserInfo = {
+    name: string;
+    email: string;
+};
+
+type Message = {
+    id: string;
+    text: string;
+    senderUid: string;
+    isStaff: boolean;
+    createdAt: Timestamp;
 };
 
 export default function AdminSupportPage() {
+    const { openView, toggle, isVisible } = useRightSidebar();
     const [tickets, setTickets] = useState<SupportTicket[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState<"overview" | "tickets" | "stats">("overview");
 
-    // Real-time listener
+    // Chat state for tickets tab
+    const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [newMessage, setNewMessage] = useState("");
+    const [sending, setSending] = useState(false);
+    const [toast, setToast] = useState<ToastData | null>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [userCache, setUserCache] = useState<Record<string, UserInfo>>({});
+    const [overlayImage, setOverlayImage] = useState<string | null>(null);
+    const [overlayIndex, setOverlayIndex] = useState<number>(0);
+
+    // Real-time listener for tickets
     useEffect(() => {
         const q = query(
             collection(db, "supportTickets"),
             orderBy("createdAt", "desc")
         );
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
             const fetched = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             } as SupportTicket));
             setTickets(fetched);
             setLoading(false);
+
+            // Fetch user info for UIDs not in cache
+            const uidsToFetch = fetched
+                .filter(t => t.uid && !userCache[t.uid])
+                .map(t => t.uid!)
+                .filter((uid, idx, arr) => arr.indexOf(uid) === idx); // unique
+
+            if (uidsToFetch.length > 0) {
+                const newUsers: Record<string, UserInfo> = {};
+                await Promise.all(uidsToFetch.map(async (uid) => {
+                    try {
+                        const userDoc = await getDoc(doc(db, "users", uid));
+                        if (userDoc.exists()) {
+                            const data = userDoc.data();
+                            newUsers[uid] = {
+                                name: data.name || data.displayName || "Unknown",
+                                email: data.email || ""
+                            };
+                        }
+                    } catch (e) {
+                        console.error("Failed to fetch user:", uid, e);
+                    }
+                }));
+                if (Object.keys(newUsers).length > 0) {
+                    setUserCache(prev => ({ ...prev, ...newUsers }));
+                }
+            }
+
+            // Auto-select first ticket if none selected and on tickets tab
+            if (!selectedTicketId && fetched.length > 0 && activeTab === 'tickets') {
+                setSelectedTicketId(fetched[0].id);
+            }
         });
         return () => unsubscribe();
-    }, []);
+    }, [activeTab]);
+
+    // Fetch messages for selected ticket
+    useEffect(() => {
+        if (!selectedTicketId) {
+            setMessages([]);
+            return;
+        }
+
+        const messagesRef = collection(db, "supportTickets", selectedTicketId, "messages");
+        const q = query(messagesRef, orderBy("createdAt", "asc"));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Message));
+            setMessages(msgs);
+        });
+
+        return () => unsubscribe();
+    }, [selectedTicketId]);
+
+    // Update right sidebar when ticket changes
+    useEffect(() => {
+        if (selectedTicketId && activeTab === 'tickets') {
+            const ticket = tickets.find(t => t.id === selectedTicketId);
+            // Only auto-open on desktop
+            if (ticket && window.innerWidth >= 1024) {
+                openView("support-ticket-info", ticket);
+            }
+        }
+    }, [selectedTicketId, tickets, openView, activeTab]);
+
+    // Scroll to bottom of messages
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
 
     // Derived Stats
     const stats = {
@@ -51,43 +153,177 @@ export default function AdminSupportPage() {
         highPriority: tickets.filter(t => t.priority === 'High' && t.status !== 'resolved').length
     };
 
+    // Helper to get user name from cache or ticket
+    const getUserName = (ticket: SupportTicket) => {
+        if (ticket.uid && userCache[ticket.uid]) {
+            return userCache[ticket.uid].name;
+        }
+        return ticket.name || "Unknown User";
+    };
+
+    const getUserEmail = (ticket: SupportTicket) => {
+        if (ticket.uid && userCache[ticket.uid]) {
+            return userCache[ticket.uid].email;
+        }
+        return ticket.email || "";
+    };
+
     // Filter logic
-    const filteredTickets = tickets.filter(ticket => {
+    const filteredTickets = useMemo(() => tickets.filter(ticket => {
         const matchesStatus = filterStatus === "all" ? true : ticket.status === filterStatus;
+        const userName = getUserName(ticket);
+        const userEmail = getUserEmail(ticket);
         const matchesSearch =
-            ticket.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            ticket.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            ticket.message.toLowerCase().includes(searchQuery.toLowerCase());
+            userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            userEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ticket.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ticket.category.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesStatus && matchesSearch;
-    });
+    }), [tickets, filterStatus, searchQuery, userCache]);
+
+    const selectedTicket = useMemo(() =>
+        selectedTicketId ? tickets.find(t => t.id === selectedTicketId) : null
+        , [tickets, selectedTicketId]);
+
+    // Current attachments for navigation
+    const currentAttachments = selectedTicket?.attachments || [];
+
+    // Keyboard navigation for image overlay
+    useEffect(() => {
+        if (!overlayImage) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setOverlayImage(null);
+            } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                if (currentAttachments.length > 1) {
+                    const nextIndex = (overlayIndex + 1) % currentAttachments.length;
+                    setOverlayIndex(nextIndex);
+                    setOverlayImage(currentAttachments[nextIndex]);
+                }
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                if (currentAttachments.length > 1) {
+                    const prevIndex = overlayIndex === 0 ? currentAttachments.length - 1 : overlayIndex - 1;
+                    setOverlayIndex(prevIndex);
+                    setOverlayImage(currentAttachments[prevIndex]);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [overlayImage, overlayIndex, currentAttachments]);
+
+    const handleSendMessage = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (!newMessage.trim() || !selectedTicketId) return;
+
+        setSending(true);
+        try {
+            const user = auth.currentUser;
+            if (!user) throw new Error("Not authenticated");
+
+            await addDoc(collection(db, "supportTickets", selectedTicketId, "messages"), {
+                text: newMessage.trim(),
+                senderUid: user.uid,
+                isStaff: true,
+                createdAt: serverTimestamp()
+            });
+
+            const updatePayload: any = {
+                updatedAt: serverTimestamp(),
+                lastMessageAt: serverTimestamp(),
+                lastResponderIsStaff: true
+            };
+            if (selectedTicket?.status === 'open') {
+                updatePayload.status = 'in_progress';
+            }
+
+            await updateDoc(doc(db, "supportTickets", selectedTicketId), updatePayload);
+            setNewMessage("");
+        } catch (error) {
+            console.error(error);
+            setToast({ type: "error", message: "Failed to send message" });
+        } finally {
+            setSending(false);
+        }
+    };
+
+    const handleUpdateStatus = async (newStatus: "resolved" | "in_progress" | "open") => {
+        if (!selectedTicketId) return;
+        try {
+            await updateDoc(doc(db, "supportTickets", selectedTicketId), {
+                status: newStatus,
+                updatedAt: serverTimestamp()
+            });
+            setToast({ type: "success", message: `Ticket marked as ${newStatus}` });
+        } catch (error) {
+            setToast({ type: "error", message: "Failed to update status" });
+        }
+    };
+
+    const getChatStatusStyle = (status: string) => {
+        switch (status) {
+            case "open": return "bg-green-500/15 text-green-400 border-green-500/30";
+            case "in_progress": return "bg-blue-500/15 text-blue-400 border-blue-500/30";
+            case "resolved": return "bg-neutral-500/15 text-neutral-400 border-neutral-500/30";
+            default: return "bg-neutral-500/15 text-neutral-400 border-neutral-500/30";
+        }
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case "open": return "bg-green-500";
+            case "in_progress": return "bg-blue-500";
+            case "resolved": return "bg-neutral-500";
+            default: return "bg-neutral-500";
+        }
+    };
+
+    const getPriorityColor = (priority: string) => {
+        switch (priority) {
+            case "1": return "bg-green-500";
+            case "2": return "bg-blue-500";
+            case "3": return "bg-yellow-500";
+            case "4": return "bg-orange-500";
+            case "5": return "bg-red-500";
+            // Legacy values
+            case "Low": return "bg-blue-500";
+            case "Medium": return "bg-orange-500";
+            case "High": return "bg-red-500";
+            default: return "bg-neutral-500";
+        }
+    };
 
     // Sub-components for clarity
     const StatCardsRow = () => (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <StatCard
                 title="All Tickets"
                 value={stats.total}
-                icon={<InboxIcon className="h-6 w-6 text-white/80" />}
+                icon={<InboxIcon className="h-5 w-5" />}
+                color="bg-neutral-600"
             />
             <StatCard
                 title="Open Tickets"
                 value={stats.open}
-                icon={<ClockIcon className="h-6 w-6 text-blue-400" />}
+                icon={<ClockIcon className="h-5 w-5" />}
+                color="bg-blue-500"
             />
             <StatCard
                 title="Resolved"
                 value={stats.resolved}
-                icon={<CheckCircleIcon className="h-6 w-6 text-green-400" />}
+                icon={<CheckCircleIcon className="h-5 w-5" />}
+                color="bg-green-500"
             />
             <StatCard
                 title="High Priority"
                 value={stats.highPriority}
-                icon={<ChartBarIcon className="h-6 w-6 text-red-400" />}
+                icon={<ChartBarIcon className="h-5 w-5" />}
+                color="bg-red-500"
             />
         </div>
     );
-
-
 
     const ChartsSection = () => (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -148,73 +384,338 @@ export default function AdminSupportPage() {
         </div>
     );
 
-    return (
-        <div className="text-white p-6 md:p-10 font-sans">
-            <div className="max-w-7xl mx-auto space-y-10">
-
-                {/* Global Header */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-4 border-b border-white/[0.05]">
-                    <div>
-                        <h1 className="text-4xl font-semibold text-white tracking-tight">Support</h1>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="flex bg-white/[0.05] p-1 rounded-full">
-                        {(['overview', 'tickets', 'stats'] as const).map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`px-6 py-2 rounded-full text-[14px] font-medium transition-all ${activeTab === tab
-                                    ? "bg-[#636366] text-white shadow-lg shadow-black/20"
-                                    : "text-neutral-400 hover:text-white"
-                                    } capitalize`}
-                            >
-                                {tab}
-                            </button>
-                        ))}
+    // Tickets tab with left sidebar and embedded chat
+    const TicketsChatView = () => (
+        <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-200px)]">
+            {/* Left Sidebar - Ticket List */}
+            <div className={`w-full lg:w-80 pt-4 px-3 bg-white/[0.02] border border-white/5 rounded-[1.8rem] flex-shrink-0 flex flex-col ${selectedTicketId ? 'hidden lg:flex' : 'flex'}`}>
+                {/* Search */}
+                <div className="px-2 mb-4">
+                    <div className="relative">
+                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search tickets..."
+                            className="w-full pl-9 pr-4 py-2.5 rounded-full bg-white/5 border border-white/10 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-white/20 transition-colors"
+                        />
                     </div>
                 </div>
 
-                {/* View Content */}
-                <div className="space-y-8 min-h-[600px] animate-in fade-in duration-500">
-                    {activeTab === 'overview' && (
-                        <>
-                            <StatCardsRow />
-                            <TicketList
-                                searchQuery={searchQuery}
-                                setSearchQuery={setSearchQuery}
-                                filterStatus={filterStatus}
-                                setFilterStatus={setFilterStatus}
-                                loading={loading}
-                                filteredTickets={filteredTickets}
-                                setActiveTab={setActiveTab}
-                            />
-                        </>
-                    )}
+                {/* Status Filter Tabs */}
+                <div className="flex gap-1 px-2 mb-4 flex-wrap">
+                    {(["all", "open", "in_progress", "resolved"] as const).map((status) => (
+                        <button
+                            key={status}
+                            onClick={() => setFilterStatus(status)}
+                            className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${filterStatus === status
+                                ? "bg-white/10 text-white"
+                                : "text-neutral-500 hover:text-neutral-300 hover:bg-white/5"
+                                }`}
+                        >
+                            {status === "all" ? "All" : status === "in_progress" ? "Active" : status.charAt(0).toUpperCase() + status.slice(1)}
+                        </button>
+                    ))}
+                </div>
 
-                    {activeTab === 'tickets' && (
-                        <TicketList
-                            title="All Support Tickets"
-                            showViewAll={false}
-                            searchQuery={searchQuery}
-                            setSearchQuery={setSearchQuery}
-                            filterStatus={filterStatus}
-                            setFilterStatus={setFilterStatus}
-                            loading={loading}
-                            filteredTickets={filteredTickets}
-                            setActiveTab={setActiveTab}
-                        />
-                    )}
-
-                    {activeTab === 'stats' && (
-                        <>
-                            <StatCardsRow />
-                            <ChartsSection />
-                        </>
+                {/* Ticket List */}
+                <div className="flex-1 overflow-y-auto space-y-1 pb-4 custom-scrollbar">
+                    {loading ? (
+                        <div className="px-4 py-8 text-center">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-700 border-t-[#ffb200] mx-auto" />
+                        </div>
+                    ) : filteredTickets.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-sm text-neutral-500">
+                            No tickets found
+                        </div>
+                    ) : (
+                        filteredTickets.map(ticket => (
+                            <button
+                                key={ticket.id}
+                                onClick={() => setSelectedTicketId(ticket.id)}
+                                className={`w-full text-left px-3 py-3 rounded-[1.2rem] transition-all ${selectedTicketId === ticket.id
+                                    ? "bg-white/10 shadow-sm"
+                                    : "hover:bg-white/5"
+                                    }`}
+                            >
+                                <div className="flex items-start gap-3">
+                                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${getPriorityColor(ticket.priority)}`} />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <p className={`text-sm font-medium truncate ${selectedTicketId === ticket.id ? "text-white" : "text-neutral-300"}`}>
+                                                    {getUserName(ticket)}
+                                                </p>
+                                                <span className="text-[10px] text-neutral-500 flex-shrink-0">
+                                                    {ticket.category}
+                                                </span>
+                                            </div>
+                                            <span className="text-[10px] text-neutral-600 flex-shrink-0">
+                                                {(ticket.lastMessageAt?.toDate || ticket.createdAt?.toDate)
+                                                    ? formatDistanceToNow(
+                                                        ticket.lastMessageAt?.toDate?.() || ticket.createdAt.toDate(),
+                                                        { addSuffix: false }
+                                                    ).replace("about ", "")
+                                                    : ""}
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-neutral-600 line-clamp-1 mt-1">
+                                            {ticket.message}
+                                        </p>
+                                    </div>
+                                </div>
+                            </button>
+                        ))
                     )}
                 </div>
             </div>
+
+            {/* Right Content - Chat Area */}
+            <div className={`flex-1 flex flex-col min-w-0 ${!selectedTicketId ? 'hidden lg:flex' : 'flex'}`}>
+                {selectedTicket ? (
+                    <>
+                        {/* Chat Header */}
+                        <div className="flex items-center justify-between mb-4">
+                            {/* Left Info */}
+                            <div className="flex items-center gap-3 bg-white/[0.05] backdrop-blur-xl rounded-full px-4 py-2 border border-white/[0.08]">
+                                <button
+                                    onClick={() => setSelectedTicketId(null)}
+                                    className="lg:hidden p-1 -ml-2 mr-1 rounded-full hover:bg-white/10 text-neutral-400"
+                                >
+                                    <ChevronLeftIcon className="h-4 w-4" />
+                                </button>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-sm font-semibold text-white">{selectedTicket.category}</h2>
+                                        <span className="text-xs text-neutral-500 font-mono">#{selectedTicket.id.slice(0, 6)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right Actions */}
+                            <div className="flex items-center gap-2">
+                                <span className={`hidden lg:block px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-widest ${getChatStatusStyle(selectedTicket.status)}`}>
+                                    {selectedTicket.status.replace("_", " ")}
+                                </span>
+
+                                {selectedTicket.status !== 'resolved' ? (
+                                    <button
+                                        onClick={() => handleUpdateStatus('resolved')}
+                                        className="hidden lg:flex items-center gap-2 rounded-full bg-white/[0.08] hover:bg-white/[0.12] px-4 py-1.5 text-xs font-medium transition-colors"
+                                    >
+                                        <CheckCircleIcon className="h-4 w-4 text-green-400" />
+                                        <span>Resolve</span>
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => handleUpdateStatus('in_progress')}
+                                        className="hidden lg:flex items-center gap-2 rounded-full bg-white/[0.08] hover:bg-white/[0.12] px-4 py-1.5 text-xs font-medium transition-colors"
+                                    >
+                                        <ArrowPathIcon className="h-4 w-4 text-blue-400" />
+                                        <span>Reopen</span>
+                                    </button>
+                                )}
+
+                                {/* Info Toggle Button */}
+                                <button
+                                    onClick={() => {
+                                        if (isVisible) {
+                                            toggle();
+                                        } else {
+                                            openView("support-ticket-info", selectedTicket);
+                                        }
+                                    }}
+                                    className={`flex items-center justify-center w-10 h-10 rounded-full border transition-colors ${isVisible
+                                        ? "bg-white text-black border-white"
+                                        : "bg-white/[0.05] border-white/[0.08] hover:bg-white/[0.08] text-neutral-400"
+                                        }`}
+                                    title={isVisible ? "Hide ticket info" : "Show ticket info"}
+                                >
+                                    <InformationCircleIcon className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Messages Area */}
+                        <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                            {/* Original Ticket Message */}
+                            <div className="flex items-end gap-3">
+                                <div className="flex-1">
+                                    <div className="inline-block max-w-[85%] rounded-2xl rounded-bl-md bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] px-4 py-3">
+                                        <p className="whitespace-pre-wrap text-sm text-neutral-200 leading-relaxed">
+                                            {selectedTicket.message}
+                                        </p>
+                                        {/* Attachments */}
+                                        {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+                                                {selectedTicket.attachments.map((url, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => {
+                                                            setOverlayIndex(idx);
+                                                            setOverlayImage(url);
+                                                        }}
+                                                        className="relative group rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-all"
+                                                    >
+                                                        <img
+                                                            src={url}
+                                                            alt={`Attachment ${idx + 1}`}
+                                                            className="h-20 w-20 object-cover"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <span className="text-white text-xs">View</span>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <span className="text-[10px] text-neutral-600 pb-1 flex-shrink-0">
+                                    {selectedTicket.createdAt?.toDate ? format(selectedTicket.createdAt.toDate(), "h:mm a") : ""}
+                                </span>
+                            </div>
+
+                            {/* Messages Loop */}
+                            {messages.map((msg) => (
+                                <div key={msg.id} className={`flex items-end gap-3 ${msg.isStaff ? 'flex-row-reverse' : ''}`}>
+                                    <div className={`flex-1 ${msg.isStaff ? 'flex justify-end' : ''}`}>
+                                        <div className={`inline-block max-w-[85%] rounded-2xl px-4 py-3 ${msg.isStaff
+                                            ? 'bg-blue-600/20 backdrop-blur-sm border border-blue-500/20 rounded-br-md'
+                                            : 'bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] rounded-bl-md'
+                                            }`}>
+                                            <p className={`whitespace-pre-wrap text-sm leading-relaxed ${msg.isStaff ? 'text-blue-100' : 'text-neutral-200'}`}>
+                                                {msg.text}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] text-neutral-600 pb-1 flex-shrink-0">
+                                        {msg.createdAt?.toDate ? format(msg.createdAt.toDate(), "h:mm a") : "now"}
+                                    </span>
+                                </div>
+                            ))}
+
+                            <div ref={messagesEndRef} />
+                        </div>
+
+                        {/* Input Area */}
+                        <div className="pt-4">
+                            <form onSubmit={handleSendMessage} className="relative">
+                                <input
+                                    type="text"
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    placeholder={selectedTicket.status === 'resolved' ? "Reopen ticket to reply..." : "Type a reply..."}
+                                    disabled={selectedTicket.status === 'resolved'}
+                                    className="w-full rounded-full bg-white/[0.05] border border-white/[0.08] pl-5 pr-14 py-3.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-white/20 focus:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!newMessage.trim() || sending || selectedTicket.status === 'resolved'}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#ffb200] text-black hover:bg-[#e6a000] disabled:bg-white/[0.05] disabled:text-neutral-600 transition-all"
+                                >
+                                    <PaperAirplaneIcon className="h-4 w-4" />
+                                </button>
+                            </form>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-neutral-500">
+                        <ChatBubbleLeftRightIcon className="h-16 w-16 mb-4 opacity-20" />
+                        <p className="text-lg font-medium">Select a ticket to view conversation</p>
+                    </div>
+                )}
+            </div>
         </div>
+    );
+
+    return (
+        <>
+            <div className="text-white p-3 md:p-10 font-sans">
+                <Toast toast={toast} onClear={() => setToast(null)} />
+                <div className="max-w-7xl mx-auto space-y-6 md:space-y-10">
+
+                    {/* Global Header */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4 pb-3 md:pb-4 border-b border-white/[0.05]">
+                        <div className="w-full md:w-auto">
+                            <h1 className="text-4xl font-semibold text-white tracking-tight">Support</h1>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="w-full md:w-auto grid grid-cols-3 md:flex bg-white/[0.05] p-1 rounded-full text-center">
+                            {(['overview', 'tickets', 'stats'] as const).map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`px-4 py-2 rounded-full text-[14px] font-medium transition-all ${activeTab === tab
+                                        ? "bg-[#636366] text-white shadow-lg shadow-black/20"
+                                        : "text-neutral-400 hover:text-white"
+                                        } capitalize`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* View Content */}
+                    <div className="space-y-8 min-h-[600px] animate-in fade-in duration-500">
+                        {activeTab === 'overview' && (
+                            <>
+                                <StatCardsRow />
+                                <TicketList
+                                    searchQuery={searchQuery}
+                                    setSearchQuery={setSearchQuery}
+                                    filterStatus={filterStatus}
+                                    setFilterStatus={setFilterStatus}
+                                    loading={loading}
+                                    filteredTickets={filteredTickets}
+                                    setActiveTab={setActiveTab}
+                                    onTicketClick={(ticketId) => {
+                                        setSelectedTicketId(ticketId);
+                                        setActiveTab("tickets");
+                                    }}
+                                    getUserName={getUserName}
+                                />
+                            </>
+                        )}
+
+                        {activeTab === 'tickets' && <TicketsChatView />}
+
+                        {activeTab === 'stats' && (
+                            <>
+                                <StatCardsRow />
+                                <ChartsSection />
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Image Overlay Modal */}
+            {overlayImage && (
+                <div
+                    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+                    onClick={() => setOverlayImage(null)}
+                >
+                    <button
+                        onClick={() => setOverlayImage(null)}
+                        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    <img
+                        src={overlayImage}
+                        alt="Full size attachment"
+                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
+        </>
     );
 }
 
@@ -239,15 +740,15 @@ const getStatusStyle = (status: string) => {
     }
 };
 
-function StatCard({ title, value, icon }: { title: string, value: number, icon: React.ReactNode }) {
+function StatCard({ title, value, icon, color }: { title: string, value: number, icon: React.ReactNode, color: string }) {
     return (
-        <div className="backdrop-blur-2xl bg-white/[0.02] p-7 rounded-[36px] border border-white/[0.08] flex items-center justify-between hover:bg-white/[0.04] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/20 group">
-            <div>
-                <p className="text-neutral-500 text-[13px] font-bold tracking-widest uppercase mb-2 group-hover:text-neutral-400 transition-colors">{title}</p>
-                <div className="text-[40px] font-light text-white tracking-tighter leading-none">{value.toLocaleString()}</div>
-            </div>
-            <div className="p-4 bg-white/[0.03] rounded-[20px] group-hover:bg-white/[0.08] transition-colors text-white/50 group-hover:text-white">
+        <div className="flex flex-col items-start justify-between gap-4 h-full rounded-[24px] border border-white/5 bg-[#1C1C1E] p-4 transition-all hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98] group cursor-default">
+            <div className={`h-9 w-9 flex items-center justify-center rounded-full ${color} text-white shadow-lg shadow-black/20`}>
                 {icon}
+            </div>
+            <div className="w-full flex items-end justify-between gap-2">
+                <p className="text-neutral-500 text-[11px] font-bold tracking-widest uppercase group-hover:text-neutral-400 transition-colors">{title}</p>
+                <div className="text-2xl font-light text-white tracking-tight leading-none">{value.toLocaleString()}</div>
             </div>
         </div>
     );
@@ -263,6 +764,8 @@ type TicketListProps = {
     loading: boolean;
     filteredTickets: SupportTicket[];
     setActiveTab: (tab: "overview" | "tickets" | "stats") => void;
+    onTicketClick?: (ticketId: string) => void;
+    getUserName: (ticket: SupportTicket) => string;
 };
 
 const TicketList = ({
@@ -274,7 +777,9 @@ const TicketList = ({
     setFilterStatus,
     loading,
     filteredTickets,
-    setActiveTab
+    setActiveTab,
+    onTicketClick,
+    getUserName
 }: TicketListProps) => (
     <>
         {/* List Header (Separated) */}
@@ -284,7 +789,7 @@ const TicketList = ({
                 <p className="text-neutral-500 text-sm mt-1 font-light">Manage and track your support request queue</p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto">
                 <div className="relative group">
                     <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500 group-focus-within:text-white transition-colors" />
                     <input
@@ -292,7 +797,7 @@ const TicketList = ({
                         placeholder="Search tickets..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        className="bg-white/[0.05] hover:bg-white/[0.08] focus:bg-white/[0.1] border border-transparent focus:border-white/10 rounded-full pl-10 pr-5 py-2.5 text-sm text-white focus:ring-0 transition-all w-56 focus:w-72 outline-none placeholder:text-neutral-600 font-light"
+                        className="bg-white/[0.05] hover:bg-white/[0.08] focus:bg-white/[0.1] border border-transparent focus:border-white/10 rounded-full pl-10 pr-5 py-2.5 text-sm text-white focus:ring-0 transition-all w-full md:w-56 md:focus:w-72 outline-none placeholder:text-neutral-600 font-light"
                     />
                 </div>
                 <div className="relative">
@@ -300,7 +805,7 @@ const TicketList = ({
                     <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
-                        className="bg-white/[0.05] hover:bg-white/[0.08] border border-transparent focus:border-white/10 rounded-full pl-10 pr-5 py-2.5 text-sm text-white focus:ring-0 cursor-pointer appearance-none outline-none transition-all font-medium"
+                        className="bg-white/[0.05] hover:bg-white/[0.08] border border-transparent focus:border-white/10 rounded-full pl-10 pr-5 py-2.5 text-sm text-white focus:ring-0 cursor-pointer appearance-none outline-none transition-all font-medium w-full md:w-auto"
                     >
                         <option value="all" className="bg-[#1C1C1E]">All Status</option>
                         <option value="open" className="bg-[#1C1C1E]">Open</option>
@@ -311,49 +816,75 @@ const TicketList = ({
             </div>
         </div>
 
-        {/* List Items Container (Glass) */}
-        <div className="backdrop-blur-3xl bg-white/[0.02] rounded-[40px] p-6 md:p-8 border border-white/[0.08] shadow-2xl shadow-black/40">
-            <div className="space-y-1.5">
+        {/* List Items Container (Dark Theme) */}
+        <div className="bg-[#1C1C1E] border border-white/5 rounded-[24px] overflow-hidden shadow-xl shadow-black/20">
+            <div className="divide-y divide-white/10">
                 {loading && <div className="text-center py-20 text-neutral-500 font-light text-lg">Loading tickets...</div>}
                 {!loading && filteredTickets.length === 0 && <div className="text-center py-20 text-neutral-500 font-light text-lg">No tickets found</div>}
 
                 {filteredTickets.map((ticket) => (
-                    <Link
-                        href={`/admin/support/${ticket.id}`}
+                    <button
+                        onClick={() => onTicketClick?.(ticket.id)}
                         key={ticket.id}
-                        className="group flex items-center gap-3 p-2.5 rounded-[20px] hover:bg-white/[0.04] transition-all duration-300 border border-transparent hover:border-white/[0.03]"
+                        className="group flex items-center gap-2 md:gap-4 px-2 py-3 md:px-6 md:py-4 w-full text-left hover:bg-white/[0.02] transition-colors"
                     >
-                        {/* Date */}
-                        <div className="w-28 flex-shrink-0 text-[12px] font-medium text-neutral-500 group-hover:text-neutral-400 transition-colors">
-                            {ticket.createdAt?.toDate ? format(ticket.createdAt.toDate(), "MMM dd, yyyy") : "Date"}
-                            <div className="text-[10px] text-neutral-600 mt-0.5 font-light">{ticket.createdAt?.toDate ? format(ticket.createdAt.toDate(), "h:mm a") : ""}</div>
-                        </div>
-
-                        {/* Indicator */}
-                        <div className={`w-1 h-6 md:h-8 rounded-full ${getIndicatorColor(ticket)} opacity-60 group-hover:opacity-100 transition-opacity`} />
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 py-0.5">
-                            <h3 className="text-[15px] font-medium text-white mb-0.5 truncate group-hover:text-blue-400 transition-colors tracking-tight">
-                                {ticket.category}
-                            </h3>
-                            <div className="flex items-center gap-2 text-[13px] text-neutral-400 truncate">
-                                <span className="text-neutral-200 font-normal">{ticket.name}</span>
-                                <span className="w-0.5 h-0.5 rounded-full bg-neutral-700" />
-                                <span className="truncate opacity-60 font-light">{ticket.message}</span>
+                        {/* Date (Desktop) */}
+                        <div className="hidden md:block w-24 flex-shrink-0 text-right pr-2">
+                            <div className="text-[13px] font-medium text-neutral-400 group-hover:text-neutral-300 transition-colors">
+                                {ticket.createdAt?.toDate ? format(ticket.createdAt.toDate(), "MMM dd") : "Date"}
+                            </div>
+                            <div className="text-[11px] text-neutral-600 font-medium">
+                                {ticket.createdAt?.toDate ? format(ticket.createdAt.toDate(), "h:mm a") : ""}
                             </div>
                         </div>
 
-                        {/* Badge */}
-                        <div className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${getStatusStyle(ticket.status)} border border-white/5 shadow-sm`}>
-                            {ticket.status.replace("_", " ")}
+                        {/* Indicator Line (Desktop) */}
+                        <div className={`hidden md:block w-1 h-10 rounded-full ${getIndicatorColor(ticket)} opacity-40 group-hover:opacity-100 transition-all`} />
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 px-1 md:px-2">
+                            <div className="flex items-center gap-2 mb-0.5">
+                                {/* Mobile Urgency Dot */}
+                                <div className={`md:hidden w-1.5 h-1.5 rounded-full ${getIndicatorColor(ticket)} flex-shrink-0`} />
+
+                                <h3 className="text-[13px] md:text-[15px] font-medium text-white truncate group-hover:text-[#ffb200] transition-colors tracking-tight">
+                                    {ticket.category}
+                                </h3>
+
+                                {/* Mobile Message Preview (Row 1) */}
+                                <span className="md:hidden truncate text-[12px] text-neutral-500 font-normal flex-1 ml-1">
+                                    {ticket.message}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 md:gap-2 text-[12px] md:text-[13px] text-neutral-500 flex-wrap">
+                                <span className="text-neutral-300 font-medium text-[11px] md:text-[13px]">{getUserName(ticket)}</span>
+                                <span className="w-0.5 h-0.5 rounded-full bg-neutral-700" />
+
+                                {/* Desktop Message (Row 2) */}
+                                <span className="hidden md:block truncate max-w-[300px] opacity-60 font-light">{ticket.message}</span>
+
+                                {/* Mobile Time (Row 2) */}
+                                <span className="md:hidden text-[10px] text-neutral-600">
+                                    {ticket.lastMessageAt?.toDate
+                                        ? formatDistanceToNow(ticket.lastMessageAt.toDate(), { addSuffix: true })
+                                        : (ticket.createdAt?.toDate ? formatDistanceToNow(ticket.createdAt.toDate(), { addSuffix: true }) : "")}
+                                </span>
+                            </div>
                         </div>
 
-                        {/* Arrow */}
-                        <div className="hidden md:flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.03] opacity-0 group-hover:opacity-100 group-hover:scale-100 scale-75 transition-all duration-300 text-white ml-1">
+                        {/* Badge (Desktop) */}
+                        <div className="hidden md:block flex-shrink-0">
+                            <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${getStatusStyle(ticket.status)} border border-white/5`}>
+                                {ticket.status.replace("_", " ")}
+                            </div>
+                        </div>
+
+                        {/* Arrow (Desktop) */}
+                        <div className="hidden md:flex items-center justify-center w-8 h-8 rounded-full border border-white/5 text-neutral-500 bg-white/[0.02] opacity-0 group-hover:opacity-100 group-hover:scale-100 scale-90 transition-all duration-300 group-hover:bg-white/10 group-hover:text-white ml-2">
                             <ArrowUpRightIcon className="h-4 w-4" />
                         </div>
-                    </Link>
+                    </button>
                 ))}
             </div>
 

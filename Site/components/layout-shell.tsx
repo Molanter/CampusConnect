@@ -76,7 +76,7 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
             <main className="flex-1 w-full overflow-y-auto overflow-x-hidden relative scrollbar-track-transparent">
                 <div
                     ref={contentRef}
-                    className={`mx-auto max-w-[1600px] w-full pt-20 px-4 md:px-6 transition-all duration-200 [@container] ${leftSidebarClass}`}
+                    className={`mx-auto max-w-[1600px] w-full pt-20 md:pt-6 px-4 md:px-6 transition-all duration-200 [@container] ${leftSidebarClass}`}
                     style={{ paddingRight: rightPadding > 0 ? `${rightPadding}px` : undefined }}
                 >
                     {children}

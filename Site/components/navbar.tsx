@@ -16,6 +16,7 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   PowerIcon,
+  UserGroupIcon
 } from "@heroicons/react/24/outline";
 import { UserRow } from "./user-row";
 import { useAdminMode } from "./admin-mode-context";
@@ -159,7 +160,7 @@ export function Navbar({
             {isGlobalAdminUser && adminModeOn ? (
               <>
                 <NavItem href="/settings" icon={Cog6ToothIcon} label="Settings" isActive={pathname === "/settings"} />
-                <NavItem href="/admin/moderation" icon={ShieldCheckIcon} label="Reports" isActive={pathname === "/admin/moderation"} />
+                <NavItem href="/admin/moderation" icon={ShieldCheckIcon} label="Moderation" isActive={pathname === "/admin/moderation"} />
                 <NavItem href="/admin/universities" icon={BuildingLibraryIcon} label="Manage Campuses" isActive={pathname.startsWith("/admin/universities")} />
                 <NavItem href="/admin/support" icon={ChatBubbleLeftRightIcon} label="Support" isActive={pathname.startsWith("/admin/support")} />
               </>
@@ -193,53 +194,101 @@ export function Navbar({
         <div className="w-full max-w-6xl flex items-center justify-center gap-3 px-4 pointer-events-auto">
           {/* Centered capsule tab bar */}
           <nav className="flex items-center justify-center">
-            <div className="inline-flex items-center gap-0 rounded-full border border-white/10 bg-black/60 backdrop-blur-xl p-1 text-[12px] text-slate-200 shadow-lg ring-1 ring-white/5">
-              {/* REMOVED Sidebar toggle icon */}
+            {isGlobalAdminUser && adminModeOn ? (
+              <div className="inline-flex items-center gap-0 rounded-full border border-white/10 bg-black/60 backdrop-blur-xl p-1 text-[12px] text-slate-200 shadow-lg ring-1 ring-white/5">
+                <Link
+                  href="/settings"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/settings"
+                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                    : "text-slate-200 hover:bg-white/10"
+                    }`}
+                >
+                  <Cog6ToothIcon className="mr-1 h-4 w-4" />
+                  Settings
+                </Link>
 
-              <Link
-                href="/"
-                className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/"
-                  ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                  : "text-slate-200 hover:bg-white/10"
-                  }`}
-              >
-                <HomeIcon className="mr-1 h-4 w-4" />
-                Home
-              </Link>
+                <Link
+                  href="/admin/moderation"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/admin/moderation"
+                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                    : "text-slate-200 hover:bg-white/10"
+                    }`}
+                >
+                  <ShieldCheckIcon className="mr-1 h-4 w-4" />
+                  Mod
+                </Link>
 
-              <Link
-                href="/explore"
-                className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/explore"
-                  ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                  : "text-slate-200 hover:bg-white/10"
-                  }`}
-              >
-                <MagnifyingGlassIcon className="mr-1 h-4 w-4" />
-                Explore
-              </Link>
+                <Link
+                  href="/admin/universities"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname.startsWith("/admin/universities")
+                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                    : "text-slate-200 hover:bg-white/10"
+                    }`}
+                >
+                  <BuildingLibraryIcon className="mr-1 h-4 w-4" />
+                  Uni
+                </Link>
 
-              <Link
-                href="/posts/new"
-                className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/posts/new"
-                  ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                  : "text-slate-200 hover:bg-white/10"
-                  }`}
-              >
-                <PlusIcon className="mr-1 h-4 w-4" />
-                Create
-              </Link>
+                <Link
+                  href="/admin/support"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname.startsWith("/admin/support")
+                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                    : "text-slate-200 hover:bg-white/10"
+                    }`}
+                >
+                  <ChatBubbleLeftRightIcon className="mr-1 h-4 w-4" />
+                  Support
+                </Link>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-0 rounded-full border border-white/10 bg-black/60 backdrop-blur-xl p-1 text-[12px] text-slate-200 shadow-lg ring-1 ring-white/5">
+                {/* REMOVED Sidebar toggle icon */}
 
-              <Link
-                href="/profile"
-                className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/profile"
-                  ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                  : "text-slate-200 hover:bg-white/10"
-                  }`}
-              >
-                <UserIcon className="mr-1 h-4 w-4" />
-                Profile
-              </Link>
-            </div>
+                <Link
+                  href="/"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/"
+                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                    : "text-slate-200 hover:bg-white/10"
+                    }`}
+                >
+                  <HomeIcon className="mr-1 h-4 w-4" />
+                  Home
+                </Link>
+
+                <Link
+                  href="/explore"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/explore"
+                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                    : "text-slate-200 hover:bg-white/10"
+                    }`}
+                >
+                  <MagnifyingGlassIcon className="mr-1 h-4 w-4" />
+                  Explore
+                </Link>
+
+                <Link
+                  href="/posts/new"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/posts/new"
+                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                    : "text-slate-200 hover:bg-white/10"
+                    }`}
+                >
+                  <PlusIcon className="mr-1 h-4 w-4" />
+                  Create
+                </Link>
+
+                <Link
+                  href="/profile"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/profile"
+                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                    : "text-slate-200 hover:bg-white/10"
+                    }`}
+                >
+                  <UserIcon className="mr-1 h-4 w-4" />
+                  Profile
+                </Link>
+              </div>
+            )}
           </nav>
         </div>
       </header>

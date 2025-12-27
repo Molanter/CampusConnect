@@ -6,7 +6,8 @@ import {
     PencilIcon,
     TrashIcon,
     FlagIcon,
-    EllipsisVerticalIcon
+    EllipsisVerticalIcon,
+    CheckBadgeIcon
 } from "@heroicons/react/24/solid";
 import { HeartIcon as HeartIconOutline } from "@heroicons/react/24/outline";
 import { auth, db } from "@/lib/firebase";
@@ -248,8 +249,11 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                     <div className="flex items-center gap-1.5 flex-wrap">
                         {isClubPost ? (
                             <>
-                                <Link href={`/clubs/${clubId}`} className="text-[14px] font-bold text-white/90 hover:underline decoration-white/30">
+                                <Link href={`/clubs/${clubId}`} className="text-[14px] font-bold text-white/90 hover:underline decoration-white/30 flex items-center gap-1">
                                     {clubProfile?.name || "Club"}
+                                    {clubProfile?.isVerified && (
+                                        <CheckBadgeIcon className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                                    )}
                                 </Link>
                                 <Link href={`/user/${authorId}`} className="text-[13px] text-white/40 hover:text-white/60 truncate">
                                     by {currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, '') : "user")}

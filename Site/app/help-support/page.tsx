@@ -4,8 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ChevronDownIcon, ChevronUpIcon, ChevronLeftIcon, XMarkIcon, PaperClipIcon } from "@heroicons/react/24/outline";
 import Toast, { ToastData } from "@/components/Toast";
-import { serverTimestamp, collection, addDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { serverTimestamp, collection, addDoc, doc, updateDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, auth, storage } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 
 // --- Types ---
@@ -182,29 +183,45 @@ export default function HelpSupportPage() {
         setSending(true);
 
         try {
-            // Construct data payload
-            const payload = {
-                name,
-                email,
-                uid: user?.uid || null, // Attach UID if logged in
+            // Create the ticket first to get the ID
+            const ticketRef = await addDoc(collection(db, "supportTickets"), {
+                uid: user?.uid || null,
                 category,
                 priority,
                 message,
-                status: "open", // Default status
+                status: "open",
                 deviceInfo: attachDeviceInfo ? {
                     userAgent: navigator.userAgent,
                     platform: navigator.platform,
                     language: navigator.language,
                 } : null,
-                attachmentNames: screenshots.map(f => f.name), // Just names for now, upload logic would be separate
+                attachments: [], // Will be updated after upload
                 createdAt: serverTimestamp(),
-            };
+            });
 
-            console.log("Saving support ticket:", payload);
+            const ticketId = ticketRef.id;
 
-            // Write to Firestore
-            await addDoc(collection(db, "supportTickets"), payload);
+            // Upload images to Firebase Storage if any
+            const attachmentUrls: string[] = [];
+            if (screenshots.length > 0) {
+                for (let i = 0; i < screenshots.length; i++) {
+                    const file = screenshots[i];
+                    const fileExt = file.name.split('.').pop() || 'jpg';
+                    const fileName = `${Date.now()}_${i}.${fileExt}`;
+                    const storageRef = ref(storage, `supportTickets/${ticketId}/attachments/${fileName}`);
 
+                    await uploadBytes(storageRef, file);
+                    const downloadUrl = await getDownloadURL(storageRef);
+                    attachmentUrls.push(downloadUrl);
+                }
+
+                // Update the ticket with attachment URLs
+                await updateDoc(doc(db, "supportTickets", ticketId), {
+                    attachments: attachmentUrls
+                });
+            }
+
+            console.log("Saved support ticket:", ticketId, "with", attachmentUrls.length, "attachments");
             setToast({ type: "success", message: "Your support request has been sent." });
         } catch (error) {
             console.error("Error creating ticket:", error);
@@ -227,7 +244,7 @@ export default function HelpSupportPage() {
     };
 
     return (
-        <div className="mx-auto min-h-screen w-full max-w-3xl px-4 py-8 pb-32">
+        <div className="mx-auto min-h-screen w-full max-w-3xl px-4 py-8 md:py-4 pb-32">
             {/* Toast */}
             <Toast toast={toast} onClear={() => setToast(null)} />
 

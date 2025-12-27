@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 
 
 type UserRowProps = {
@@ -15,9 +16,10 @@ type UserRowProps = {
     subtitle?: string;
     onlyAvatar?: boolean;
     rightElement?: React.ReactNode;
+    isVerified?: boolean;
 };
 
-export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElement }: UserRowProps) {
+export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElement, isVerified = false }: UserRowProps) {
     const [profile, setProfile] = useState<{
         displayName?: string;
         username?: string;
@@ -92,7 +94,10 @@ export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElem
                 </div>
                 {!onlyAvatar && (
                     <div className="flex flex-col leading-tight">
-                        <span className="text-sm font-semibold text-white">{displayName}</span>
+                        <span className="text-sm font-semibold text-white flex items-center gap-1">
+                            {displayName}
+                            {isVerified && <CheckBadgeIcon className="h-3.5 w-3.5 text-blue-500" />}
+                        </span>
                         <span className="text-xs text-neutral-400">
                             {subtitle || (username ? `@${username}` : "")}
                         </span>
