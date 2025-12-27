@@ -47,11 +47,30 @@ export default function ClubsHome() {
                     }
                 }
 
-                // 2. Fetch Clubs - show all clubs including private (users can request to join private clubs)
-                const [clubsList, userList] = await Promise.all([
-                    getAllClubs(), // Show all clubs to everyone
-                    u ? getUserClubs(u.uid) : Promise.resolve([])
-                ]);
+                // 2. Fetch User Profile to get CampusID
+                let campusId = null;
+                if (u) {
+                    const userDoc = await import("firebase/firestore").then(fs => fs.getDoc(fs.doc(db, "users", u.uid)));
+                    if (userDoc.exists()) {
+                        const data = userDoc.data();
+                        campusId = data.campusId || data.universityId; // Fallback to legacy
+                    }
+                }
+
+                // 3. Fetch Clubs
+                // If we have a campusId, filter by it. Otherwise show all public (or maybe none? Prompt implies only mine)
+                // If user is guest, we might show generic public clubs or prompt login.
+                const { getAllClubs, getUserClubs, getClubsForCampus } = await import("../../lib/clubs");
+
+                let clubsList: Club[] = [];
+                if (campusId) {
+                    clubsList = await getClubsForCampus(campusId);
+                } else {
+                    // Fallback if no campus or guest: show all public (or generic)
+                    clubsList = await getAllClubs();
+                }
+
+                const userList = u ? await getUserClubs(u.uid) : [];
 
                 setPublicClubs(clubsList);
                 setMyClubs(userList);

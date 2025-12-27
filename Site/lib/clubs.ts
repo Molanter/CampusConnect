@@ -181,6 +181,22 @@ export async function getAllClubs(): Promise<Club[]> {
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as Club));
 }
 
+// New helper for Campus Filter
+export async function getClubsForCampus(campusId: string): Promise<Club[]> {
+    const clubsRef = collection(db, "clubs");
+    // Query clubs where campusId matches, show public ones (or we can filter private in UI)
+    // Assuming we want to show all visible clubs for that campus
+    // We prioritize showing clubs explicitly tagged with this campusId
+    const q = query(
+        clubsRef,
+        where("campusId", "==", campusId),
+        // orderBy("memberCount", "desc"), // Requires index composite
+        limit(50)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Club));
+}
+
 export async function getUserClubs(userId: string): Promise<Club[]> {
     const clubsRef = collection(db, "clubs");
     const q = query(clubsRef, where("memberIds", "array-contains", userId));
