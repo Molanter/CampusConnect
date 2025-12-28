@@ -47,7 +47,7 @@ interface QueueItemWithPost extends ModerationQueueItem {
 }
 
 export default function ModerationPage() {
-    const { isGlobalAdminUser, adminModeOn } = useAdminMode();
+    const { isGlobalAdminUser, isCampusAdminUser, adminModeOn } = useAdminMode();
     const { openView } = useRightSidebar();
     const router = useRouter();
 
@@ -349,7 +349,9 @@ export default function ModerationPage() {
         }
     };
 
-    if (!isGlobalAdminUser || !adminModeOn) {
+    const isAdmin = isGlobalAdminUser || isCampusAdminUser;
+
+    if (!isAdmin || !adminModeOn) {
         return (
             <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
                 <div className="text-center">

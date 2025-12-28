@@ -1,32 +1,79 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCampusOrLegacy, campusesCol, campusDormsCol, getDormsForCampus, campusDoc } from '@/lib/firestore-paths';
-import { updateDoc, setDoc, addDoc, deleteDoc, doc } from 'firebase/firestore';
-import { Campus, Dorm, CampusLocation } from '@/lib/types/campus';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { getCampusOrLegacy, campusDoc, getDormsForCampus } from '@/lib/firestore-paths';
+import { Campus, Dorm } from '@/lib/types/campus';
+import { ChevronLeftIcon, BuildingOffice2Icon } from '@heroicons/react/24/outline';
+import { Switch } from '@headlessui/react';
+import Link from 'next/link';
+
+function isGlobalAdmin(email?: string | null, admins?: string[] | null) {
+    if (!email || !admins) return false;
+    return admins.includes(email.toLowerCase());
+}
 
 export default function EditCampusPage(props: { params: Promise<{ id: string }> }) {
     const params = use(props.params);
     const router = useRouter();
+
+    const [user, setUser] = useState<User | null>(null);
+    const [authLoading, setAuthLoading] = useState(true);
+    const [globalAdminEmails, setGlobalAdminEmails] = useState<string[] | null>(null);
+    const [adminConfigLoading, setAdminConfigLoading] = useState(true);
+
     const [campus, setCampus] = useState<Campus | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [dorms, setDorms] = useState<Dorm[]>([]);
 
-    // We load dorms separately
+    // Auth
+    useEffect(() => {
+        const unsub = onAuthStateChanged(auth, (u) => {
+            setUser(u);
+            setAuthLoading(false);
+        });
+        return () => unsub();
+    }, []);
+
+    // Load global admin config
+    useEffect(() => {
+        const loadAdminConfig = async () => {
+            try {
+                const ref = doc(db, 'config', 'admin');
+                const snap = await getDoc(ref);
+                const data = snap.data() as any;
+                const emails: string[] = data?.globalAdminEmails ?? [];
+                setGlobalAdminEmails(emails.map((e) => e.toLowerCase()));
+            } catch (err) {
+                console.error('Error loading admin config:', err);
+                setGlobalAdminEmails([]);
+            } finally {
+                setAdminConfigLoading(false);
+            }
+        };
+        void loadAdminConfig();
+    }, []);
+
+    const userIsGlobalAdmin = useMemo(
+        () => isGlobalAdmin(user?.email, globalAdminEmails),
+        [user?.email, globalAdminEmails]
+    );
+
+    // Load campus data
     useEffect(() => {
         async function load() {
             try {
                 const data = await getCampusOrLegacy(params.id);
                 if (!data) {
-                    alert("Campus not found");
                     router.push('/admin/campuses');
                     return;
                 }
                 setCampus(data);
 
-                // Load dorms if university
                 if (data.isUniversity) {
                     const d = await getDormsForCampus(params.id);
                     setDorms(d);
@@ -45,17 +92,9 @@ export default function EditCampusPage(props: { params: Promise<{ id: string }> 
         if (!campus) return;
         setSaving(true);
         try {
-            // ALWAYS write to 'campuses' collection (migration or update)
             const ref = campusDoc(campus.id);
-
-            // We use setDoc with merge to ensure we write to the new collection even if valid in old
-            // This effectively migrates it if it was legacy.
-            await setDoc(ref, {
-                ...campus,
-                // Ensure strictly formatted if needed, for edit we assume state is updated correctly
-            }, { merge: true });
-
-            alert('Campus saved successfully!');
+            await setDoc(ref, { ...campus }, { merge: true });
+            router.push('/admin/campuses');
         } catch (err: any) {
             console.error(err);
             alert(err.message);
@@ -75,73 +114,162 @@ export default function EditCampusPage(props: { params: Promise<{ id: string }> 
         setCampus({ ...campus, locations: newLocs });
     };
 
-    if (loading) return <div className="p-8">Loading...</div>;
+    // Guards
+    if (authLoading || adminConfigLoading || loading) {
+        return (
+            <div className="flex h-screen items-center justify-center text-neutral-400">
+                <div className="animate-pulse">Loading...</div>
+            </div>
+        );
+    }
+
+    if (!user) {
+        return (
+            <div className="flex h-screen flex-col items-center justify-center gap-4 text-neutral-300">
+                <p>You must sign in to access the admin area.</p>
+            </div>
+        );
+    }
+
+    if (!userIsGlobalAdmin) {
+        return (
+            <div className="flex h-screen items-center justify-center text-neutral-400">
+                You are not authorized to view this admin page.
+            </div>
+        );
+    }
+
     if (!campus) return null;
 
     return (
-        <div className="p-8 max-w-2xl mx-auto">
-            <div className="flex justify-between mb-6">
-                <h1 className="text-2xl font-bold">Edit Campus</h1>
-                <button onClick={() => router.push('/admin/campuses')} className="text-gray-500">Back</button>
-            </div>
+        <div className="mx-auto w-full max-w-2xl px-4 py-8 pb-24">
+            {/* Header */}
+            <header className="mb-8 flex items-center gap-4">
+                <Link
+                    href="/admin/campuses"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-neutral-400 transition-all hover:bg-white/10 hover:text-white"
+                >
+                    <ChevronLeftIcon className="h-5 w-5" />
+                </Link>
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-white">Edit Campus</h1>
+                    <p className="text-neutral-400 text-sm">{campus.name}</p>
+                </div>
+            </header>
 
             <form onSubmit={handleSave} className="space-y-6">
-                <div>
-                    <label className="block text-sm font-medium mb-1">Name</label>
-                    <input
-                        className="w-full p-2 border rounded"
-                        value={campus.name}
-                        onChange={e => updateField('name', e.target.value)}
-                    />
+
+                {/* Basic Info */}
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Basic Info</label>
+                    <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                        {/* Name */}
+                        <div className="flex items-center justify-between px-4 py-3.5">
+                            <span className="text-sm text-neutral-300">Name</span>
+                            <input
+                                type="text"
+                                value={campus.name}
+                                onChange={(e) => updateField('name', e.target.value)}
+                                className="bg-transparent text-right text-sm text-white focus:outline-none flex-1 ml-4"
+                                placeholder="Campus Name"
+                            />
+                        </div>
+                        {/* Short Name */}
+                        <div className="flex items-center justify-between px-4 py-3.5">
+                            <span className="text-sm text-neutral-300">Short Name</span>
+                            <input
+                                type="text"
+                                value={campus.shortName || ''}
+                                onChange={(e) => updateField('shortName', e.target.value || null)}
+                                className="bg-transparent text-right text-sm text-white focus:outline-none flex-1 ml-4"
+                                placeholder="Acronym"
+                            />
+                        </div>
+                        {/* ID (readonly) */}
+                        <div className="flex items-center justify-between px-4 py-3.5">
+                            <span className="text-sm text-neutral-300">ID</span>
+                            <span className="text-xs text-neutral-500 font-mono">{campus.id}</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium mb-1">Locations</label>
-                    <div className="space-y-2">
+                {/* Locations */}
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Locations</label>
+                    <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
                         {campus.locations.map((loc, i) => (
-                            <div key={i} className="flex gap-2 items-center">
-                                <span className="font-mono text-sm bg-gray-100 p-2 rounded">{loc.id}</span>
+                            <div key={i} className="flex items-center gap-4 px-4 py-3.5">
+                                <span className="text-xs text-neutral-500 font-mono bg-white/5 px-2 py-1 rounded">{loc.id}</span>
                                 <input
-                                    className="flex-1 p-2 border rounded"
+                                    type="text"
                                     value={loc.name}
-                                    onChange={e => handleLocationChange(i, e.target.value)}
+                                    onChange={(e) => handleLocationChange(i, e.target.value)}
+                                    className="flex-1 bg-transparent text-sm text-white focus:outline-none"
+                                    placeholder="Location Name"
                                 />
                             </div>
                         ))}
+                        {campus.locations.length === 0 && (
+                            <div className="px-4 py-3.5 text-sm text-neutral-500">No locations defined.</div>
+                        )}
                     </div>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded">
-                    <label className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            checked={campus.isUniversity}
-                            onChange={e => updateField('isUniversity', e.target.checked)}
-                        // Decide if we allow un-checking logic. For now, yes.
-                        />
-                        <span className="font-medium">Is University (Enable Dorms)</span>
-                    </label>
+                {/* University Mode */}
+                <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl px-4 py-3.5 flex items-center justify-between shadow-lg">
+                    <div>
+                        <span className="text-sm font-medium text-white">University Mode</span>
+                        <p className="text-xs text-neutral-500 mt-0.5">Enable dorms and campus life features</p>
+                    </div>
+                    <Switch
+                        checked={campus.isUniversity || false}
+                        onChange={(checked) => updateField('isUniversity', checked)}
+                        className={`${campus.isUniversity ? 'bg-[#ffb200]' : 'bg-neutral-700'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none`}
+                    >
+                        <span className={`${campus.isUniversity ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
+                    </Switch>
                 </div>
 
+                {/* Dorms (if university) */}
                 {campus.isUniversity && (
-                    <div>
-                        <h3 className="font-semibold mb-2">Dorms ({dorms.length})</h3>
-                        <ul className="list-disc pl-5">
-                            {dorms.map(d => (
-                                <li key={d.id}>{d.name}</li>
-                            ))}
-                        </ul>
-                        <p className="text-xs text-gray-500 mt-2">Dorm editing is simplified here. Use the Create form for bulk add or direct Firestore for detailed management.</p>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Dorms ({dorms.length})</label>
+                        <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                            {dorms.length === 0 ? (
+                                <div className="px-4 py-3.5 text-sm text-neutral-500">No dorms found.</div>
+                            ) : (
+                                dorms.map((dorm) => (
+                                    <div key={dorm.id} className="flex items-center gap-4 px-4 py-3.5">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-neutral-500">
+                                            <BuildingOffice2Icon className="h-5 w-5" />
+                                        </div>
+                                        <span className="text-sm text-white">{dorm.name}</span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <p className="text-xs text-neutral-500 ml-1">Use the Create form to add new dorms.</p>
                     </div>
                 )}
 
-                <button
-                    type="submit"
-                    disabled={saving}
-                    className="w-full bg-blue-600 text-white py-3 rounded font-bold"
-                >
-                    {saving ? 'Saving...' : 'Save Changes'}
-                </button>
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-3 pt-4">
+                    <button
+                        type="submit"
+                        disabled={saving}
+                        className="w-full rounded-full bg-[#ffb200] py-3.5 text-sm font-bold text-black shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
+                    >
+                        {saving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => router.back()}
+                        className="w-full rounded-full bg-neutral-800/50 py-3 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-white"
+                    >
+                        Cancel
+                    </button>
+                </div>
+
             </form>
         </div>
     );

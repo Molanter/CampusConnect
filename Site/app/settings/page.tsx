@@ -30,7 +30,7 @@ import { useAdminMode } from "../../components/admin-mode-context";
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const { isGlobalAdminUser, adminModeOn, setAdminModeOn } = useAdminMode();
+  const { isGlobalAdminUser, isCampusAdminUser, adminModeOn, setAdminModeOn } = useAdminMode();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -56,6 +56,8 @@ export default function SettingsPage() {
     );
   }
 
+  const showAdminModeToggle = isGlobalAdminUser || isCampusAdminUser;
+
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-8">
       <header className="mb-2">
@@ -70,14 +72,11 @@ export default function SettingsPage() {
         </p>
       </header>
 
-      {/* Admin Tools Section */}
-      <section className="space-y-3">
-        {isGlobalAdminUser && (
-          <h2 className="px-4 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">Admin Tools</h2>
-        )}
-        <div className="overflow-hidden rounded-2xl bg-[#1C1C1E]">
-          {isGlobalAdminUser && (
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 cursor-pointer" onClick={() => setAdminModeOn(!adminModeOn)}>
+      {/* Admin Mode Toggle */}
+      {showAdminModeToggle && (
+        <section className="space-y-3">
+          <div className="overflow-hidden rounded-2xl bg-[#1C1C1E]">
+            <div className="flex items-center gap-3 px-4 py-3 cursor-pointer" onClick={() => setAdminModeOn(!adminModeOn)}>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-gray-500 to-gray-600">
                 <CommandLineIcon className="h-5 w-5 text-white" />
               </div>
@@ -89,61 +88,9 @@ export default function SettingsPage() {
                 <div className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${adminModeOn ? 'translate-x-5' : 'translate-x-0.5'}`} />
               </div>
             </div>
-          )}
-          <Link
-            href="/admin/campuses/create"
-            className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600">
-              <BuildingLibraryIcon className="h-5 w-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-[15px] font-normal text-white">Create Campus</p>
-            </div>
-            <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
-          </Link>
-          <Link
-            href="/admin/campuses"
-            className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-600">
-              <PencilSquareIcon className="h-5 w-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-[15px] font-normal text-white">Edit Campuses</p>
-            </div>
-            <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
-          </Link>
-          {user?.email === "YOUR_APP_ADMIN_EMAIL" && (
-            <Link
-              href="/admin/campuses"
-              className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-rose-600">
-                <BuildingLibraryIcon className="h-5 w-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-[15px] font-normal text-white">Edit All Campuses</p>
-              </div>
-              <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
-            </Link>
-          )}
-          {user?.email && (
-            <Link
-              href="/admin/campuses/manage-my"
-              className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-amber-600">
-                <PencilSquareIcon className="h-5 w-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-[15px] font-normal text-white">Edit My Campus</p>
-              </div>
-              <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
-            </Link>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
       {/* Account Section */}
       <section className="space-y-3">
@@ -204,6 +151,68 @@ export default function SettingsPage() {
             </div>
             <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
           </Link>
+        </div>
+      </section>
+
+      {/* Admin Tools Section */}
+      <section className="space-y-3">
+        {showAdminModeToggle && (
+          <h2 className="px-4 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">Admin Tools</h2>
+        )}
+        <div className="overflow-hidden rounded-2xl bg-[#1C1C1E]">
+
+          <Link
+            href="/admin/campuses/create"
+            className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600">
+              <BuildingLibraryIcon className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-normal text-white">Create Campus</p>
+            </div>
+            <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
+          </Link>
+          <Link
+            href="/admin/campuses"
+            className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-600">
+              <PencilSquareIcon className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-normal text-white">Edit Campuses</p>
+            </div>
+            <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
+          </Link>
+          {user?.email === "YOUR_APP_ADMIN_EMAIL" && (
+            <Link
+              href="/admin/campuses"
+              className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-rose-600">
+                <BuildingLibraryIcon className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[15px] font-normal text-white">Edit All Campuses</p>
+              </div>
+              <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
+            </Link>
+          )}
+          {user?.email && (
+            <Link
+              href="/admin/campuses/manage-my"
+              className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-amber-600">
+                <PencilSquareIcon className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[15px] font-normal text-white">Edit My Campus</p>
+              </div>
+              <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
+            </Link>
+          )}
         </div>
       </section>
 

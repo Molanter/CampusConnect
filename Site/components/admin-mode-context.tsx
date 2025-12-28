@@ -2,17 +2,20 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "../lib/admin-utils";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 
 interface AdminModeContextType {
     isGlobalAdminUser: boolean;
+    isCampusAdminUser: boolean;
     adminModeOn: boolean;
     setAdminModeOn: (value: boolean) => void;
 }
 
 const AdminModeContext = createContext<AdminModeContextType>({
     isGlobalAdminUser: false,
+    isCampusAdminUser: false,
     adminModeOn: false,
     setAdminModeOn: () => { },
 });
@@ -20,6 +23,7 @@ const AdminModeContext = createContext<AdminModeContextType>({
 export function AdminModeProvider({ children }: { children: ReactNode }) {
     const [userEmail, setUserEmail] = useState<string | null>(null);
     const [isGlobalAdminUser, setIsGlobalAdminUser] = useState(false);
+    const [isCampusAdminUser, setIsCampusAdminUser] = useState(false);
     const [adminModeOn, setAdminModeOnState] = useState(false);
 
     // Load from localStorage on mount
@@ -44,25 +48,57 @@ export function AdminModeProvider({ children }: { children: ReactNode }) {
         return () => unsub();
     }, []);
 
-    // Check if user is global admin
+    // Check if user is global admin or campus admin
     useEffect(() => {
         if (!userEmail) {
             setIsGlobalAdminUser(false);
+            setIsCampusAdminUser(false);
             return;
         }
         const checkAdmin = async () => {
+            // Check Global Admin
             const globalAdmins = await fetchGlobalAdminEmails();
-            if (isGlobalAdmin(userEmail, globalAdmins)) {
-                setIsGlobalAdminUser(true);
+            const isGlobal = isGlobalAdmin(userEmail, globalAdmins);
+            setIsGlobalAdminUser(isGlobal);
+
+            // Check Campus Admin (if not already global)
+            // Even if global, we check for consistency or just set it based on global
+            if (isGlobal) {
+                setIsCampusAdminUser(true);
             } else {
-                setIsGlobalAdminUser(false);
+                try {
+                    const emailLower = userEmail.toLowerCase();
+                    // Check campuses
+                    const cQuery = query(
+                        collection(db, 'campuses'),
+                        where('adminEmails', 'array-contains', emailLower),
+                        limit(1)
+                    );
+                    const cSnap = await getDocs(cQuery);
+
+                    if (!cSnap.empty) {
+                        setIsCampusAdminUser(true);
+                    } else {
+                        // Check universities (legacy fallback)
+                        const uQuery = query(
+                            collection(db, 'universities'),
+                            where('adminEmails', 'array-contains', emailLower),
+                            limit(1)
+                        );
+                        const uSnap = await getDocs(uQuery);
+                        setIsCampusAdminUser(!uSnap.empty);
+                    }
+                } catch (err) {
+                    console.error("Error checking campus admin status:", err);
+                    setIsCampusAdminUser(false);
+                }
             }
         };
         checkAdmin();
     }, [userEmail]);
 
     return (
-        <AdminModeContext.Provider value={{ isGlobalAdminUser, adminModeOn, setAdminModeOn }}>
+        <AdminModeContext.Provider value={{ isGlobalAdminUser, isCampusAdminUser, adminModeOn, setAdminModeOn }}>
             {children}
         </AdminModeContext.Provider>
     );

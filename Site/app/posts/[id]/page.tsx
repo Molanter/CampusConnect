@@ -22,7 +22,7 @@ export default function PostDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { toggle, openView, close } = useRightSidebar();
-    const { isGlobalAdminUser, adminModeOn } = useAdminMode();
+    const { isGlobalAdminUser, isCampusAdminUser, adminModeOn } = useAdminMode();
     const postId = params.id as string;
     const [post, setPost] = useState<Post | null>(null);
     const [loading, setLoading] = useState(true);
@@ -82,14 +82,15 @@ export default function PostDetailPage() {
         if (post) {
             // Check if we are on desktop (>768px)
             const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+            const isAdmin = isGlobalAdminUser || isCampusAdminUser;
 
-            if (isGlobalAdminUser && adminModeOn && isDesktop) {
+            if (isAdmin && adminModeOn && isDesktop) {
                 openView("post-history", { postId });
             } else {
                 close();
             }
         }
-    }, [post, postId, isGlobalAdminUser, adminModeOn, openView, close]);
+    }, [post, postId, isGlobalAdminUser, isCampusAdminUser, adminModeOn, openView, close]);
 
     if (loading) {
         return (
@@ -108,6 +109,8 @@ export default function PostDetailPage() {
         );
     }
 
+    const isAdmin = isGlobalAdminUser || isCampusAdminUser;
+
     return (
         <div className="min-h-screen bg-neutral-950 pb-32">
             {/* Header */}
@@ -119,18 +122,14 @@ export default function PostDetailPage() {
                     <ChevronLeftIcon className="h-5 w-5" />
                 </button>
 
-                <button
-                    onClick={() => {
-                        if (isGlobalAdminUser && adminModeOn) {
-                            openView("post-history", { postId });
-                        } else {
-                            openView("details", { postId });
-                        }
-                    }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all"
-                >
-                    <InformationCircleIcon className="h-5 w-5" />
-                </button>
+                {isAdmin && adminModeOn && (
+                    <button
+                        onClick={() => openView("post-history", { postId })}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all"
+                    >
+                        <InformationCircleIcon className="h-5 w-5" />
+                    </button>
+                )}
             </header>
 
             <main className="mx-auto max-w-2xl">

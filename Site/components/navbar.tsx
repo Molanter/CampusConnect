@@ -49,7 +49,7 @@ export function Navbar({
   viewportWidth,
 }: NavbarProps) {
   const [uid, setUid] = useState<string | null>(null);
-  const { isGlobalAdminUser, adminModeOn, setAdminModeOn } = useAdminMode();
+  const { isGlobalAdminUser, isCampusAdminUser, adminModeOn, setAdminModeOn } = useAdminMode();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -148,6 +148,8 @@ export function Navbar({
     </Link>
   );
 
+  const isAdmin = isGlobalAdminUser || isCampusAdminUser;
+
   return (
     <>
       {/* Sidebar - Desktop Only */}
@@ -157,11 +159,11 @@ export function Navbar({
 
           {/* Navigation list */}
           <nav className={`flex flex-1 flex-col gap-4 items-center justify-center w-full`}>
-            {isGlobalAdminUser && adminModeOn ? (
+            {isAdmin && adminModeOn ? (
               <>
                 <NavItem href="/settings" icon={Cog6ToothIcon} label="Settings" isActive={pathname === "/settings"} />
                 <NavItem href="/admin/moderation" icon={ShieldCheckIcon} label="Moderation" isActive={pathname === "/admin/moderation"} />
-                <NavItem href="/admin/campuses" icon={BuildingLibraryIcon} label="Manage Campuses" isActive={pathname.startsWith("/admin/campuses")} />
+                <NavItem href={isGlobalAdminUser ? "/admin/campuses" : "/admin/campuses/manage-my"} icon={BuildingLibraryIcon} label="Manage Campuses" isActive={pathname.startsWith("/admin/campuses")} />
                 <NavItem href="/admin/support" icon={ChatBubbleLeftRightIcon} label="Support" isActive={pathname.startsWith("/admin/support")} />
               </>
             ) : (
@@ -194,7 +196,7 @@ export function Navbar({
         <div className="w-full max-w-6xl flex items-center justify-center gap-3 px-4 pointer-events-auto">
           {/* Centered capsule tab bar */}
           <nav className="flex items-center justify-center">
-            {isGlobalAdminUser && adminModeOn ? (
+            {isAdmin && adminModeOn ? (
               <div className="inline-flex items-center gap-0 rounded-full border border-white/10 bg-black/60 backdrop-blur-xl p-1 text-[12px] text-slate-200 shadow-lg ring-1 ring-white/5">
                 <Link
                   href="/settings"
@@ -219,10 +221,10 @@ export function Navbar({
                 </Link>
 
                 <Link
-                  href="/admin/campuses"
+                  href={isGlobalAdminUser ? "/admin/campuses" : "/admin/campuses/manage-my"}
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname.startsWith("/admin/campuses")
-                    ? "bg-white/10 text-white font-medium ring-1 ring-white/20"
-                    : "text-neutral-400 hover:text-white"
+                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                    : "text-slate-200 hover:bg-white/10"
                     }`}
                 >
                   <BuildingLibraryIcon className="mr-1 h-4 w-4" />

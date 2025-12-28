@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, getDoc, setDoc, getDocs, collection } from "firebase/firestore";
 import { auth, db } from "../../../lib/firebase";
 import Link from "next/link";
-import { ChevronLeftIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { ChevronLeftIcon, XMarkIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { getAllCampusesAndUniversities, getDormsForCampus } from "@/lib/firestore-paths";
+import { getUserOwnedClubs, getDefaultClubsForCampus, getDormClubForCampus, joinClub } from "@/lib/clubs";
 
 export default function ProfileSetupPage() {
     const router = useRouter();
@@ -18,6 +19,7 @@ export default function ProfileSetupPage() {
     // Form fields
     const [username, setUsername] = useState("");
     const [campusId, setCampusId] = useState("");
+    const [originalCampusId, setOriginalCampusId] = useState(""); // Track original for change detection
     const [campusName, setCampusName] = useState("");
     const [role, setRole] = useState("student");
     const [major, setMajor] = useState("");
@@ -29,6 +31,19 @@ export default function ProfileSetupPage() {
     const [dorms, setDorms] = useState<string[]>([]);
     const [loadingCampuses, setLoadingCampuses] = useState(false);
     const [error, setError] = useState("");
+
+    // Selected campus info
+    const selectedCampus = useMemo(() => {
+        return campuses.find(c => c.id === campusId) || null;
+    }, [campuses, campusId]);
+
+    const isUniversityWithDorms = useMemo(() => {
+        return selectedCampus?.isUniversity && dorms.length > 0;
+    }, [selectedCampus, dorms]);
+
+    const isCampusChanging = useMemo(() => {
+        return originalCampusId && campusId && originalCampusId !== campusId;
+    }, [originalCampusId, campusId]);
 
     // Fetch campuses on mount (merged new + legacy)
     useEffect(() => {
@@ -86,7 +101,9 @@ export default function ProfileSetupPage() {
                     const data = snap.data();
                     setUsername(data.username || "");
                     setCampusName(data.campus || "");
-                    setCampusId(data.campusId || data.universityId || "");
+                    const existingCampusId = data.campusId || data.universityId || "";
+                    setCampusId(existingCampusId);
+                    setOriginalCampusId(existingCampusId); // Store original
                     setRole(data.role || "student");
                     setMajor(data.major || "");
                     setYearOfStudy(data.yearOfStudy || "");
@@ -108,15 +125,18 @@ export default function ProfileSetupPage() {
             return;
         }
 
+        // Validate dorm if required
+        if (role === "student" && isUniversityWithDorms && !dorm) {
+            setError("Please select a dorm. This is required for students at university campuses.");
+            return;
+        }
+
         try {
             setSaving(true);
             setError("");
 
-
             // Check if username is already taken
-            const usernameQuery = await getDocs(
-                collection(db, "users")
-            );
+            const usernameQuery = await getDocs(collection(db, "users"));
             const usernameTaken = usernameQuery.docs.some(
                 (doc) => doc.data().username === username.trim() && doc.id !== user.uid
             );
@@ -125,6 +145,17 @@ export default function ProfileSetupPage() {
                 setError(`Username "${username.trim()}" is already taken. Please choose another.`);
                 setSaving(false);
                 return;
+            }
+
+            // If changing campuses, check for owned clubs
+            if (isCampusChanging) {
+                const ownedClubs = await getUserOwnedClubs(user.uid);
+                if (ownedClubs.length > 0) {
+                    const clubNames = ownedClubs.map(c => c.name).join(", ");
+                    setError(`You are still the owner of: ${clubNames}. Please transfer ownership before changing campuses.`);
+                    setSaving(false);
+                    return;
+                }
             }
 
             const userDocRef = doc(db, "users", user.uid);
@@ -139,6 +170,34 @@ export default function ProfileSetupPage() {
                 yearOfStudy: yearOfStudy || "",
                 dorm: dorm || "",
             }, { merge: true });
+
+            // If campus changed, auto-join default clubs of new campus
+            if (isCampusChanging) {
+                try {
+                    const defaultClubs = await getDefaultClubsForCampus(campusId);
+                    for (const club of defaultClubs) {
+                        await joinClub(club.id, user.uid, club.isPrivate);
+                    }
+                    console.log(`Auto-joined ${defaultClubs.length} default clubs for new campus`);
+                } catch (err) {
+                    console.error("Error auto-joining default clubs:", err);
+                    // Don't block the save, just log the error
+                }
+            }
+
+            // If user selected a dorm, join them to that specific dorm's club only
+            if (dorm) {
+                try {
+                    const dormClub = await getDormClubForCampus(campusId, dorm);
+                    if (dormClub) {
+                        await joinClub(dormClub.id, user.uid, dormClub.isPrivate);
+                        console.log(`Joined dorm club: ${dormClub.name}`);
+                    }
+                } catch (err) {
+                    console.error("Error joining dorm club:", err);
+                    // Don't block the save, just log the error
+                }
+            }
 
             router.push("/profile");
         } catch (err: any) {
@@ -178,8 +237,20 @@ export default function ProfileSetupPage() {
             <div className="px-6 py-6 space-y-6">
                 {/* Error Message */}
                 {error && (
-                    <div className="rounded-[28px] border border-red-500/20 bg-red-500/10 px-4 py-3">
+                    <div className="rounded-[28px] border border-red-500/20 bg-red-500/10 px-4 py-3 flex items-start gap-3">
+                        <ExclamationTriangleIcon className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
                         <p className="text-sm text-red-400">{error}</p>
+                    </div>
+                )}
+
+                {/* Campus Change Warning */}
+                {isCampusChanging && (
+                    <div className="rounded-[28px] border border-[#ffb200]/20 bg-[#ffb200]/10 px-4 py-3 flex items-start gap-3">
+                        <ExclamationTriangleIcon className="h-5 w-5 text-[#ffb200] shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-sm font-medium text-[#ffb200]">Changing Campus</p>
+                            <p className="text-xs text-[#ffb200]/70 mt-1">You will be automatically added to default clubs of the new campus. Your existing club memberships will remain.</p>
+                        </div>
                     </div>
                 )}
 
@@ -273,7 +344,15 @@ export default function ProfileSetupPage() {
 
                         {/* Dorm */}
                         <div className="px-4 py-3">
-                            <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">Dorm/Residence</label>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
+                                    Dorm/Residence
+                                    {isUniversityWithDorms && <span className="text-red-400 ml-1">*</span>}
+                                </label>
+                                {isUniversityWithDorms && (
+                                    <span className="text-[10px] text-red-400/70 uppercase tracking-wider">Required</span>
+                                )}
+                            </div>
                             <select
                                 value={dorm}
                                 onChange={(e) => setDorm(e.target.value)}

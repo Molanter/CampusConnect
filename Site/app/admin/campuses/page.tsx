@@ -1,19 +1,67 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { getAllCampusesAndUniversities } from '@/lib/firestore-paths';
 import { Campus } from '@/lib/types/campus';
+import { PlusIcon, MagnifyingGlassIcon, BuildingOffice2Icon } from '@heroicons/react/24/outline';
+
+function isGlobalAdmin(email?: string | null, admins?: string[] | null) {
+    if (!email || !admins) return false;
+    return admins.includes(email.toLowerCase());
+}
 
 export default function AdminCampusesPage() {
+    const [user, setUser] = useState<User | null>(null);
+    const [authLoading, setAuthLoading] = useState(true);
+    const [globalAdminEmails, setGlobalAdminEmails] = useState<string[] | null>(null);
+    const [adminConfigLoading, setAdminConfigLoading] = useState(true);
+
     const [campuses, setCampuses] = useState<Campus[]>([]);
     const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
 
+    // Auth
+    useEffect(() => {
+        const unsub = onAuthStateChanged(auth, (u) => {
+            setUser(u);
+            setAuthLoading(false);
+        });
+        return () => unsub();
+    }, []);
+
+    // Load global admin config
+    useEffect(() => {
+        const loadAdminConfig = async () => {
+            try {
+                const ref = doc(db, 'config', 'admin');
+                const snap = await getDoc(ref);
+                const data = snap.data() as any;
+                const emails: string[] = data?.globalAdminEmails ?? [];
+                setGlobalAdminEmails(emails.map((e) => e.toLowerCase()));
+            } catch (err) {
+                console.error('Error loading admin config:', err);
+                setGlobalAdminEmails([]);
+            } finally {
+                setAdminConfigLoading(false);
+            }
+        };
+        void loadAdminConfig();
+    }, []);
+
+    const userIsGlobalAdmin = useMemo(
+        () => isGlobalAdmin(user?.email, globalAdminEmails),
+        [user?.email, globalAdminEmails]
+    );
+
+    // Load campuses
     useEffect(() => {
         async function load() {
             try {
                 const data = await getAllCampusesAndUniversities();
-                // Sort by name
                 data.sort((a, b) => a.name.localeCompare(b.name));
                 setCampuses(data);
             } catch (err) {
@@ -25,71 +73,124 @@ export default function AdminCampusesPage() {
         load();
     }, []);
 
-    if (loading) return <div className="p-8">Loading campuses...</div>;
+    const filteredCampuses = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        if (!term) return campuses;
+        return campuses.filter((c) => {
+            const name = c.name?.toLowerCase() ?? '';
+            const short = c.shortName?.toLowerCase() ?? '';
+            return name.includes(term) || short.includes(term);
+        });
+    }, [campuses, search]);
+
+    // Guards
+    if (authLoading || adminConfigLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center text-neutral-400">
+                <div className="animate-pulse">Loading...</div>
+            </div>
+        );
+    }
+
+    if (!user) {
+        return (
+            <div className="flex h-screen flex-col items-center justify-center gap-4 text-neutral-300">
+                <p>You must sign in to access the admin area.</p>
+            </div>
+        );
+    }
+
+    if (!userIsGlobalAdmin) {
+        return (
+            <div className="flex h-screen items-center justify-center text-neutral-400">
+                You are not authorized to view this admin page.
+            </div>
+        );
+    }
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">Campuses</h1>
+        <div className="mx-auto w-full max-w-2xl px-4 py-8">
+            {/* Header */}
+            <header className="mb-8 space-y-1">
+                <h1 className="text-2xl font-bold tracking-tight text-white">Campuses</h1>
+                <p className="text-neutral-400 text-sm">Manage all campuses and universities.</p>
+            </header>
+
+            {/* Search & Create */}
+            <div className="space-y-4 mb-6">
+                {/* Search */}
+                <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg">
+                    <div className="flex items-center px-4 py-3 gap-3">
+                        <MagnifyingGlassIcon className="h-5 w-5 text-neutral-500" />
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search campuses..."
+                            className="flex-1 bg-transparent text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                        />
+                    </div>
+                </div>
+
+                {/* Create Button */}
                 <Link
                     href="/admin/campuses/create"
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    className="flex items-center justify-center gap-2 w-full rounded-full bg-[#ffb200] py-3 text-sm font-bold text-black shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
                 >
-                    + Create Campus
+                    <PlusIcon className="h-5 w-5" />
+                    Create Campus
                 </Link>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Locations</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Data Source</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {campuses.map(campus => {
-                            // Determine if legacy based on some logic (e.g. if we want to show it)
-                            // We'll rely on the helper's fetch nature. 
-                            // A robust way to check legacy is if its ID only exists in universities, but here we merged them.
-                            // We can visually inspect based on `isUniversity` but created campuses can also have `isUniversity=true`.
-                            // We'll assume everything is good, but maybe add a label if it lacks fields unique to new schema?
-                            const isUniversityEnabled = campus.isUniversity;
-                            const hasDorms = isUniversityEnabled;
+            {/* Campus List */}
+            <div className="space-y-3">
+                {loading ? (
+                    <div className="text-center py-12 text-neutral-500">Loading campuses...</div>
+                ) : filteredCampuses.length === 0 ? (
+                    <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl p-8 text-center">
+                        <p className="text-neutral-400 text-sm">
+                            {search ? 'No campuses match your search.' : 'No campuses found.'}
+                        </p>
+                    </div>
+                ) : (
+                    filteredCampuses.map((campus) => (
+                        <Link
+                            key={campus.id}
+                            href={`/admin/campuses/${campus.id}`}
+                            className="block bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg transition-all hover:bg-white/[0.04] hover:border-white/20"
+                        >
+                            <div className="flex items-center gap-4 p-4">
+                                {/* Icon */}
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/5 text-neutral-500">
+                                    <BuildingOffice2Icon className="h-6 w-6" />
+                                </div>
 
-                            return (
-                                <tr key={campus.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <Link href={`/admin/campuses/${campus.id}`} className="text-blue-600 hover:underline font-medium">
-                                            {campus.name}
-                                        </Link>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {hasDorms ? 'University (Dorms)' : 'Campus'}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        {campus.locations.length} locations
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-400 font-mono">
-                                        {/* We can't easily tell source from the merged object without extra fields, 
-                        but we can infer strictly for display if needed. 
-                        For now, just showing ID is enough. */}
-                                        {campus.id}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        {campuses.length === 0 && (
-                            <tr>
-                                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                                    No campuses found.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-sm font-medium text-white truncate">{campus.name}</h3>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        {campus.shortName && (
+                                            <span className="text-xs text-neutral-500">{campus.shortName}</span>
+                                        )}
+                                        <span className={`text-xs px-2 py-0.5 rounded-full ${campus.isUniversity
+                                            ? 'bg-[#ffb200]/10 text-[#ffb200]'
+                                            : 'bg-white/5 text-neutral-400'
+                                            }`}>
+                                            {campus.isUniversity ? 'University' : 'Campus'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Locations count */}
+                                <div className="text-right shrink-0">
+                                    <span className="text-xs text-neutral-500">
+                                        {campus.locations?.length || 0} location{campus.locations?.length !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+                            </div>
+                        </Link>
+                    ))
+                )}
             </div>
         </div>
     );

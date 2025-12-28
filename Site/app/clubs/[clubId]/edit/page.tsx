@@ -62,8 +62,7 @@ export default function EditClubPage() {
     const [membership, setMembership] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [isGlobalAdminUser, setIsGlobalAdminUser] = useState(false);
-    const { adminModeOn } = useAdminMode();
+    const { isGlobalAdminUser, isCampusAdminUser, adminModeOn } = useAdminMode();
 
     // Form state
     const [name, setName] = useState("");
@@ -132,16 +131,8 @@ export default function EditClubPage() {
         fetchData();
     }, [user, clubId]);
 
-    useEffect(() => {
-        if (!user) return;
-        const checkAdmin = async () => {
-            const globalAdmins = await fetchGlobalAdminEmails();
-            if (isGlobalAdmin(user.email, globalAdmins)) {
-                setIsGlobalAdminUser(true);
-            }
-        };
-        checkAdmin();
-    }, [user]);
+    const isAdmin = isGlobalAdminUser || isCampusAdminUser;
+    const isAdminOrOwner = membership?.role === "owner" || membership?.role === "admin" || (isAdmin && adminModeOn);
 
     const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -244,8 +235,6 @@ export default function EditClubPage() {
             </div>
         );
     }
-
-    const isAdminOrOwner = membership?.role === "owner" || membership?.role === "admin" || (isGlobalAdminUser && adminModeOn);
 
     if (!club || !isAdminOrOwner) {
         return (

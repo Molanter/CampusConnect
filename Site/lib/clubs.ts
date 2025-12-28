@@ -203,3 +203,47 @@ export async function getUserClubs(userId: string): Promise<Club[]> {
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as Club));
 }
+
+// Get default clubs for a campus (auto-join on signup/campus change)
+export async function getDefaultClubsForCampus(campusId: string): Promise<Club[]> {
+    const clubsRef = collection(db, "clubs");
+    const q = query(
+        clubsRef,
+        where("campusId", "==", campusId),
+        where("isDefault", "==", true)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Club));
+}
+
+// Get the club for a specific dorm in a campus (dorms are created as clubs)
+export async function getDormClubForCampus(campusId: string, dormName: string): Promise<Club | null> {
+    const clubsRef = collection(db, "clubs");
+    const q = query(
+        clubsRef,
+        where("campusId", "==", campusId),
+        where("name", "==", dormName)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() } as Club;
+}
+
+// Get clubs where user is the owner
+export async function getUserOwnedClubs(userId: string): Promise<Club[]> {
+    // First get all clubs the user is a member of
+    const userClubs = await getUserClubs(userId);
+
+    // Then check each one to see if the user is the owner
+    const ownedClubs: Club[] = [];
+
+    for (const club of userClubs) {
+        const memberDoc = await getDoc(doc(db, "clubs", club.id, "members", userId));
+        if (memberDoc.exists() && memberDoc.data()?.role === "owner") {
+            ownedClubs.push(club);
+        }
+    }
+
+    return ownedClubs;
+}
+

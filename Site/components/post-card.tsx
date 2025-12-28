@@ -208,8 +208,15 @@ export function PostCard({
         // Ignore error if context is missing (e.g. in isolation)
     }
 
+    // Check if current user is author
+    const isPostAuthor = currentUser && (
+        currentUser.uid === post.authorId
+    );
+
     useEffect(() => {
-        const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
+        const unsub = onAuthStateChanged(auth, (u) => {
+            setCurrentUser(u);
+        });
         return () => unsub();
     }, []);
 
@@ -1429,8 +1436,12 @@ export function PostCard({
                                                             type="button"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                onEditClick?.();
                                                                 setOptionsMenuOpen(false);
+                                                                if (onEditClick) {
+                                                                    onEditClick();
+                                                                } else {
+                                                                    router.push(`/posts/${post.id}/edit`);
+                                                                }
                                                             }}
                                                             className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-white transition-colors hover:bg-white/5"
                                                         >
@@ -1700,6 +1711,22 @@ export function PostCard({
                         </div>
                     </button>
 
+                    {/* Edit (Post Author Only) */}
+                    {isPostAuthor && (
+                        <Link
+                            href={`/posts/${post.id}/edit`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1.5 text-neutral-500 hover:text-white group transition-colors"
+                        >
+                            <div className="p-1.5 rounded-full group-hover:bg-white/10 transition-colors">
+                                <PencilIcon className="h-[18px] w-[18px]" />
+                            </div>
+                            {(post.editCount ?? 0) > 0 && (
+                                <span className="text-sm">{post.editCount}</span>
+                            )}
+                        </Link>
+                    )}
+
                     {/* Attendance Status (Current User) */}
                     {isEvent && (
                         <div className="relative">
@@ -1842,10 +1869,16 @@ export function PostCard({
                         {isEventOwner && (
                             <button
                                 onClick={(e) => {
+                                    console.log("Edit clicked for post:", post.id);
                                     e.stopPropagation();
                                     closeContextMenu();
                                     // Navigate to edit page
-                                    window.location.href = isEvent ? `/posts/${id}/edit` : `/posts/${id}/edit`; // Unified to /posts for editing
+                                    if (onEditClick) {
+                                        onEditClick();
+                                    } else {
+                                        // Force navigation to ensure it works
+                                        window.location.assign(`/posts/${post.id}/edit`);
+                                    }
                                 }}
                                 className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white hover:bg-white/5 transition-colors"
                             >
@@ -1893,7 +1926,8 @@ export function PostCard({
                         )}
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }

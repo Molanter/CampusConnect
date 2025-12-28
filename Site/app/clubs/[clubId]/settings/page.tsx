@@ -40,7 +40,7 @@ export default function ClubSettingsPage() {
     const [isGlobalAdminUser, setIsGlobalAdminUser] = useState(false);
     const [toast, setToast] = useState<ToastData | null>(null);
 
-    const { adminModeOn } = useAdminMode();
+    const { isGlobalAdminUser: ctxGlobalAdmin, isCampusAdminUser, adminModeOn } = useAdminMode();
     const { openView } = useRightSidebar();
 
     useEffect(() => {
@@ -82,17 +82,7 @@ export default function ClubSettingsPage() {
         fetchData();
     }, [user, clubId]);
 
-    // Check Global Admin Status
-    useEffect(() => {
-        if (!user) return;
-        const checkAdmin = async () => {
-            const globalAdmins = await fetchGlobalAdminEmails();
-            if (isGlobalAdmin(user.email, globalAdmins)) {
-                setIsGlobalAdminUser(true);
-            }
-        };
-        checkAdmin();
-    }, [user]);
+    const isAdmin = ctxGlobalAdmin || isCampusAdminUser;
 
     const handleDeleteClub = async () => {
         if (!club) return;

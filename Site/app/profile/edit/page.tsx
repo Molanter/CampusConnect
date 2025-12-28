@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, getDoc, setDoc, getDocs, collection } from "firebase/firestore";
@@ -21,6 +21,7 @@ type UserProfile = {
     yearOfStudy?: string;
     major?: string;
     dorm?: string;
+    role?: string;
 };
 
 export default function EditProfilePage() {
@@ -37,6 +38,7 @@ export default function EditProfilePage() {
     const [campusName, setCampusName] = useState("");
     const [major, setMajor] = useState("");
     const [yearOfStudy, setYearOfStudy] = useState("");
+    const [role, setRole] = useState("student");
     const [dorm, setDorm] = useState("");
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -47,6 +49,19 @@ export default function EditProfilePage() {
     const [campuses, setCampuses] = useState<any[]>([]);
     const [dorms, setDorms] = useState<string[]>([]);
     const [loadingCampuses, setLoadingCampuses] = useState(false);
+    const [originalCampusId, setOriginalCampusId] = useState("");
+
+    const selectedCampus = useMemo(() => {
+        return campuses.find(c => c.id === campusId) || null;
+    }, [campuses, campusId]);
+
+    const isUniversityWithDorms = useMemo(() => {
+        return selectedCampus?.isUniversity && dorms.length > 0;
+    }, [selectedCampus, dorms]);
+
+    const isCampusChanging = useMemo(() => {
+        return originalCampusId && campusId && originalCampusId !== campusId;
+    }, [originalCampusId, campusId]);
 
     // Fetch campuses (merged new + legacy)
     useEffect(() => {
@@ -114,9 +129,12 @@ export default function EditProfilePage() {
                     setPhotoPreview(data.photoURL || user.photoURL || null);
                     // Handle field variations
                     setCampusName(data.campus || "");
-                    setCampusId(data.campusId || data.universityId || "");
+                    const existingCampusId = data.campusId || data.universityId || "";
+                    setCampusId(existingCampusId);
+                    setOriginalCampusId(existingCampusId);
                     setMajor(data.major || "");
                     setYearOfStudy(data.yearOfStudy || "");
+                    setRole(data.role || "student");
                     setDorm(data.dorm || "");
                 } else {
                     setDisplayName(user.displayName || "");
@@ -146,6 +164,12 @@ export default function EditProfilePage() {
         if (!user) return;
         if (!campusId) {
             setError("Please select a campus.");
+            return;
+        }
+
+        // Validate dorm if required (only for students)
+        if (role === "student" && isUniversityWithDorms && !dorm) {
+            setError("Please select a dorm. This is required for students at university campuses.");
             return;
         }
 
@@ -190,6 +214,7 @@ export default function EditProfilePage() {
                 universityId: campusId || "",      // Save as universityId (legacy compat)
                 major: major.trim() || "",
                 yearOfStudy: yearOfStudy || "",
+                role: role || "student",
                 dorm: dorm || "",
             }, { merge: true });
 
@@ -323,6 +348,20 @@ export default function EditProfilePage() {
                             ))}
                         </select>
                     </div>
+
+                    {/* Role */}
+                    <div className="px-4 py-3">
+                        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">Role</label>
+                        <select
+                            value={role}
+                            onChange={(e) => setRole(e.target.value)}
+                            className="w-full bg-transparent text-white focus:outline-none"
+                        >
+                            <option value="student" className="bg-[#1C1C1E]">Student</option>
+                            <option value="faculty" className="bg-[#1C1C1E]">Faculty</option>
+                            <option value="staff" className="bg-[#1C1C1E]">Staff</option>
+                        </select>
+                    </div>
                 </div>
 
                 {/* iOS-Style Form Group - Academic Info */}
@@ -340,7 +379,7 @@ export default function EditProfilePage() {
                     </div>
 
                     {/* Year of Study */}
-                    <div className="px-4 py-3 border-b border-white/10">
+                    <div className={`px-4 py-3 ${role === "student" ? "border-b border-white/10" : ""}`}>
                         <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">Year of Study</label>
                         <select
                             value={yearOfStudy}
@@ -358,26 +397,31 @@ export default function EditProfilePage() {
                         </select>
                     </div>
 
-                    {/* Dorm */}
-                    <div className="px-4 py-3">
-                        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">Dorm/Residence</label>
-                        <select
-                            value={dorm}
-                            onChange={(e) => setDorm(e.target.value)}
-                            disabled={!campusId || dorms.length === 0}
-                            className="w-full bg-transparent text-white focus:outline-none disabled:opacity-50"
-                        >
-                            <option value="" className="bg-[#1C1C1E]">Select a dorm</option>
-                            {dorms.map((dormName) => (
-                                <option key={dormName} value={dormName} className="bg-[#1C1C1E]">
-                                    {dormName}
-                                </option>
-                            ))}
-                        </select>
-                        {campusId && dorms.length === 0 && (
-                            <p className="text-xs text-neutral-500 mt-2">No dorms available (only available for university campuses)</p>
-                        )}
-                    </div>
+                    {/* Dorm - Only show for students */}
+                    {role === "student" && (
+                        <div className="px-4 py-3">
+                            <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">
+                                Dorm/Residence
+                                {isUniversityWithDorms && <span className="text-red-400 ml-1">*</span>}
+                            </label>
+                            <select
+                                value={dorm}
+                                onChange={(e) => setDorm(e.target.value)}
+                                disabled={!campusId || dorms.length === 0}
+                                className="w-full bg-transparent text-white focus:outline-none disabled:opacity-50"
+                            >
+                                <option value="" className="bg-[#1C1C1E]">Select a dorm</option>
+                                {dorms.map((dormName) => (
+                                    <option key={dormName} value={dormName} className="bg-[#1C1C1E]">
+                                        {dormName}
+                                    </option>
+                                ))}
+                            </select>
+                            {campusId && dorms.length === 0 && (
+                                <p className="text-xs text-neutral-500 mt-2">No dorms available (only for university campuses)</p>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Actions */}

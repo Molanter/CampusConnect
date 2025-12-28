@@ -12,6 +12,7 @@ export interface Campus {
     locations: CampusLocation[];
     isActive: boolean;
     adminEmails: string[];
+    logoUrl?: string; // New: Campus Logo
     primaryColor: string | null;
     secondaryColor: string | null;
     themeColor: string | null; // Keep for legacy compatibility

@@ -76,16 +76,14 @@ export function UserProfileHeader({
                     const shortName = campusData.shortName;
                     if (shortName) {
                         try {
-                            // Try to read logo. 
-                            // Current logic assumes legacy path until migration is confirmed:
-                            const logoPath = `universities/${campusId}/${shortName}.png`;
-                            // Note: If we start using a new path pattern, update here.
+                            // Updated to use new campuses/ storage path
+                            const logoPath = `campuses/${campusId}/${shortName}.png`;
 
                             const logoRef = ref(storage, logoPath);
                             const url = await getDownloadURL(logoRef);
                             setCampusLogoUrl(url);
                         } catch (e) {
-                            console.log("Logo not found at legacy path");
+                            console.log("Logo not found at campus path");
                         }
                     }
                 }

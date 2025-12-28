@@ -358,7 +358,10 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                                     {isOwner && (
                                         <>
                                             <button
-                                                onClick={() => { setOptionsMenuOpen(false); }}
+                                                onClick={() => {
+                                                    setOptionsMenuOpen(false);
+                                                    router.push(`/posts/${id}/edit`);
+                                                }}
                                                 className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] text-white hover:bg-white/5"
                                             >
                                                 <span>Edit</span>
