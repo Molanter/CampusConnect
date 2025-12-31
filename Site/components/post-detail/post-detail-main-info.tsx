@@ -37,6 +37,11 @@ interface PostDetailMainInfoProps {
 
 type AttendanceStatus = "going" | "maybe" | "not_going" | null;
 
+// Constants for consistent action sizing (matches Feed PostCard)
+const ACTION_BUTTON_HEIGHT = "h-7";
+const ACTION_ICON = "h-5 w-5";
+const HOVER_BG = "hover:bg-secondary/20";
+
 export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
     const router = useRouter();
     const { openView } = useRightSidebar();
@@ -208,17 +213,17 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
     const isOwner = currentUser?.uid === authorId;
 
     return (
-        <div className="text-leading-none">
+        <div className="space-y-4">
             {/* Header: Chat-style Author row */}
             <div className="flex items-center gap-3">
                 {isClubPost ? (
                     <Link href={`/clubs/${clubId}`}>
                         <div className="shrink-0">
-                            <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-800 ring-1 ring-white/10">
+                            <div className="h-9 w-9 overflow-hidden rounded-full border border-secondary/30 bg-surface-2">
                                 {clubProfile?.avatarUrl ? (
                                     <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="h-full w-full object-cover" />
                                 ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white">
+                                    <div className="flex h-full w-full items-center justify-center bg-brand text-sm font-bold text-white">
                                         {clubProfile?.name ? clubProfile.name.charAt(0).toUpperCase() : (clubId ? "C" : "?")}
                                     </div>
                                 )}
@@ -228,7 +233,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                 ) : (
                     <Link href={`/user/${authorId}`}>
                         <div className="shrink-0">
-                            <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-800 ring-1 ring-white/10">
+                            <div className="h-9 w-9 overflow-hidden rounded-full border border-secondary/30 bg-surface-2">
                                 {displayedPhotoUrl ? (
                                     <img
                                         src={displayedPhotoUrl}
@@ -236,7 +241,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                                         className="h-full w-full object-cover"
                                     />
                                 ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-700 to-neutral-800 text-sm font-bold text-white">
+                                    <div className="flex h-full w-full items-center justify-center bg-surface-3 text-sm font-bold text-foreground">
                                         {displayedName.charAt(0).toUpperCase()}
                                     </div>
                                 )}
@@ -249,34 +254,34 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                     <div className="flex items-center gap-1.5 flex-wrap">
                         {isClubPost ? (
                             <>
-                                <Link href={`/clubs/${clubId}`} className="text-[14px] font-bold text-white/90 hover:underline decoration-white/30 flex items-center gap-1">
+                                <Link href={`/clubs/${clubId}`} className="text-[14px] font-bold text-foreground hover:underline decoration-secondary/30 flex items-center gap-1">
                                     {clubProfile?.name || "Club"}
                                     {clubProfile?.isVerified && (
                                         <CheckBadgeIcon className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                                     )}
                                 </Link>
-                                <Link href={`/user/${authorId}`} className="text-[13px] text-white/40 hover:text-white/60 truncate">
+                                <Link href={`/user/${authorId}`} className="text-[13px] text-secondary hover:text-foreground truncate">
                                     by {currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, '') : "user")}
                                 </Link>
                             </>
                         ) : (
                             <Link
                                 href={`/user/${authorId}`}
-                                className="flex items-center gap-1.5 hover:underline decoration-white/30 truncate group"
+                                className="flex items-center gap-1.5 hover:underline decoration-secondary/30 truncate group"
                             >
-                                <span className="text-[14px] font-bold text-white/90 truncate">
+                                <span className="text-[14px] font-bold text-foreground truncate">
                                     {displayedName}
                                 </span>
                                 {currentUsername && (
                                     <>
-                                        <span className="text-[13px] text-white/40 truncate group-hover:text-white/60">
+                                        <span className="text-[13px] text-secondary truncate group-hover:text-foreground">
                                             @{currentUsername}
                                         </span>
                                     </>
                                 )}
                             </Link>
                         )}
-                        <span className="text-[13px] text-white/30 shrink-0">
+                        <span className="text-[13px] text-muted shrink-0">
                             • {createdAt?.toDate ? formatDistanceToNow(createdAt.toDate(), { addSuffix: true }).replace("about ", "") : "just now"}
                         </span>
                     </div>
@@ -284,49 +289,49 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
             </div>
 
             {/* Post/Event Title and Text */}
-            <div className="mt-2.5 space-y-1">
+            <div className="space-y-1.5">
                 {title && (
-                    <h1 className="text-[17px] font-bold text-white/90 leading-tight">
+                    <h1 className="text-[18px] font-bold text-foreground leading-tight">
                         {title}
                     </h1>
                 )}
                 {description && (
-                    <div className="whitespace-pre-wrap text-[15px] leading-relaxed text-white/80">
+                    <div className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/90">
                         {description}
                     </div>
                 )}
             </div>
 
-            {/* Actions Row (Compact) */}
-            <div className="mt-2.5 flex items-center gap-1 ml-[-8px]">
+            {/* Actions Row (Matched to Feed PostCard) */}
+            <div className="flex items-center gap-0 ml-[-8px] mt-[-2px]">
                 {/* Like Button */}
-                <div className={`flex h-8 items-center justify-center rounded-full hover:bg-white/[0.08] ${likesCount > 0 ? "gap-1.5 px-2" : "w-8"}`}>
+                <div className={`flex ${ACTION_BUTTON_HEIGHT} items-center justify-center rounded-full ${HOVER_BG} transition-colors ${likesCount > 0 ? "gap-1 px-1.5" : "w-7"}`}>
                     <button
                         onClick={handleToggleLike}
-                        className={`flex items-center justify-center ${isLiked ? "text-[#ffb200]" : "text-white/70 hover:text-white"}`}
+                        className={`group flex items-center justify-center ${isLiked ? "text-brand" : "text-secondary hover:text-foreground"}`}
                     >
                         {isLiked ? (
-                            <HeartIcon className="h-4 w-4" />
+                            <HeartIcon className={`${ACTION_ICON} ${likeAnimating ? "animate-like-pop" : ""}`} />
                         ) : (
-                            <HeartIconOutline className="h-4 w-4" />
+                            <HeartIconOutline className={`${ACTION_ICON}`} />
                         )}
                     </button>
                     {likesCount > 0 && (
-                        <span className="text-[13px] font-medium text-white/50">
+                        <span className="text-xs font-medium text-secondary">
                             {likesCount}
                         </span>
                     )}
                 </div>
 
-                {/* Comment Button */}
-                <div className={`flex h-8 items-center justify-center rounded-full text-white/70 hover:bg-white/[0.08] ${stats.comments > 0 ? "gap-1.5 px-2" : "w-8"}`}>
-                    <div className="flex items-center justify-center hover:text-white">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
+                {/* Comment Button (Visual only here, functionally used in detail) */}
+                <div className={`flex ${ACTION_BUTTON_HEIGHT} items-center justify-center rounded-full text-secondary ${HOVER_BG} hover:text-foreground transition-colors ${stats.comments > 0 ? "gap-1 px-1.5" : "w-7"}`}>
+                    <div className="flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className={ACTION_ICON}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.633 9-8.4375 0-4.805-4.03-8.4375-9-8.4375-4.97 0-9 3.6325-9 8.4375 0 2.457 1.056 4.675 2.76 6.223.109.1.18.232.2.378l.583 3.996a.25.25 0 00.322.253l3.655-1.428a.56.56 0 01.373-.02c.365.103.743.176 1.127.2.062.003.125.006.188.006z" />
                         </svg>
                     </div>
                     {stats.comments > 0 && (
-                        <span className="text-[13px] font-medium text-white/50">
+                        <span className="text-xs font-medium text-secondary">
                             {stats.comments}
                         </span>
                     )}
@@ -335,9 +340,9 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                 {/* Share Button */}
                 <button
                     onClick={handleShare}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 hover:bg-white/[0.08] hover:text-white"
+                    className={`flex ${ACTION_BUTTON_HEIGHT} w-7 items-center justify-center rounded-full text-secondary ${HOVER_BG} hover:text-foreground transition-colors`}
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className={ACTION_ICON}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                     </svg>
                 </button>
@@ -346,14 +351,14 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                 <div className="relative">
                     <button
                         onClick={() => setOptionsMenuOpen(!optionsMenuOpen)}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full text-white/70 hover:bg-white/[0.08] hover:text-white ${optionsMenuOpen ? "bg-white/[0.08] text-white" : ""}`}
+                        className={`flex ${ACTION_BUTTON_HEIGHT} w-7 items-center justify-center rounded-full text-secondary ${HOVER_BG} hover:text-foreground transition-colors ${optionsMenuOpen ? "bg-secondary/20 text-foreground" : ""}`}
                     >
-                        <EllipsisVerticalIcon className="h-4 w-4" />
+                        <EllipsisVerticalIcon className={ACTION_ICON} />
                     </button>
                     {optionsMenuOpen && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setOptionsMenuOpen(false)} />
-                            <div className="absolute top-full right-0 z-50 mt-2 min-w-[160px] origin-top-right overflow-hidden rounded-xl border border-white/10 bg-neutral-900 shadow-xl backdrop-blur-xl">
+                            <div className="absolute top-full right-0 z-50 mt-2 min-w-[160px] origin-top-right overflow-hidden cc-glass-strong cc-radius-menu shadow-xl">
                                 <div className="flex flex-col gap-0.5 p-1.5">
                                     {isOwner && (
                                         <>
@@ -362,14 +367,14 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                                                     setOptionsMenuOpen(false);
                                                     router.push(`/posts/${id}/edit`);
                                                 }}
-                                                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] text-white hover:bg-white/5"
+                                                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] text-foreground hover:bg-surface-3 transition-colors"
                                             >
                                                 <span>Edit</span>
                                                 <PencilIcon className="h-3.5 w-3.5" />
                                             </button>
                                             <button
                                                 onClick={handleDeletePost}
-                                                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] text-red-400 hover:bg-white/5"
+                                                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] text-red-500 hover:bg-red-500/10 transition-colors"
                                             >
                                                 <span>Delete</span>
                                                 <TrashIcon className="h-3.5 w-3.5" />
@@ -377,7 +382,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                                         </>
                                     )}
                                     <button
-                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] text-white/70 hover:bg-white/5"
+                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] text-secondary hover:bg-surface-3 hover:text-foreground transition-colors"
                                         onClick={() => {
                                             openView("report", { id: post.id, type: isEvent ? "event" : "post" });
                                             setOptionsMenuOpen(false);
@@ -396,14 +401,14 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
             {/* Event Info (Thread-style Info list) */}
             {isEvent && (
                 <div className="pt-1.5 space-y-3">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/30">Info</h4>
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted">Info</h4>
 
                     <div className="space-y-3 px-0.5">
                         {/* Date & Time Row */}
                         <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2.5 text-sm min-w-0">
-                                <CalendarIcon className="h-4 w-4 text-white/40 shrink-0" />
-                                <span className="font-semibold text-white/80 truncate">
+                                <CalendarIcon className="h-4 w-4 text-muted shrink-0" />
+                                <span className="font-semibold text-foreground/80 truncate">
                                     {date ? format(new Date(date), "EEEE, MMM d") : "TBA"}
                                     {time && ` at ${time}`}
                                 </span>
@@ -419,7 +424,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                                     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
                                     const label = diffDays > 0 ? `${diffDays}d` : `${diffHours}h`;
                                     return (
-                                        <span className="shrink-0 bg-white/5 px-2 py-0.5 rounded-full text-[10px] font-bold text-white/40 uppercase tracking-tighter">
+                                        <span className="shrink-0 bg-surface-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-muted uppercase tracking-tighter">
                                             in {label}
                                         </span>
                                     );
@@ -429,9 +434,9 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
 
                         {/* Location Row */}
                         <div className="flex items-start gap-2.5 text-sm">
-                            <MapPinIcon className="h-4 w-4 text-white/40 shrink-0 mt-0.5" />
+                            <MapPinIcon className="h-4 w-4 text-muted shrink-0 mt-0.5" />
                             <div className="flex flex-col min-w-0">
-                                <span className="font-semibold text-white/80 truncate">
+                                <span className="font-semibold text-foreground/80 truncate">
                                     {location || "TBA"}
                                 </span>
                                 {locationUrl && (
@@ -439,7 +444,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                                         href={locationUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-[12px] text-blue-400/80 hover:text-blue-400 hover:underline mt-0.5"
+                                        className="text-[12px] text-blue-500 hover:text-blue-600 hover:underline mt-0.5 font-medium"
                                     >
                                         Open in Maps
                                     </a>
@@ -449,12 +454,12 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                     </div>
 
                     {/* Attendance Picker (iOS Segmented Control) */}
-                    <div className="flex p-0.5 bg-white/[0.04] backdrop-blur-lg rounded-full border border-white/10 mt-2">
+                    <div className="flex p-0.5 bg-surface-2 rounded-full border border-secondary/20 mt-2">
                         <button
                             onClick={() => handleStatusChange("going")}
                             className={`flex-1 flex items-center justify-center py-2 rounded-full text-[13px] font-semibold transition-all duration-200 ${status === "going"
-                                ? "bg-white text-black shadow-sm"
-                                : "text-white/40 hover:text-white/60"
+                                ? "bg-foreground text-background shadow-sm"
+                                : "text-secondary hover:text-foreground"
                                 }`}
                         >
                             Going
@@ -462,8 +467,8 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                         <button
                             onClick={() => handleStatusChange("maybe")}
                             className={`flex-1 flex items-center justify-center py-2 rounded-full text-[13px] font-semibold transition-all duration-200 ${status === "maybe"
-                                ? "bg-white text-black shadow-sm"
-                                : "text-white/40 hover:text-white/60"
+                                ? "bg-foreground text-background shadow-sm"
+                                : "text-secondary hover:text-foreground"
                                 }`}
                         >
                             Maybe
@@ -471,8 +476,8 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                         <button
                             onClick={() => handleStatusChange("not_going")}
                             className={`flex-1 flex items-center justify-center py-2 rounded-full text-[13px] font-semibold transition-all duration-200 ${status === "not_going"
-                                ? "bg-white text-black shadow-sm"
-                                : "text-white/40 hover:text-white/60"
+                                ? "bg-foreground text-background shadow-sm"
+                                : "text-secondary hover:text-foreground"
                                 }`}
                         >
                             No
@@ -485,12 +490,12 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
             {(mood.length > 0 || priceLevel) && (
                 <div className="flex flex-wrap gap-2 px-0.5 pt-1">
                     {priceLevel && (
-                        <span className="text-[12px] font-medium text-white/30 border border-white/5 px-2 py-0.5 rounded-md">
+                        <span className="text-[12px] font-medium text-muted border border-secondary/20 px-2 py-0.5 rounded-md">
                             {priceLevel}
                         </span>
                     )}
                     {mood.map(m => (
-                        <span key={m} className="text-[12px] font-medium text-white/30">
+                        <span key={m} className="text-[12px] font-medium text-muted">
                             #{m.toLowerCase().replace(/\s+/g, '')}
                         </span>
                     ))}

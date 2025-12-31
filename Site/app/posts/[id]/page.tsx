@@ -94,7 +94,7 @@ export default function PostDetailPage() {
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-neutral-950 text-neutral-400">
+            <div className="flex h-screen items-center justify-center cc-page text-secondary">
                 <div>Loading...</div>
             </div>
         );
@@ -102,9 +102,9 @@ export default function PostDetailPage() {
 
     if (error || !post) {
         return (
-            <div className="flex h-screen flex-col items-center justify-center gap-4 bg-neutral-950 text-neutral-400">
+            <div className="flex h-screen flex-col items-center justify-center gap-4 cc-page text-secondary">
                 <p>{error}</p>
-                <Link href="/" className="rounded-full bg-white/10 px-4 py-2 text-white">Back</Link>
+                <Link href="/" className="rounded-full bg-surface-2 border border-secondary/20 px-4 py-2 text-foreground hover:bg-surface-3 transition-colors">Back</Link>
             </div>
         );
     }
@@ -112,12 +112,12 @@ export default function PostDetailPage() {
     const isAdmin = isGlobalAdminUser || isCampusAdminUser;
 
     return (
-        <div className="min-h-screen bg-neutral-950 pb-32">
+        <div className="min-h-screen cc-page pb-32">
             {/* Header */}
-            <header className="flex h-12 items-center justify-between px-4 sticky top-0 bg-neutral-950/80 backdrop-blur-md z-40">
+            <header className="flex h-12 items-center justify-between px-4 sticky top-0 cc-glass z-40">
                 <button
                     onClick={() => router.back()}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-foreground border border-secondary/20 hover:bg-surface-3 transition-all"
                 >
                     <ChevronLeftIcon className="h-5 w-5" />
                 </button>
@@ -125,7 +125,7 @@ export default function PostDetailPage() {
                 {isAdmin && adminModeOn && (
                     <button
                         onClick={() => openView("post-history", { postId })}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all"
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-foreground border border-secondary/20 hover:bg-surface-3 transition-all"
                     >
                         <InformationCircleIcon className="h-5 w-5" />
                     </button>
@@ -149,7 +149,7 @@ export default function PostDetailPage() {
                     <PostDetailMainInfo post={post} />
 
                     {/* 3) Embedded Comments */}
-                    <div className="mt-1 pt-2 border-t border-white/5 -mx-2">
+                    <div className="mt-4 pt-4 border-t border-secondary/10">
                         <CommentsView data={post} />
                     </div>
                 </div>

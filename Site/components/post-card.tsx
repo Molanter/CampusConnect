@@ -86,7 +86,11 @@ export function PostCard({
     const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
 
     // Calculate total comments (comments + replies)
-    const commentsCount = (post.commentsCount || 0) + (post.repliesCommentsCount || 0);
+    const [commentsCount, setCommentsCount] = useState((post.commentsCount || 0) + (post.repliesCommentsCount || 0));
+
+    // Live going count
+    const [goingCount, setGoingCount] = useState((post.goingUids || []).length);
+    const [maybeCount, setMaybeCount] = useState((post.maybeUids || []).length);
 
     const descriptionRef = useRef<HTMLDivElement>(null);
     const [displayText, setDisplayText] = useState(description);
@@ -130,6 +134,10 @@ export function PostCard({
             const nextLikes: string[] = data.likes || [];
             setLikesCount(nextLikes.length);
             if (currentUser) setIsLiked(nextLikes.includes(currentUser.uid));
+
+            // Sync comments count
+            const totalComments = (data.commentsCount || 0) + (data.repliesCommentsCount || 0);
+            setCommentsCount(totalComments);
         });
 
         return () => unsubscribe();
@@ -144,11 +152,14 @@ export function PostCard({
             if (!snap.exists()) return;
             const data = snap.data();
 
-            if (currentUser) {
-                const going: string[] = data.goingUids || [];
-                const maybe: string[] = data.maybeUids || [];
-                const notGoing: string[] = data.notGoingUids || [];
+            const going: string[] = data.goingUids || [];
+            const maybe: string[] = data.maybeUids || [];
+            const notGoing: string[] = data.notGoingUids || [];
 
+            setGoingCount(going.length);
+            setMaybeCount(maybe.length);
+
+            if (currentUser) {
                 if (going.includes(currentUser.uid)) setStatus("going");
                 else if (maybe.includes(currentUser.uid)) setStatus("maybe");
                 else if (notGoing.includes(currentUser.uid)) setStatus("not_going");
@@ -422,7 +433,7 @@ export function PostCard({
                             <div className={description ? "mt-2 mb-2" : "mt-2.5 mb-2"}>
                                 {images.length === 1 ? (
                                     // Single image: inline-block to fit content
-                                    <div className="inline-block max-w-full overflow-hidden bg-background border border-secondary/30" style={{ borderRadius: '20px' }}>
+                                    <div className="inline-block max-w-full overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary/10">
                                         <img
                                             src={images[0]}
                                             alt=""
@@ -441,8 +452,7 @@ export function PostCard({
                                             {images.slice(0, 4).map((src, idx) => (
                                                 <div
                                                     key={src + idx}
-                                                    className="inline-block shrink-0 overflow-hidden bg-background border border-secondary/30"
-                                                    style={{ borderRadius: '20px' }}
+                                                    className="inline-block shrink-0 overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary/10"
                                                 >
                                                     <img
                                                         src={src}
@@ -496,41 +506,32 @@ export function PostCard({
                             </div>
 
                             {/* Comments */}
-                            <div className={`flex h-7 items-center justify-center rounded-full hover:bg-secondary/20 transition-colors ${commentsCount > 0 ? "gap-1 px-1.5" : "w-7"}`}>
+                            <div className={`flex h-7 items-center justify-center rounded-full text-secondary hover:bg-secondary/20 hover:text-foreground transition-colors ${commentsCount > 0 ? "gap-1 px-1.5" : "w-7"}`}>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onCommentsClick?.(); }}
-                                    className="group flex items-center justify-center"
+                                    className="group flex items-center justify-center w-full h-full"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className={`${ACTION_ICON} text-secondary group-hover:text-foreground transition-colors`}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.633 9-8.4375 0-4.805-4.03-8.4375-9-8.4375-4.97 0-9 3.6325-9 8.4375 0 2.457 1.056 4.675 2.76 6.223.109.1.18.232.2.378l.583 3.996a.25.25 0 00.322.253l3.655-1.428a.56.56 0 01.373-.02c.365.103.743.176 1.127.2.062.003.125.006.188.006z" />
                                     </svg>
+                                    {commentsCount > 0 && (
+                                        <span className="text-xs font-medium text-secondary ml-1">
+                                            {commentsCount}
+                                        </span>
+                                    )}
                                 </button>
-
-                                {commentsCount > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onCommentsClick?.();
-                                        }}
-                                        className="flex items-center text-secondary"
-                                    >
-                                        <span className="text-xs">{commentsCount}</span>
-                                    </button>
-                                )}
                             </div>
 
                             {/* Attendance (events only) */}
                             {isEvent && (
                                 <div className="relative">
-                                    <div className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-secondary/20 transition-colors">
-                                        <button
-                                            type="button"
+                                    <div className={`flex h-7 items-center justify-center rounded-full hover:bg-secondary/20 transition-colors ${(status === "maybe" ? maybeCount : goingCount) > 0 ? "gap-1 px-1.5" : "w-7"}`}>
+                                        <div
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setAttendanceMenuOpen((v) => !v);
                                             }}
-                                            className="group flex h-7 w-7 items-center justify-center"
+                                            className="group flex items-center justify-center w-full h-full cursor-pointer"
                                         >
                                             {status === "going" ? (
                                                 <HandThumbUpIcon className={`${ACTION_ICON} text-green-600 dark:text-green-400`} />
@@ -541,7 +542,22 @@ export function PostCard({
                                             ) : (
                                                 <CalendarIcon className={`${ACTION_ICON} text-secondary group-hover:text-foreground transition-colors`} />
                                             )}
-                                        </button>
+                                            {(status === "maybe" ? maybeCount : goingCount) > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        // Ensure openView exists and is callable before using
+                                                        if (openView && typeof openView === 'function') {
+                                                            openView("attendance", { id });
+                                                        }
+                                                    }}
+                                                    className="text-xs font-medium text-secondary ml-1 hover:text-foreground hover:underline decoration-secondary/30 transition-colors"
+                                                >
+                                                    {status === "maybe" ? maybeCount : goingCount}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {attendanceMenuOpen && (

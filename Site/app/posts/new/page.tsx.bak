@@ -22,8 +22,6 @@ import { Club, ClubMember } from "../../../lib/clubs";
 import Toast, { ToastData } from "@/components/Toast";
 import { PostCard } from "@/components/post-card";
 import { useRightSidebar } from "@/components/right-sidebar-context";
-import { useMainLayoutMetrics } from "@/components/main-layout-metrics-context";
-import { CalendarIcon, ClockIcon, QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
 
 type UserProfile = {
   preferredName?: string;
@@ -61,7 +59,6 @@ export default function CreateEventPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialClubId = searchParams.get("clubId");
-  const { isMainNarrow, mainWidth } = useMainLayoutMetrics();
 
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -538,13 +535,10 @@ export default function CreateEventPage() {
       {/* Main Content using Layout Grid */}
       <div className="cc-page">
         <div className="mx-auto w-full max-w-7xl px-4 lg:px-8 py-6 lg:py-8">
-          <div className={clsx(
-            "grid gap-8 items-start",
-            mainWidth < 1024 ? "grid-cols-1" : "grid-cols-12 gap-12"
-          )}>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
 
             {/* Left Column: Form */}
-            <div className={clsx("space-y-6", mainWidth < 1024 ? "" : "col-span-7")}>
+            <div className="lg:col-span-7 space-y-6">
               {/* Header */}
               <header className="space-y-1">
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">Create Post</h1>
@@ -667,50 +661,41 @@ export default function CreateEventPage() {
                       onClick={() => setActiveSection("eventDetails")}
                     >
                       {/* Date */}
-                      <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-surface-3 transition-colors">
                         <span className="text-sm text-secondary">Date</span>
-                        <div className="relative">
-                          <input
-                            type="date"
-                            value={eventDate}
-                            onChange={(e) => setEventDate(e.target.value)}
-                            className="cc-picker-input cursor-pointer"
-                            required={isEvent}
-                          />
-                          <CalendarIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
-                        </div>
+                        <input
+                          type="date"
+                          value={eventDate}
+                          onChange={(e) => setEventDate(e.target.value)}
+                          className="bg-transparent text-right text-sm text-foreground focus:outline-none focus:text-brand"
+                          required={isEvent}
+                        />
                       </div>
                       {/* Start Time */}
-                      <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-surface-3 transition-colors">
                         <span className="text-sm text-secondary">Start Time</span>
-                        <div className="relative">
-                          <input
-                            type="time"
-                            value={startTime}
-                            onChange={(e) => setStartTime(e.target.value)}
-                            className="cc-picker-input cursor-pointer"
-                            required={isEvent}
-                          />
-                          <ClockIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
-                        </div>
+                        <input
+                          type="time"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className="bg-transparent text-right text-sm text-foreground focus:outline-none focus:text-brand"
+                          required={isEvent}
+                        />
                       </div>
                       {/* End Time */}
-                      <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-surface-3 transition-colors">
                         <span className="text-sm text-secondary">End Time</span>
-                        <div className="relative">
-                          <input
-                            type="time"
-                            value={endTime}
-                            onChange={(e) => setEndTime(e.target.value)}
-                            className="cc-picker-input cursor-pointer"
-                            required={isEvent}
-                          />
-                          <ClockIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
-                        </div>
+                        <input
+                          type="time"
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className="bg-transparent text-right text-sm text-foreground focus:outline-none focus:text-brand"
+                          required={isEvent}
+                        />
                       </div>
 
                       {/* Location URL */}
-                      <div className="relative flex items-center pl-4 pr-2.5 py-1 cc-row-hover focus-within:cc-row-active">
+                      <div className="relative flex items-center px-4 py-1 hover:bg-surface-3 transition-colors">
                         <input
                           value={locationUrl}
                           onChange={(e) => setLocationUrl(e.target.value)}
@@ -720,22 +705,22 @@ export default function CreateEventPage() {
                         <button
                           type="button"
                           onClick={() => openView("mapHelp", {})}
-                          className="ml-2 flex flex-none items-center justify-center rounded-full p-1.5 text-secondary hover:bg-secondary/10 hover:text-foreground transition-colors"
+                          className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-secondary/30 text-secondary hover:bg-secondary/10 hover:text-foreground cc-hover-shadow transition-colors text-base font-semibold"
                           title="Help"
                         >
-                          <QuestionMarkCircleIcon className="h-5 w-5" />
+                          ?
                         </button>
                       </div>
                       {/* Location Label */}
                       <input
                         value={locationLabel}
                         onChange={(e) => setLocationLabel(e.target.value)}
-                        className="w-full bg-transparent px-4 py-3.5 text-sm text-foreground placeholder:text-secondary focus:outline-none cc-row-hover focus-within:cc-row-active"
+                        className="w-full bg-transparent px-4 py-3.5 text-sm text-foreground placeholder:text-secondary focus:outline-none hover:bg-surface-3 transition-colors"
                         placeholder="Location Label (e.g. Library)"
                       />
                       {/* Map Toggle */}
                       {coordinates && (
-                        <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-surface-3 transition-colors">
                           <span className="text-sm text-secondary">Show map preview</span>
                           <button
                             type="button"
@@ -767,14 +752,14 @@ export default function CreateEventPage() {
                         rows={2}
                         value={dressCode}
                         onChange={(e) => setDressCode(e.target.value)}
-                        className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-foreground focus:outline-none cc-row-hover focus-within:cc-row-active placeholder:text-secondary"
+                        className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-foreground focus:outline-none hover:bg-surface-3 transition-colors placeholder:text-secondary"
                         placeholder="Dress Code (Optional)"
                       />
                       <textarea
                         rows={2}
                         value={extraNotes}
                         onChange={(e) => setExtraNotes(e.target.value)}
-                        className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-foreground focus:outline-none cc-row-hover focus-within:cc-row-active placeholder:text-secondary"
+                        className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-foreground focus:outline-none hover:bg-surface-3 transition-colors placeholder:text-secondary"
                         placeholder="Other Notes (Optional)"
                       />
                     </div>
@@ -799,20 +784,14 @@ export default function CreateEventPage() {
                     type="button"
                     onClick={() => router.back()}
                     aria-label="Cancel"
-                    className={clsx(
-                      "flex h-11 items-center justify-center rounded-full bg-secondary/15 text-secondary hover:bg-secondary/25 hover:text-foreground transition-all cc-hover-shadow",
-                      isMainNarrow ? "w-11 px-0" : "flex-1 px-6"
-                    )}
+                    className="flex h-11 w-11 sm:flex-1 sm:px-6 items-center justify-center rounded-full bg-secondary/15 text-secondary hover:bg-secondary/25 hover:text-foreground transition-all cc-hover-shadow"
                   >
-                    {isMainNarrow ? (
-                      /* Icon only - visible on mobile/narrow */
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                      </svg>
-                    ) : (
-                      /* Text - visible on desktop */
-                      <span className="text-sm font-medium">Cancel</span>
-                    )}
+                    {/* Icon only - visible on mobile */}
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 sm:hidden">
+                      <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                    </svg>
+                    {/* Text - visible on desktop */}
+                    <span className="hidden sm:inline text-sm font-medium">Cancel</span>
                   </button>
 
                   {/* Create Button - Primary action */}
@@ -828,7 +807,7 @@ export default function CreateEventPage() {
             </div>
 
             {/* Right Column: Preview (Stacked on mobile, sticky on desktop) */}
-            <div className={clsx("sticky top-24", mainWidth < 1024 ? "" : "col-span-5")}>
+            <div className="lg:col-span-5 sticky top-24">
               <div className="space-y-6">
                 <div className="flex items-center justify-between px-1">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-secondary ml-1">Live Preview</h2>

@@ -573,11 +573,11 @@ export function CommentsView({ data }: CommentsViewProps) {
                 {/* Composer Section - Compact Threads Style */}
                 <div className="shrink-0 space-y-2 px-1.5 pt-1 pb-3">
                     {replyTarget && (
-                        <div className="flex items-center justify-between rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-xs text-amber-200">
+                        <div className="flex items-center justify-between rounded-full border border-brand/30 bg-brand/10 px-2.5 py-1.5 text-xs text-brand">
                             <span>Replying to {replyTarget.authorName}</span>
                             <button
                                 type="button"
-                                className="text-amber-100/80 hover:text-amber-50"
+                                className="text-brand/80 hover:text-brand"
                                 onClick={() => setReplyTarget(null)}
                             >
                                 Clear
@@ -591,12 +591,12 @@ export function CommentsView({ data }: CommentsViewProps) {
                             onChange={(e) => setNewComment(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSend())}
                             placeholder="Write comment"
-                            className="w-full rounded-full border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/40 focus:border-white/20 focus:bg-white/[0.07] focus:outline-none"
+                            className="w-full rounded-full border border-secondary/20 bg-surface-2 px-3 py-2.5 text-sm text-foreground placeholder-secondary focus:border-secondary/40 focus:bg-surface-3 focus:outline-none transition-all"
                         />
                         <button
                             onClick={handleSend}
                             disabled={!newComment.trim() || sending}
-                            className="absolute right-1.5 rounded-full p-1.5 text-amber-300 hover:bg-white/10 disabled:opacity-50"
+                            className="absolute right-1.5 rounded-full p-1.5 text-brand hover:bg-secondary/15 disabled:opacity-50 transition-colors"
                         >
                             <PaperAirplaneIcon className="h-5 w-5" />
                         </button>
@@ -610,24 +610,24 @@ export function CommentsView({ data }: CommentsViewProps) {
                             <button
                                 type="button"
                                 onClick={() => setShowHidden(!showHidden)}
-                                className="text-xs text-neutral-400 hover:text-neutral-300"
+                                className="text-xs text-muted hover:text-secondary"
                             >
                                 {showHidden ? "Hide" : "Show"} hidden comments (reported 10+ times)
                             </button>
                         </div>
                     )}
                     {commentsLoading ? (
-                        <div className="px-4 py-6 text-sm text-neutral-500">
+                        <div className="px-4 py-6 text-sm text-muted text-center">
                             Loading comments...
                         </div>
                     ) : comments.length === 0 ? (
-                        <div className="px-4 py-6 text-sm text-neutral-500">
+                        <div className="px-4 py-6 text-sm text-muted text-center">
                             No comments yet. Be the first!
                         </div>
                     ) : (
-                        <div className="space-y-0">
+                        <div className="space-y-0 divide-y divide-secondary/10">
                             {comments.map((comment) => (
-                                <div key={comment.id} className="px-4 py-3">
+                                <div key={comment.id} className="px-0 py-3">
                                     <CommentMessage
                                         comment={comment}
                                         currentUserId={currentUser?.uid}

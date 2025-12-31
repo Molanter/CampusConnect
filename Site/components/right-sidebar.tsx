@@ -77,11 +77,36 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
         if (!isResizing) return;
 
         const handleMouseMove = (e: MouseEvent) => {
-            const newWidth = window.innerWidth - e.clientX - 12; // 12px for right margin
-            const minWidth = 320; // Minimum width
-            const maxWidth = 800; // Maximum width
-            const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
-            setSidebarWidth(clampedWidth);
+            const MAIN_MIN_WIDTH = 450;
+            const SIDEBAR_MIN_WIDTH = 320;
+            const SIDEBAR_MAX_WIDTH = 800;
+
+            const proposedWidth = window.innerWidth - e.clientX - 12; // 12px for right margin
+
+            // Calculate max allowed sidebar width to preserve main view
+            // Using Math.max(0, ...) to avoid negative numbers if window is tiny
+            const maxAllowedWidth = Math.max(0, window.innerWidth - MAIN_MIN_WIDTH);
+
+            // Apply constraints:
+            // 1. Sidebar Max (800)
+            // 2. Main View Safety (maxAllowedWidth)
+            // 3. Sidebar Min (320) - Applied last? 
+            // User requested "MAIN NEVEr below 450". If we apply 320 last, we might violate Main Min.
+            // However, preventing sidebar from being < 320 might be necessary for basic usability.
+            // Given tablet breakpoint is 768, 768-450 = 318. 
+            // If we enforce 450 strict, sidebar becomes 318. This is acceptable.
+            // So we apply standard MIN first, then Safe MAX to override it?
+            // No, usually you clamp between Min and Max.
+            // If Min > Max, you have to choose one. User prioritized Main View.
+
+            // Priority: Main Protection > Sidebar Min > Sidebar Max
+
+            let finalWidth = proposedWidth;
+            finalWidth = Math.min(finalWidth, SIDEBAR_MAX_WIDTH);
+            finalWidth = Math.max(finalWidth, SIDEBAR_MIN_WIDTH);
+            finalWidth = Math.min(finalWidth, maxAllowedWidth); // Main protection wins
+
+            setSidebarWidth(finalWidth);
         };
 
         const handleMouseUp = () => {
@@ -117,6 +142,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
             if (view === "my-clubs") return "My Clubs";
             if (view === "club-privacy-info") return "Club Privacy";
             if (view === "support-ticket-info") return "Ticket Info";
+            if (view === "mapHelp") return "How to get a Map Link";
             return "Details";
         };
 
@@ -133,6 +159,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
                     {view === "post-history" && <PostHistoryView data={data} />}
                     {view === "support-ticket-info" && <SupportTicketInfoView data={data} />}
+                    {view === "mapHelp" && <MapHelpView />}
                 </div>
             </MobileFullScreenModal>
         );
@@ -149,59 +176,63 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
             {isResizing && (
                 <div className="fixed inset-0 z-50 cursor-ew-resize" />
             )}
-            <aside
-                className={`fixed bottom-3 right-3 z-40 flex flex-col rounded-[1.8rem] overflow-hidden cc-glass cc-shadow-floating ${headerVisible ? 'top-[80px]' : 'top-3'}`}
-                style={{ width: `${sidebarWidth}px` }}
-            >
-                {/* Resize Handle */}
+            <div className="h-full w-full flex flex-col py-4 pr-4 pl-0">
+                {/* Floating sidebar card */}
                 <div
-                    className="absolute -left-1 top-0 bottom-0 w-3 cursor-ew-resize group z-10"
-                    onMouseDown={() => setIsResizing(true)}
+                    className="flex-1 flex flex-col rounded-3xl overflow-hidden cc-glass cc-shadow-floating border border-white/5 relative"
                 >
-                    <div className="absolute left-1 top-0 bottom-0 w-px bg-secondary/10 group-hover:bg-secondary/20 transition-colors" />
-                    <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1 h-16 bg-secondary/20 group-hover:bg-secondary/40 rounded-full transition-colors" />
-                </div>
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-secondary/10">
-                    <div className="flex items-center gap-2">
-                        {view !== "notifications" && (
-                            <button
-                                onClick={showNotifications}
-                                className="mr-1 rounded-full p-1 hover:bg-secondary/15 text-secondary hover:text-foreground transition-colors"
-                            >
-                                <ChevronLeftIcon className="h-5 w-5" />
-                            </button>
-                        )}
-                        <h2 className="font-semibold text-white">
-                            {view === "notifications" && "Notifications"}
-                            {view === "comments" && "Comments"}
-                            {view === "attendance" && "Guest List"}
-                            {view === "report" && "Report Content"}
-                            {view === "report-details" && "Report Details"}
-                            {view === "post-history" && "Post History"}
-                            {view === "likes" && "Likes"}
-                            {view === "my-clubs" && "My Clubs"}
-                            {view === "club-privacy-info" && "Club Privacy"}
-                            {view === "support-ticket-info" && "Ticket Info"}
-                        </h2>
+                    {/* Resize Handle */}
+                    <div
+                        className="absolute -left-1 top-0 bottom-0 w-3 cursor-ew-resize group z-10"
+                        onMouseDown={() => setIsResizing(true)}
+                    >
+                        <div className="absolute left-1 top-0 bottom-0 w-px bg-secondary/10 group-hover:bg-secondary/20 transition-colors" />
+                        <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1 h-16 bg-secondary/20 group-hover:bg-secondary/40 rounded-full transition-colors" />
+                    </div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-secondary/10">
+                        <div className="flex items-center gap-2">
+                            {view !== "notifications" && (
+                                <button
+                                    onClick={showNotifications}
+                                    className="mr-1 rounded-full p-1 hover:bg-secondary/15 text-secondary hover:text-foreground transition-colors"
+                                >
+                                    <ChevronLeftIcon className="h-5 w-5" />
+                                </button>
+                            )}
+                            <h2 className="font-semibold text-white">
+                                {view === "notifications" && "Notifications"}
+                                {view === "comments" && "Comments"}
+                                {view === "attendance" && "Guest List"}
+                                {view === "report" && "Report Content"}
+                                {view === "report-details" && "Report Details"}
+                                {view === "post-history" && "Post History"}
+                                {view === "likes" && "Likes"}
+                                {view === "my-clubs" && "My Clubs"}
+                                {view === "club-privacy-info" && "Club Privacy"}
+                                {view === "support-ticket-info" && "Ticket Info"}
+                                {view === "mapHelp" && "How to get a Map Link"}
+                            </h2>
+                        </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-2">
+                        {view === "notifications" && <NotificationsView />}
+                        {view === "comments" && <CommentsView data={data} />}
+                        {view === "details" && <PostDetailsSidebarView data={data} />}
+                        {view === "attendance" && <AttendanceView data={data} />}
+                        {view === "report" && <ReportView data={data} />}
+                        {view === "likes" && <LikesView data={data} />}
+                        {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
+                        {view === "report-details" && <ReportDetailsView data={data} />}
+                        {view === "post-history" && <PostHistoryView data={data} />}
+                        {view === "club-privacy-info" && <ClubPrivacyInfoView />}
+                        {view === "support-ticket-info" && <SupportTicketInfoView data={data} />}
+                        {view === "mapHelp" && <MapHelpView />}
                     </div>
                 </div>
-
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-2">
-                    {view === "notifications" && <NotificationsView />}
-                    {view === "comments" && <CommentsView data={data} />}
-                    {view === "details" && <PostDetailsSidebarView data={data} />}
-                    {view === "attendance" && <AttendanceView data={data} />}
-                    {view === "report" && <ReportView data={data} />}
-                    {view === "likes" && <LikesView data={data} />}
-                    {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
-                    {view === "report-details" && <ReportDetailsView data={data} />}
-                    {view === "post-history" && <PostHistoryView data={data} />}
-                    {view === "club-privacy-info" && <ClubPrivacyInfoView />}
-                    {view === "support-ticket-info" && <SupportTicketInfoView data={data} />}
-                </div>
-            </aside>
+            </div>
         </>
     );
 }
@@ -297,7 +328,6 @@ function PostDetailsSidebarView({ data }: { data: Post | null }) {
                         post={data}
                         noPadding
                         fullWidth
-                        className="h-[200px] rounded-[18px]"
                     />
                 </div>
             )}
@@ -1232,6 +1262,44 @@ function SupportTicketInfoView({ data }: { data: any }) {
                     </div>
                 </>
             )}
+        </div>
+    );
+}
+
+function MapHelpView() {
+    return (
+        <div className="space-y-4 p-3">
+            {/* Google Maps Section */}
+            <div className="cc-section p-4 space-y-2">
+                <h4 className="font-semibold text-foreground flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 5.42 7.72 14.73 8.06 15.13.19.23.53.23.72 0 .34-.4 8.06-9.71 8.06-15.13C20.5 3.81 16.69 0 12 0zm0 12.5c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                    </svg>
+                    Google Maps
+                </h4>
+                <p className="text-sm text-secondary">
+                    You can copy the URL from your browser's address bar, or use the "Share" button and click "Copy Link".
+                </p>
+                <code className="block rounded bg-secondary/10 p-2 text-xs text-secondary">
+                    maps.app.goo.gl/... or google.com/maps/...
+                </code>
+            </div>
+
+            {/* Apple Maps Section */}
+            <div className="cc-section p-4 space-y-2">
+                <h4 className="font-semibold text-foreground flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                    </svg>
+                    Apple Maps
+                </h4>
+                <p className="text-sm text-secondary">
+                    Select a location, click the "Share" button, and choose "Copy Link". It usually looks like:
+                </p>
+                <code className="block rounded bg-secondary/10 p-2 text-xs text-secondary">
+                    maps.apple.com/?...&ll=lat,lng...
+                </code>
+            </div>
         </div>
     );
 }
