@@ -21,6 +21,7 @@ import {
 import { UserRow } from "./user-row";
 import { useAdminMode } from "./admin-mode-context";
 import { Menu, Transition } from "@headlessui/react";
+import { ThemeToggle } from "./theme-toggle";
 
 function SidebarIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -111,7 +112,7 @@ export function Navbar({
   const isMobile = width <= 768;
 
   // Sidebar styling - Only used for Desktop now
-  const sidebarClasses = "fixed z-30 flex flex-col items-center w-[72px] rounded-[2rem] border border-white/10 bg-[#111111]/95 backdrop-blur-2xl py-3 transition-all duration-300 left-4 top-1/2 -translate-y-1/2 shadow-2xl shadow-black/50 h-fit";
+  const sidebarClasses = "fixed z-30 flex flex-col items-center w-[72px] rounded-full overflow-hidden cc-glass cc-shadow-floating py-3 transition-all duration-300 left-4 top-1/2 -translate-y-1/2 h-fit";
 
   // Nav item styling
   const navItemBase = isDesktop
@@ -119,13 +120,13 @@ export function Navbar({
     : "group flex items-center gap-3 rounded-full px-4 py-3.5 text-[17px] font-medium transition-all duration-200 ease-out";
 
   const navItemInactive = isDesktop
-    ? "text-zinc-500 hover:text-zinc-100 hover:bg-white/10"
-    : "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100 hover:scale-[1.02] active:scale-95";
+    ? "text-secondary hover:text-foreground hover:bg-secondary/20"
+    : "text-secondary hover:bg-secondary/20 hover:text-foreground hover:scale-[1.02] active:scale-95";
 
   // Active State: Just color change (no background) for regular items
   const navItemActive = isDesktop
-    ? "text-[#ffb200]"
-    : "bg-[#ffb200] text-black shadow-md shadow-[#ffb200]/20 font-semibold";
+    ? "text-brand"
+    : "bg-brand text-brand-foreground shadow-md shadow-brand/20 font-semibold";
 
   // Header is always shown on mobile
   const showHeader = isMobile;
@@ -141,7 +142,7 @@ export function Navbar({
       {!isDesktop && <span>{label}</span>}
       {/* Helper tooltip on hover for desktop */}
       {isDesktop && (
-        <span className="absolute left-full ml-3 px-2 py-1 rounded-md bg-zinc-800 border border-white/10 text-xs font-medium text-white opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+        <span className="absolute left-full ml-3 px-2 py-1 rounded-md bg-foreground border border-secondary/30 text-xs font-medium text-background opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
           {label}
         </span>
       )}
@@ -177,7 +178,7 @@ export function Navbar({
             {/* Desktop User Menu (Profile Link) */}
             <Link
               href="/profile"
-              className={`relative flex h-10 w-10 items-center justify-center rounded-full overflow-hidden transition-all hover:scale-105 ${pathname === "/profile" ? "ring-2 ring-[#ffb200]" : "hover:ring-2 hover:ring-white/20"
+              className={`relative flex h-10 w-10 items-center justify-center rounded-full overflow-hidden transition-all hover:scale-105 ${pathname === "/profile" ? "ring-2 ring-brand" : "hover:ring-2 hover:ring-secondary/30"
                 }`}
             >
               <div className="h-full w-full">
@@ -185,6 +186,11 @@ export function Navbar({
               </div>
             </Link>
           </nav>
+
+          {/* Theme Toggle at bottom */}
+          <div className="mt-4 w-full px-2">
+            <ThemeToggle />
+          </div>
         </aside>
       )}
 
@@ -197,7 +203,7 @@ export function Navbar({
           {/* Centered capsule tab bar */}
           <nav className="flex items-center justify-center">
             {isAdmin && adminModeOn ? (
-              <div className="inline-flex items-center gap-0 rounded-full border border-white/10 bg-black/60 backdrop-blur-xl p-1 text-[12px] text-slate-200 shadow-lg ring-1 ring-white/5">
+              <div className="inline-flex items-center gap-0 p-1 text-[12px] cc-glass-strong rounded-full overflow-hidden">
                 <Link
                   href="/settings"
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/settings"
@@ -243,7 +249,7 @@ export function Navbar({
                 </Link>
               </div>
             ) : (
-              <div className="inline-flex items-center gap-0 rounded-full border border-white/10 bg-black/60 backdrop-blur-xl p-1 text-[12px] text-slate-200 shadow-lg ring-1 ring-white/5">
+              <div className="inline-flex items-center gap-0 p-1 text-[12px] cc-glass-strong rounded-full overflow-hidden">
                 {/* REMOVED Sidebar toggle icon */}
 
                 <Link

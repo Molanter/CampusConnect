@@ -4,44 +4,26 @@ const config: Config = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       colors: {
-        background: "#050816",
-        surface: "#0B1020",
-        brand: {
-          DEFAULT: "#ffb200",
-          foreground: "#F9FAFB",
-        },
-        accent: "#ffb200",
-        primary: "#ffb200",
-      },
-      borderRadius: {
-        "2xl": "1rem",
-      },
-      boxShadow: {
-        soft: "0 24px 40px rgba(15,23,42,0.75)",
-      },
-      fontFamily: {
-        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        display: ["var(--font-display)", "system-ui", "sans-serif"],
-      },
-      animation: {
-        'slide-up': 'slideUp 0.3s ease-out',
-      },
-      keyframes: {
-        slideUp: {
-          '0%': { transform: 'translateY(100%)' },
-          '100%': { transform: 'translateY(0)' },
-        },
+        brand: "rgb(var(--tw-brand) / <alpha-value>)",
+        secondary: "rgb(var(--tw-secondary) / <alpha-value>)",
+        foreground: "rgb(var(--tw-foreground) / <alpha-value>)",
+        background: "rgb(var(--tw-background) / <alpha-value>)",
+        surface: "rgb(var(--tw-surface) / <alpha-value>)",
+        "surface-2": "rgb(var(--tw-surface-2) / <alpha-value>)",
+        "surface-3": "rgb(var(--tw-surface-3) / <alpha-value>)",
+        divider: "rgb(var(--tw-divider) / <alpha-value>)",
+        border: "rgb(var(--tw-border) / <alpha-value>)",
+        muted: "rgb(var(--tw-muted) / <alpha-value>)",
       },
     },
   },
   plugins: [
-    require('@tailwindcss/container-queries'),
+    require("@tailwindcss/container-queries"),
   ],
 };
 

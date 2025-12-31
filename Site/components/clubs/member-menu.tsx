@@ -65,16 +65,16 @@ export function MemberMenu({
                 leaveFrom="transform opacity-100 scale-100"
                 leaveTo="transform opacity-0 scale-95"
             >
-                <Menu.Items className="absolute right-0 z-50 mt-2 w-48 origin-top-right divide-y divide-zinc-700/50 rounded-xl bg-[#1c1c1e] shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                    <div className="p-1">
+                <Menu.Items className="absolute right-0 z-50 mt-2 w-48 origin-top-right divide-y divide-secondary/10 overflow-hidden cc-radius-menu cc-glass-strong cc-glass-highlight focus:outline-none">
+                    <div className="p-1.5">
                         {/* Promote/Demote */}
                         {isOwner && member.role === "member" && (
                             <Menu.Item>
                                 {({ active }) => (
                                     <button
                                         onClick={() => onPromote?.(member.uid)}
-                                        className={`${active ? "bg-white/10 text-white" : "text-zinc-300"
-                                            } group flex w-full items-center rounded-lg px-2 py-2 text-sm`}
+                                        className={`${active ? "bg-secondary/20 text-foreground" : "text-secondary"
+                                            } group flex w-full items-center rounded-full px-3 py-2 text-sm transition-colors`}
                                     >
                                         Promote to Admin
                                     </button>
@@ -86,8 +86,8 @@ export function MemberMenu({
                                 {({ active }) => (
                                     <button
                                         onClick={() => onDemote?.(member.uid)}
-                                        className={`${active ? "bg-white/10 text-white" : "text-zinc-300"
-                                            } group flex w-full items-center rounded-lg px-2 py-2 text-sm`}
+                                        className={`${active ? "bg-secondary/20 text-foreground" : "text-secondary"
+                                            } group flex w-full items-center rounded-full px-3 py-2 text-sm transition-colors`}
                                     >
                                         Demote to Member
                                     </button>
@@ -101,7 +101,7 @@ export function MemberMenu({
                                 <button
                                     onClick={() => onKick?.(member.uid)}
                                     className={`${active ? "bg-red-500/20 text-red-500" : "text-red-400"
-                                        } group flex w-full items-center rounded-lg px-2 py-2 text-sm`}
+                                        } group flex w-full items-center rounded-full px-3 py-2 text-sm transition-colors`}
                                 >
                                     Remove from Club
                                 </button>

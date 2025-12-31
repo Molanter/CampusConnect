@@ -299,12 +299,12 @@ function ActionControls({
                         leaveFrom="transform opacity-100 scale-100"
                         leaveTo="transform opacity-0 scale-95"
                     >
-                        <Menu.Items className="absolute right-0 top-full mt-2 z-50 w-56 origin-top-right divide-y divide-white/5 rounded-3xl border border-white/10 bg-[#1C1C1E]/90 backdrop-blur-xl shadow-2xl ring-1 ring-black/5 focus:outline-none">
+                        <Menu.Items className="absolute right-0 top-full mt-2 z-50 w-56 origin-top-right divide-y divide-secondary/10 overflow-hidden cc-radius-menu cc-glass-strong cc-glass-highlight focus:outline-none">
                             <div className="p-1.5">
                                 {isOwnProfile && onSignOut && (
                                     <Menu.Item>
                                         {({ active }) => (
-                                            <button onClick={onSignOut} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-red-500 transition-colors`}>
+                                            <button onClick={onSignOut} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-red-500 transition-colors`}>
                                                 <ArrowRightOnRectangleIcon className="h-[22px] w-[22px]" />
                                                 <span>Sign Out</span>
                                             </button>
@@ -314,7 +314,7 @@ function ActionControls({
                                 {!isOwnProfile && onReport && (
                                     <Menu.Item>
                                         {({ active }) => (
-                                            <button onClick={onReport} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-red-500 transition-colors`}>
+                                            <button onClick={onReport} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-red-500 transition-colors`}>
                                                 <ExclamationTriangleIcon className="h-[22px] w-[22px]" />
                                                 <span>Report User</span>
                                             </button>
@@ -341,14 +341,14 @@ function ActionControls({
                     leaveFrom="transform opacity-100 scale-100"
                     leaveTo="transform opacity-0 scale-95"
                 >
-                    <Menu.Items className="absolute right-0 top-full mt-2 z-50 w-56 origin-top-right divide-y divide-white/5 rounded-3xl border border-white/10 bg-[#1C1C1E]/90 backdrop-blur-xl shadow-2xl ring-1 ring-black/5 focus:outline-none">
+                    <Menu.Items className="absolute right-0 top-full mt-2 z-50 w-56 origin-top-right divide-y divide-secondary/10 overflow-hidden cc-radius-menu cc-glass-strong cc-glass-highlight focus:outline-none">
 
                         {/* Standard Actions */}
                         <div className="p-1.5">
                             <Menu.Item>
                                 {({ active }) => (
-                                    <button onClick={onShare} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-white transition-colors`}>
-                                        <ArrowUpOnSquareIcon className="h-[22px] w-[22px] text-white" />
+                                    <button onClick={onShare} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-foreground transition-colors`}>
+                                        <ArrowUpOnSquareIcon className="h-[22px] w-[22px] text-foreground" />
                                         <span>Share Profile</span>
                                     </button>
                                 )}
@@ -357,8 +357,8 @@ function ActionControls({
                             {isOwnProfile && onSettings && (
                                 <Menu.Item>
                                     {({ active }) => (
-                                        <button onClick={onSettings} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-white transition-colors`}>
-                                            <Cog6ToothIcon className="h-[22px] w-[22px] text-white" />
+                                        <button onClick={onSettings} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-foreground transition-colors`}>
+                                            <Cog6ToothIcon className="h-[22px] w-[22px] text-foreground" />
                                             <span>Settings</span>
                                         </button>
                                     )}
@@ -372,7 +372,7 @@ function ActionControls({
                                 {isOwnProfile && onSignOut && (
                                     <Menu.Item>
                                         {({ active }) => (
-                                            <button onClick={onSignOut} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-red-500 transition-colors`}>
+                                            <button onClick={onSignOut} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-red-500 transition-colors`}>
                                                 <ArrowRightOnRectangleIcon className="h-[22px] w-[22px]" />
                                                 <span>Sign Out</span>
                                             </button>
@@ -382,7 +382,7 @@ function ActionControls({
                                 {!isOwnProfile && onReport && (
                                     <Menu.Item>
                                         {({ active }) => (
-                                            <button onClick={onReport} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-red-500 transition-colors`}>
+                                            <button onClick={onReport} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-red-500 transition-colors`}>
                                                 <ExclamationTriangleIcon className="h-[22px] w-[22px]" />
                                                 <span>Report User</span>
                                             </button>

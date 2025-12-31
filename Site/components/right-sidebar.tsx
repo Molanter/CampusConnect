@@ -150,7 +150,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                 <div className="fixed inset-0 z-50 cursor-ew-resize" />
             )}
             <aside
-                className={`fixed bottom-3 right-3 z-40 flex flex-col rounded-[1.8rem] border border-white/10 bg-[#121212]/40 shadow-[0_30px_80px_rgba(0,0,0,0.9)] backdrop-blur-3xl ${headerVisible ? 'top-[80px]' : 'top-3'}`}
+                className={`fixed bottom-3 right-3 z-40 flex flex-col rounded-[1.8rem] overflow-hidden cc-glass cc-shadow-floating ${headerVisible ? 'top-[80px]' : 'top-3'}`}
                 style={{ width: `${sidebarWidth}px` }}
             >
                 {/* Resize Handle */}
@@ -158,16 +158,16 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     className="absolute -left-1 top-0 bottom-0 w-3 cursor-ew-resize group z-10"
                     onMouseDown={() => setIsResizing(true)}
                 >
-                    <div className="absolute left-1 top-0 bottom-0 w-px bg-white/5 group-hover:bg-white/20 transition-colors" />
-                    <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1 h-16 bg-white/20 group-hover:bg-white/40 rounded-full transition-colors" />
+                    <div className="absolute left-1 top-0 bottom-0 w-px bg-secondary/10 group-hover:bg-secondary/20 transition-colors" />
+                    <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1 h-16 bg-secondary/20 group-hover:bg-secondary/40 rounded-full transition-colors" />
                 </div>
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-secondary/10">
                     <div className="flex items-center gap-2">
                         {view !== "notifications" && (
                             <button
                                 onClick={showNotifications}
-                                className="mr-1 rounded-full p-1 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+                                className="mr-1 rounded-full p-1 hover:bg-secondary/15 text-secondary hover:text-foreground transition-colors"
                             >
                                 <ChevronLeftIcon className="h-5 w-5" />
                             </button>

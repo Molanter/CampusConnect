@@ -128,8 +128,8 @@ export function MemberRow({
                                 leaveFrom="transform opacity-100 scale-100"
                                 leaveTo="transform opacity-0 scale-95"
                             >
-                                <Menu.Items className="absolute right-0 z-50 mt-2 w-32 origin-top-right divide-y divide-white/5 rounded-2xl border border-white/10 bg-[#1C1C1E]/95 backdrop-blur-xl p-1.5 shadow-2xl ring-1 ring-black/5 focus:outline-none">
-                                    <div className="p-1">
+                                <Menu.Items className="absolute right-0 z-50 mt-2 w-32 origin-top-right divide-y divide-secondary/10 overflow-hidden cc-radius-menu cc-glass-strong cc-glass-highlight focus:outline-none">
+                                    <div className="p-1.5">
                                         {(["member", "admin", "owner"] as ClubRole[]).map((role) => (
                                             <Menu.Item key={role}>
                                                 {({ active }) => (
@@ -140,9 +140,9 @@ export function MemberRow({
                                                             }
                                                         }}
                                                         disabled={role === member.role || (role === "owner" && !isOwner && !isGlobalAdmin)}
-                                                        className={`${active ? "bg-white/10 text-white" : "text-neutral-300"
+                                                        className={`${active ? "bg-secondary/20 text-foreground" : "text-secondary"
                                                             } ${role === member.role ? "opacity-50 cursor-default" : ""} 
-                                                      group flex w-full items-center justify-between rounded-xl px-2 py-2 text-[13px] font-medium transition-colors`}
+                                                      group flex w-full items-center justify-between rounded-full px-3 py-2 text-[13px] font-medium transition-colors`}
                                                     >
                                                         <span className="capitalize">{role}</span>
                                                         {role === member.role && <CheckIcon className="h-3 w-3" />}
@@ -177,14 +177,14 @@ export function MemberRow({
                                 leaveFrom="transform opacity-100 scale-100"
                                 leaveTo="transform opacity-0 scale-95"
                             >
-                                <Menu.Items className="absolute right-0 z-50 mt-2 w-48 origin-top-right divide-y divide-white/5 rounded-2xl border border-white/10 bg-[#1C1C1E]/95 backdrop-blur-xl p-1.5 shadow-2xl ring-1 ring-black/5 focus:outline-none">
-                                    <div className="p-1">
+                                <Menu.Items className="absolute right-0 z-50 mt-2 w-48 origin-top-right divide-y divide-secondary/10 overflow-hidden cc-radius-menu cc-glass-strong cc-glass-highlight focus:outline-none">
+                                    <div className="p-1.5">
                                         <Menu.Item>
                                             {({ active }) => (
                                                 <button
                                                     onClick={() => onKick?.(member.uid)}
                                                     className={`${active ? "bg-red-500/20 text-red-500" : "text-red-400"
-                                                        } group flex w-full items-center rounded-xl px-2 py-2 text-[13px] font-medium transition-colors`}
+                                                        } group flex w-full items-center rounded-full px-3 py-2 text-[13px] font-medium transition-colors`}
                                                 >
                                                     Remove from Club
                                                 </button>
@@ -223,7 +223,7 @@ export function MemberRow({
                                     leaveFrom="opacity-100 scale-100"
                                     leaveTo="opacity-0 scale-95"
                                 >
-                                    <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-2xl bg-[#1C1C1E] border border-white/10 p-6 text-left align-middle shadow-xl transition-all">
+                                    <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-2xl cc-glass-strong cc-glass-highlight p-6 text-left align-middle transition-all">
                                         <Dialog.Title
                                             as="h3"
                                             className="text-lg font-medium leading-6 text-white"
