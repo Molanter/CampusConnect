@@ -170,7 +170,7 @@ export function EventHero({ post }: EventHeroProps) {
                         {/* Host */}
                         <div className="flex items-center gap-2">
                             <div className="h-6 w-6 overflow-hidden rounded-full bg-neutral-700">
-                                {authorAvatarUrl ? <img src={authorAvatarUrl} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-br from-blue-500 to-purple-500" />}
+                                {authorAvatarUrl ? <img src={authorAvatarUrl} className="h-full w-full object-cover object-center" /> : <div className="h-full w-full bg-gradient-to-br from-blue-500 to-purple-500" />}
                             </div>
                             <span className="font-medium text-neutral-300">{authorName}</span>
                         </div>

@@ -558,7 +558,7 @@ export default function CreateEventPage() {
                   <label className="text-xs font-bold uppercase tracking-wider text-secondary ml-1">Post As</label>
                   <div
                     className={clsx(
-                      "cc-section cc-radius-24 overflow-hidden transition-shadow",
+                      "relative cc-section cc-radius-24 overflow-hidden transition-shadow",
                       activeSection === "postAs" && "cc-shadow-soft"
                     )}
                     onFocusCapture={() => setActiveSection("postAs")}

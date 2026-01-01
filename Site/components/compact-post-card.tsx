@@ -107,7 +107,7 @@ export function CompactPostCard({
                 <img
                     src={primaryImage}
                     alt={title || "Post image"}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                 />
             );
         }

@@ -348,6 +348,7 @@ export default function ManageMyCampusPage() {
                     const dormData = {
                         name: d.name.trim(),
                         locationId: defaultLoc,
+                        category: "dorm",
                         adminEmails: d.adminEmail ? [d.adminEmail.trim().toLowerCase()] : formattedEmails
                     };
 
@@ -361,19 +362,57 @@ export default function ManageMyCampusPage() {
                         currentDormIds.add(newDoc.id);
                     }
 
-                    // Handle Dorm Club Logo if new image
-                    if (d.imageFile && finalDormId) {
-                        const cRef = collection(db, 'clubs');
-                        const qObj = query(cRef, where('campusId', '==', campus.id), where('name', '==', d.name.trim()), where('isDefault', '==', false));
-                        const snap = await getDocs(qObj);
+                    // Handle Dorm Club Logo and Category
+                    const cRef = collection(db, 'clubs');
+                    const qObj = query(cRef, where('campusId', '==', campus.id), where('name', '==', d.name.trim()), where('isDefault', '==', false));
+                    const snap = await getDocs(qObj);
 
-                        let clubDocId = snap.docs[0]?.id;
-                        if (clubDocId) {
+                    let clubDocId = snap.docs[0]?.id;
+                    if (clubDocId) {
+                        // Update existing club
+                        const updateObj: any = { category: "dorm" };
+                        if (d.imageFile) {
                             const logoPath = `clubs/${clubDocId}/logo-${Date.now()}.png`;
                             const logoRef = ref(storage, logoPath);
                             await uploadBytes(logoRef, d.imageFile);
-                            const downloadUrl = await getDownloadURL(logoRef);
-                            await updateDoc(doc(db, 'clubs', clubDocId), { coverImageUrl: downloadUrl });
+                            updateObj.coverImageUrl = await getDownloadURL(logoRef);
+                        }
+                        await updateDoc(doc(db, 'clubs', clubDocId), updateObj);
+                    } else if (finalDormId) {
+                        // Create missing dorm club
+                        const currentUser = auth.currentUser;
+                        const newClubRef = doc(collection(db, 'clubs'));
+                        let initialLogoUrl = "";
+                        if (d.imageFile) {
+                            const logoPath = `clubs/${newClubRef.id}/logo-${Date.now()}.png`;
+                            const logoRef = ref(storage, logoPath);
+                            await uploadBytes(logoRef, d.imageFile);
+                            initialLogoUrl = await getDownloadURL(logoRef);
+                        }
+                        await setDoc(newClubRef, {
+                            name: d.name.trim(),
+                            description: `One of the dorms (residences) of ${campus.name}`,
+                            campusId: campus.id,
+                            isPrivate: false,
+                            isDefault: false,
+                            category: "dorm",
+                            memberCount: currentUser ? 1 : 0,
+                            memberIds: currentUser ? [currentUser.uid] : [],
+                            adminUids: currentUser ? [currentUser.uid] : [],
+                            adminEmails: dormData.adminEmails,
+                            createdBy: currentUser?.uid || "system",
+                            createdAt: serverTimestamp(),
+                            allowMemberPosts: true,
+                            coverImageUrl: initialLogoUrl
+                        });
+                        if (currentUser) {
+                            await setDoc(doc(db, "clubs", newClubRef.id, "members", currentUser.uid), {
+                                uid: currentUser.uid,
+                                clubId: newClubRef.id,
+                                role: "owner",
+                                status: "approved",
+                                joinedAt: serverTimestamp(),
+                            });
                         }
                     }
                 }

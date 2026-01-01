@@ -486,7 +486,7 @@ export default function ModerationPage() {
                                         >
                                             <div className="h-8 w-8 rounded-full overflow-hidden shrink-0 bg-neutral-800 border border-white/5">
                                                 {club.profileImageUrl ? (
-                                                    <img src={club.profileImageUrl} alt={club.name} className="h-full w-full object-cover" />
+                                                    <img src={club.profileImageUrl} alt={club.name} className="h-full w-full object-cover object-center" />
                                                 ) : (
                                                     <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-neutral-500">
                                                         {club.name.charAt(0)}

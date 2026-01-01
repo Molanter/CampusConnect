@@ -226,6 +226,7 @@ export default function AdminUniversitiesPage() {
           {
             name: dormName,
             locationId: defaultLocationId,
+            category: "dorm",
           }
         );
       }

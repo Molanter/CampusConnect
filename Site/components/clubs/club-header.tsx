@@ -76,7 +76,7 @@ export function ClubHeader({
                     <img
                         src={backgroundUrl}
                         alt=""
-                        className="h-full w-full object-cover transition-opacity duration-700"
+                        className="!h-full !w-full object-cover object-center transition-opacity duration-700"
                     />
                     <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-[#0A0A0A]" />
                 </div>
@@ -96,7 +96,7 @@ export function ClubHeader({
                                         <img
                                             src={avatarUrl}
                                             alt={club.name}
-                                            className="h-full w-full object-cover"
+                                            className="!h-full !w-full object-cover object-center"
                                         />
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-500/20 to-orange-600/20 text-xl font-bold text-white/50 md:text-2xl">

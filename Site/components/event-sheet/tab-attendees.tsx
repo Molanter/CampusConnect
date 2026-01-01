@@ -88,7 +88,7 @@ export function TabAttendees({ post }: TabAttendeesProps) {
                         <Link key={user.uid} href={`/user/${user.uid}`} className="group flex flex-col items-center text-center cursor-pointer">
                             <div className="h-14 w-14 overflow-hidden rounded-full ring-2 ring-transparent group-hover:ring-white/20 transition-all bg-neutral-800">
                                 {user.photoURL ? (
-                                    <img src={user.photoURL} alt={user.displayName} className="h-full w-full object-cover" />
+                                    <img src={user.photoURL} alt={user.displayName} className="h-full w-full object-cover object-center" />
                                 ) : (
                                     <div className="h-full w-full flex items-center justify-center text-lg font-bold text-white">
                                         {user.displayName[0]}

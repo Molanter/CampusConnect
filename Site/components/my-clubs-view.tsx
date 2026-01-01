@@ -105,7 +105,7 @@ export function MyClubsView({ userId }: { userId: string }) {
                             <img
                                 src={club.coverImageUrl}
                                 alt={club.name}
-                                className="h-14 w-14 rounded-[18px] object-cover"
+                                className="h-14 w-14 rounded-[18px] object-cover object-center"
                             />
                         ) : (
                             <div className="h-14 w-14 rounded-[18px] bg-gradient-to-br from-amber-500/20 to-orange-600/20 flex items-center justify-center">

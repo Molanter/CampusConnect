@@ -12,6 +12,8 @@ import { EventCard } from "@/components/explore/event-card";
 import { ClubCard } from "@/components/explore/club-card";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ClubRow } from "@/components/explore/club-row";
+import { PostRow } from "@/components/explore/post-row";
 
 // Types
 type FilterTab = "All" | "Events" | "Posts" | "Clubs" | "People";
@@ -117,18 +119,23 @@ export default function ExplorePage() {
                 });
                 setClubs(fetchedClubs);
 
-                // 4. Fetch People
+                // 4. Fetch People (Larger batch for search)
                 const usersRef = collection(db, "users");
-                const usersQ = query(usersRef, limit(20));
+                const usersQ = query(usersRef, limit(100)); // Increased for better discovery
                 const usersSnap = await getDocs(usersQ);
                 usersSnap.forEach(d => {
                     const data = d.data();
+                    const dName = data.name || data.fullName || data.preferredName || data.displayName || data.username || "Unknown User";
                     results.push({
                         id: d.id,
                         type: "User",
-                        displayName: data.displayName || data.username || "Unknown User",
-                        photoURL: data.photoURL,
-                        data
+                        displayName: dName,
+                        photoURL: data.photoURL || data.profilePicture || data.avatarUrl,
+                        data: {
+                            ...data,
+                            displayName: dName,
+                            photoURL: data.photoURL || data.profilePicture || data.avatarUrl
+                        }
                     });
                 });
 
@@ -148,9 +155,11 @@ export default function ExplorePage() {
         if (!searchQuery.trim()) return [];
         const lowerQ = searchQuery.toLowerCase();
 
-        let filtered = allResults.filter(item =>
-            item.displayName.toLowerCase().includes(lowerQ)
-        );
+        let filtered = allResults.filter(item => {
+            const matchesName = item.displayName.toLowerCase().includes(lowerQ);
+            const matchesUsername = item.data?.username?.toLowerCase().includes(lowerQ);
+            return matchesName || matchesUsername;
+        });
 
         if (activeTab === "Events") filtered = filtered.filter(i => i.type === "Event");
         if (activeTab === "Posts") filtered = filtered.filter(i => i.type === "Post");
@@ -159,6 +168,56 @@ export default function ExplorePage() {
 
         return filtered.sort((a, b) => a.displayName.localeCompare(b.displayName));
     };
+
+    // Live Search for People if filtered results are sparse
+    useEffect(() => {
+        if (!searchQuery.trim() || searchQuery.length < 2) return;
+
+        const delayDebounce = setTimeout(async () => {
+            const lowerQ = searchQuery.toLowerCase();
+            const usersRef = collection(db, "users");
+
+            // Search by username prefix
+            const qUsername = query(
+                usersRef,
+                where("username", ">=", lowerQ),
+                where("username", "<=", lowerQ + "\uf8ff"),
+                limit(10)
+            );
+
+            // Note: Firestore doesn't support case-insensitive contains or prefix on multiple fields easily
+            // But we can at least try the username prefix which is common
+
+            try {
+                const snap = await getDocs(qUsername);
+                const newResults: SearchResult[] = [];
+                snap.forEach(d => {
+                    if (allResults.some(r => r.id === d.id)) return;
+                    const data = d.data();
+                    const dName = data.name || data.fullName || data.preferredName || data.displayName || data.username || "Unknown User";
+                    newResults.push({
+                        id: d.id,
+                        type: "User",
+                        displayName: dName,
+                        photoURL: data.photoURL || data.profilePicture || data.avatarUrl,
+                        data: {
+                            ...data,
+                            displayName: dName,
+                            photoURL: data.photoURL || data.profilePicture || data.avatarUrl
+                        }
+                    });
+                });
+
+                if (newResults.length > 0) {
+                    setAllResults(current => [...current, ...newResults]);
+                }
+            } catch (err) {
+                console.error("Live search error:", err);
+            }
+        }, 500);
+
+        return () => clearTimeout(delayDebounce);
+    }, [searchQuery]);
 
     const displayResults = getFilteredResults();
     const hasQuery = searchQuery.trim().length > 0;
@@ -185,7 +244,8 @@ export default function ExplorePage() {
         const groups: { [key: string]: Club[] } = {};
 
         clubs.forEach(club => {
-            const char = club.name.charAt(0).toUpperCase();
+            const name = club.name || "Unknown Club";
+            const char = name.charAt(0).toUpperCase();
             let groupKey = "#";
 
             if (/[A-Z]/.test(char)) {
@@ -226,206 +286,199 @@ export default function ExplorePage() {
     const clubGroups = getGroupedClubs();
 
     return (
-        <div className="min-h-screen px-4 py-8 md:py-4 md:px-8 max-w-2xl mx-auto">
+        <div className="cc-page w-full">
+            <div className="mx-auto max-w-2xl px-4 md:px-8 py-8 md:py-4">
 
-            {/* Header */}
-            <h1 className="text-3xl font-bold text-white mb-6">Explore</h1>
+                {/* Header */}
+                <h1 className="text-3xl font-bold text-foreground mb-6">Explore</h1>
 
-            {/* Search Bar */}
-            {/* Search Section */}
-            <div className="mb-6 z-30">
-                {/* Search Input Wrapper */}
-                <form
-                    className="relative group"
-                    onSubmit={(e) => e.preventDefault()}
-                    role="search"
-                >
-                    <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center justify-center">
-                        <MagnifyingGlassIcon className="h-[18px] w-[18px] text-zinc-500 transition-colors group-focus-within:text-white" />
-                    </div>
-                    <input
-                        type="text"
-                        name="q"
-                        id="search-input"
-                        placeholder="Search events, posts, clubs, people..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-[52px] w-full rounded-full border-none bg-[#1C1C1E] pl-12 pr-12 text-base text-white placeholder-zinc-500 shadow-sm ring-1 ring-white/10 transition-all hover:ring-white/20 focus:bg-[#202022] focus:ring-2 focus:ring-[#ffb200]/50 focus:outline-none"
-                        autoFocus
-                        autoComplete="off"
-                        autoCorrect="off"
-                        spellCheck="false"
-                    />
-                    {hasQuery && (
-                        <button
-                            type="button"
-                            onClick={() => setSearchQuery("")}
-                            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-                        >
-                            <XMarkIcon className="h-[18px] w-[18px]" />
-                        </button>
-                    )}
-                </form>
-
-                {/* Filters Row */}
-                {hasQuery && (
-                    <div className="mt-4 flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                        {tabs.map(tab => (
+                {/* Search Bar */}
+                {/* Search Section */}
+                <div className="mb-6 z-30">
+                    {/* Search Input Wrapper */}
+                    <form
+                        className="relative group"
+                        onSubmit={(e) => e.preventDefault()}
+                        role="search"
+                    >
+                        <div className="cc-glass cc-radius-24 border border-secondary/25 flex items-center h-[52px] w-full transition-all group-focus-within:border-brand/40 group-focus-within:ring-2 group-focus-within:ring-brand/20">
+                            <div className="pointer-events-none pl-4 flex items-center justify-center">
+                                <MagnifyingGlassIcon className="h-[18px] w-[18px] text-secondary transition-colors group-hover:text-foreground" />
+                            </div>
+                            <input
+                                type="text"
+                                name="q"
+                                id="search-input"
+                                placeholder="Search events, posts, clubs, people..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="flex-1 bg-transparent px-3 text-base text-foreground placeholder:text-secondary focus:outline-none"
+                                autoFocus
+                                autoComplete="off"
+                                autoCorrect="off"
+                                spellCheck="false"
+                            />
+                        </div>
+                        {hasQuery && (
                             <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${activeTab === tab
-                                    ? "bg-white text-black"
-                                    : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white"
-                                    }`}
+                                type="button"
+                                onClick={() => setSearchQuery("")}
+                                className="absolute right-3 top-[26px] -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-secondary transition-colors hover:bg-secondary/16 hover:text-foreground"
                             >
-                                {tab}
+                                <XMarkIcon className="h-[18px] w-[18px]" />
                             </button>
-                        ))}
+                        )}
+                    </form>
+
+                    {/* Filters Row */}
+                    {hasQuery && (
+                        <div className="mt-4 flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${activeTab === tab
+                                        ? "bg-brand text-brand-foreground"
+                                        : "bg-secondary/10 text-foreground hover:bg-secondary/16"
+                                        }`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Inactive State Content */}
+                {!hasQuery && (
+                    <div className="space-y-10 animate-in fade-in duration-500">
+
+                        {/* Helpful Resources */}
+                        <div className="space-y-3">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-secondary mb-2 px-1">Helpful Resources</h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    {
+                                        label: "Create Event",
+                                        href: "/posts/new",
+                                        icon: PlusIcon,
+                                        color: "bg-blue-500"
+                                    },
+                                    {
+                                        label: "Start a Club",
+                                        href: "/clubs/create",
+                                        icon: UserGroupIcon,
+                                        color: "bg-purple-500" // Closer to the 'Popular' red/orange in the image, but kept distinctive
+                                    },
+                                    {
+                                        label: "Guidelines",
+                                        href: "/guidelines",
+                                        icon: BookOpenIcon,
+                                        color: "bg-orange-500"
+                                    },
+                                    {
+                                        label: "Help Center",
+                                        href: "/help-support",
+                                        icon: QuestionMarkCircleIcon,
+                                        color: "bg-green-600"
+                                    },
+                                ].map(link => (
+                                    <Link
+                                        key={link.label}
+                                        href={link.href}
+                                        className="cc-section cc-radius-24 flex flex-col items-start justify-center gap-2 p-4 transition-shadow duration-150 hover:cc-shadow-soft active:scale-[0.98]"
+                                    >
+                                        <div className={`h-9 w-9 flex items-center justify-center rounded-full ${link.color} text-white shadow-sm`}>
+                                            <link.icon className="h-5 w-5" />
+                                        </div>
+                                        <span className="font-bold text-sm text-foreground">{link.label}</span>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Coming Soon - Horizontal Scroll */}
+                        <div className="space-y-3">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-secondary mb-2 px-1">Coming Soon</h3>
+                            {events.length > 0 ? (
+                                <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 no-scrollbar">
+                                    {events.map(event => (
+                                        <EventCard key={event.id} event={event} />
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-secondary px-1">No upcoming events or posts yet.</p>
+                            )}
+                        </div>
+
+                        {/* All Clubs - Grouped List */}
+                        <div className="space-y-6">
+                            {/* <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">All Clubs</h3> */}
+                            {clubGroups.length > 0 ? (
+                                clubGroups.map(group => (
+                                    <div key={group.key} className="space-y-2">
+                                        <h4 className="text-sm font-bold text-secondary px-1">{group.key}</h4>
+                                        <div className="cc-section cc-radius-24 overflow-hidden">
+                                            <div>
+                                                {group.clubs.map(club => (
+                                                    <ClubRow key={club.id} club={club} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="space-y-3">
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-secondary mb-2 px-1">All Clubs</h3>
+                                    <p className="text-sm text-secondary px-1">No clubs found.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Active State Results */}
+                {hasQuery && (
+                    <div className="space-y-0.5 pb-24 animate-in slide-in-from-bottom-2 duration-300">
+                        {displayResults.length === 0 ? (
+                            <div className="py-12 text-center cc-section cc-radius-24">
+                                <p className="text-foreground text-lg font-medium">No results found.</p>
+                                <p className="text-secondary text-sm mt-1">Try a different search.</p>
+                            </div>
+                        ) : (
+                            <div className="cc-section cc-radius-24 overflow-hidden">
+                                {displayResults.map(item => (
+                                    <div
+                                        key={`${item.type}-${item.id}`}
+                                        onClick={() => handleResultClick(item)}
+                                        className="group relative flex cursor-pointer items-center px-4 py-3 transition-colors hover:bg-secondary/10"
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <UserRow
+                                                userData={{
+                                                    displayName: item.displayName,
+                                                    photoURL: item.photoURL,
+                                                    username: item.data?.username || ""
+                                                }}
+                                                subtitle={item.type !== "User" ? item.type : undefined}
+                                                onlyAvatar={false}
+                                                isVerified={item.data?.isVerified}
+                                                type={item.type === "User" ? "User" : item.type as any}
+                                            />
+                                        </div>
+                                        <div className="group/icon p-1 rounded-full hover:bg-secondary/16 transition-colors">
+                                            <ChevronRightIcon className="h-5 w-5 text-secondary transition-colors group-hover/icon:text-foreground" />
+                                        </div>
+
+                                        {/* Inset Divider */}
+                                        <div className="absolute bottom-0 left-16 right-0 h-px bg-secondary/10 group-last:hidden" />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
-
-            {/* Inactive State Content */}
-            {!hasQuery && (
-                <div className="space-y-10 animate-in fade-in duration-500">
-
-                    {/* Helpful Resources */}
-                    <div className="space-y-3">
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Helpful Resources</h3>
-                        <div className="grid grid-cols-2 gap-3">
-                            {[
-                                {
-                                    label: "Create Event",
-                                    href: "/posts/new",
-                                    icon: PlusIcon,
-                                    color: "bg-blue-500"
-                                },
-                                {
-                                    label: "Start a Club",
-                                    href: "/clubs/create",
-                                    icon: UserGroupIcon,
-                                    color: "bg-purple-500" // Closer to the 'Popular' red/orange in the image, but kept distinctive
-                                },
-                                {
-                                    label: "Guidelines",
-                                    href: "/guidelines",
-                                    icon: BookOpenIcon,
-                                    color: "bg-orange-500"
-                                },
-                                {
-                                    label: "Help Center",
-                                    href: "/help-support",
-                                    icon: QuestionMarkCircleIcon,
-                                    color: "bg-green-600"
-                                },
-                            ].map(link => (
-                                <Link
-                                    key={link.label}
-                                    href={link.href}
-                                    className="flex flex-col items-start justify-center gap-2 rounded-[24px] border border-white/5 bg-[#1C1C1E] p-4 transition-all hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98]"
-                                >
-                                    <div className={`h-9 w-9 flex items-center justify-center rounded-full ${link.color} text-white`}>
-                                        <link.icon className="h-5 w-5" />
-                                    </div>
-                                    <span className="font-bold text-sm text-white">{link.label}</span>
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Coming Soon - Horizontal Scroll */}
-                    <div className="space-y-3">
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Coming Soon</h3>
-                        {events.length > 0 ? (
-                            <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 no-scrollbar">
-                                {events.map(event => (
-                                    <EventCard key={event.id} event={event} />
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-sm text-zinc-500">No upcoming events or posts yet.</p>
-                        )}
-                    </div>
-
-                    {/* All Clubs - Grouped List */}
-                    <div className="space-y-6">
-                        {/* <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">All Clubs</h3> */}
-                        {clubGroups.length > 0 ? (
-                            clubGroups.map(group => (
-                                <div key={group.key} className="space-y-2">
-                                    <h4 className="text-sm font-bold text-zinc-500 ml-1">{group.key}</h4>
-                                    <div className="rounded-[24px] bg-[#1C1C1E] border border-white/5 overflow-hidden">
-                                        <div className="divide-y divide-white/5">
-                                            {group.clubs.map(club => (
-                                                <div
-                                                    key={club.id}
-                                                    onClick={() => router.push(`/clubs/${club.id}`)}
-                                                    className="group relative flex cursor-pointer items-center px-4 py-3 transition-colors hover:bg-white/5"
-                                                >
-                                                    <UserRow
-                                                        userData={{
-                                                            displayName: club.name,
-                                                            photoURL: club.coverImageUrl,
-                                                        }}
-                                                        subtitle={`${club.memberCount} members`}
-                                                        onlyAvatar={false}
-                                                        isVerified={club.isVerified}
-                                                        rightElement={
-                                                            <ChevronRightIcon className="h-5 w-5 text-zinc-500 group-hover:text-white transition-colors" />
-                                                        }
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="space-y-3">
-                                <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">All Clubs</h3>
-                                <p className="text-sm text-zinc-500">No clubs found.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* Active State Results */}
-            {hasQuery && (
-                <div className="space-y-0.5 pb-24 animate-in slide-in-from-bottom-2 duration-300">
-                    {displayResults.length === 0 ? (
-                        <div className="py-12 text-center">
-                            <p className="text-zinc-500 text-lg">No results found.</p>
-                            <p className="text-zinc-600 text-sm mt-1">Try a different search.</p>
-                        </div>
-                    ) : (
-                        <div className="divide-y divide-white/5">
-                            {displayResults.map(item => (
-                                <div
-                                    key={`${item.type}-${item.id}`}
-                                    onClick={() => handleResultClick(item)}
-                                    // Row Styling: simple full-width, subtle divider, hover padding increase + highlight
-                                    className="group relative flex cursor-pointer items-center rounded-lg px-2 py-3 transition-all duration-200 hover:bg-white/5 hover:py-5 hover:shadow-lg hover:shadow-black/20 hover:z-10"
-                                >
-                                    <UserRow
-                                        userData={{
-                                            displayName: item.displayName,
-                                            photoURL: item.photoURL,
-                                            username: ""
-                                        }}
-                                        subtitle={item.type}
-                                        onlyAvatar={false}
-                                        // Pass right element explicitly if we want small labels/icons, 
-                                        // but subtitle already does "Event", "Club" etc.
-                                        isVerified={item.data?.isVerified}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
     );
 }

@@ -41,7 +41,7 @@ export function MemberRow({
                 >
                     <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10 transition-opacity group-hover:opacity-80">
                         {member.photoURL ? (
-                            <img src={member.photoURL} alt={displayName} className="h-full w-full object-cover" />
+                            <img src={member.photoURL} alt={displayName} className="h-full w-full object-cover object-center" />
                         ) : (
                             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
                                 {initials}
@@ -54,7 +54,7 @@ export function MemberRow({
                             {isRejected ? "Rejected" : "Pending Request"}
                         </span>
                     </div>
-                </Link>
+                </Link >
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => onApprove?.(member.uid)}
@@ -74,7 +74,7 @@ export function MemberRow({
                         <XMarkIcon className="h-4 w-4" />
                     </button>
                 </div>
-            </div>
+            </div >
         );
     }
 
@@ -87,7 +87,7 @@ export function MemberRow({
                 >
                     <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10 transition-opacity group-hover:opacity-80">
                         {member.photoURL ? (
-                            <img src={member.photoURL} alt={displayName} className="h-full w-full object-cover" />
+                            <img src={member.photoURL} alt={displayName} className="h-full w-full object-cover object-center" />
                         ) : (
                             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
                                 {initials}

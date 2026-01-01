@@ -221,7 +221,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                         <div className="shrink-0">
                             <div className="h-9 w-9 overflow-hidden rounded-full border border-secondary/30 bg-surface-2">
                                 {clubProfile?.avatarUrl ? (
-                                    <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="h-full w-full object-cover" />
+                                    <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="h-full w-full object-cover object-center" />
                                 ) : (
                                     <div className="flex h-full w-full items-center justify-center bg-brand text-sm font-bold text-white">
                                         {clubProfile?.name ? clubProfile.name.charAt(0).toUpperCase() : (clubId ? "C" : "?")}
@@ -238,7 +238,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                                     <img
                                         src={displayedPhotoUrl}
                                         alt={displayedName}
-                                        className="h-full w-full object-cover"
+                                        className="h-full w-full object-cover object-center"
                                     />
                                 ) : (
                                     <div className="flex h-full w-full items-center justify-center bg-surface-3 text-sm font-bold text-foreground">

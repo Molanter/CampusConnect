@@ -193,6 +193,7 @@ export default function CreateCampusPage() {
                             createdBy: currentUser.uid,
                             createdAt: serverTimestamp(),
                             allowMemberPosts: true,
+                            category: "dorm",
                             coverImageUrl: "",
                         });
 

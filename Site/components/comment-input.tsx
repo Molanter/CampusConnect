@@ -135,7 +135,7 @@ export function CommentInput({ value, onChange, onSend, sending, placeholder, cl
               >
                 <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-neutral-700">
                   {user.photoURL ? (
-                    <img src={user.photoURL} alt={user.username} className="h-full w-full object-cover" />
+                    <img src={user.photoURL} alt={user.username} className="h-full w-full object-cover object-center" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-neutral-600 text-xs font-bold text-white">
                       {user.username?.[0]?.toUpperCase() || "?"}
