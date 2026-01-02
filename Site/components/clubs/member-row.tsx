@@ -41,7 +41,7 @@ export function MemberRow({
                     href={member.username ? `/user/u/${member.username}` : "#"}
                     className={`flex items-center gap-3 group ${member.username ? "cursor-pointer" : "cursor-default"}`}
                 >
-                    <div className="h-10 w-10 shrink-0 cc-avatar aspect-square transition-opacity group-hover:opacity-80">
+                    <div className="h-10 w-10 shrink-0 cc-avatar rounded-full aspect-square transition-opacity group-hover:opacity-80">
                         {member.photoURL ? (
                             <img src={member.photoURL} alt={displayName} className="!h-full !w-full object-cover object-center" />
                         ) : (
@@ -87,7 +87,7 @@ export function MemberRow({
                     href={member.username ? `/user/u/${member.username}` : "#"}
                     className={`flex items-center gap-3 group ${member.username ? "cursor-pointer" : "cursor-default"}`}
                 >
-                    <div className="h-10 w-10 shrink-0 cc-avatar aspect-square transition-opacity group-hover:opacity-80">
+                    <div className="h-10 w-10 shrink-0 cc-avatar rounded-full aspect-square transition-opacity group-hover:opacity-80">
                         {member.photoURL ? (
                             <img src={member.photoURL} alt={displayName} className="!h-full !w-full object-cover object-center" />
                         ) : (

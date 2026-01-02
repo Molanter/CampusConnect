@@ -20,7 +20,7 @@ type FilterTab = "All" | "Events" | "Posts" | "Clubs" | "People";
 
 interface SearchResult {
     id: string;
-    type: "Event" | "Post" | "Club" | "User";
+    type: "Event" | "Post" | "Club" | "User" | "Dorm";
     displayName: string;
     photoURL?: string;
     data?: any;
@@ -108,16 +108,28 @@ export default function ExplorePage() {
 
                 clubsSnap.forEach(d => {
                     const data = d.data() as Club;
+                    if (data.status === 'hidden') return;
+
                     fetchedClubs.push({ ...data, id: d.id });
+
+                    const isDorm = data.category === 'dorm' || (data as any).type === 'dorm' || (data as any).isDorm || data.name?.toLowerCase().includes('dorm');
+
                     results.push({
                         id: d.id,
-                        type: "Club",
+                        type: isDorm ? "Dorm" : "Club",
                         displayName: data.name,
-                        photoURL: data.coverImageUrl,
-                        data
+                        photoURL: data.logoUrl || data.profileImageUrl || data.coverImageUrl || "",
+                        data: {
+                            ...data,
+                            isDorm
+                        }
                     });
                 });
                 setClubs(fetchedClubs);
+
+                // Optional: We might also want to filter out results that are clubs and are hidden (above handles fetchedClubs and first pass of results)
+                // However, results also contains Posts/Events which might belong to a hidden club. 
+                // The prompt was "do not display clubs", so I'll focus on filtering the club entities themselves.
 
                 // 4. Fetch People (Larger batch for search)
                 const usersRef = collection(db, "users");
@@ -386,9 +398,9 @@ export default function ExplorePage() {
                                     <Link
                                         key={link.label}
                                         href={link.href}
-                                        className="cc-section cc-radius-24 flex flex-col items-start justify-center gap-2 p-4 transition-shadow duration-150 hover:cc-shadow-soft active:scale-[0.98]"
+                                        className="cc-section cc-radius-24 flex flex-col items-start justify-center gap-2 p-4 transition-all duration-150 hover:cc-shadow-soft active:scale-[0.98]"
                                     >
-                                        <div className={`h-9 w-9 flex items-center justify-center rounded-full ${link.color} text-white shadow-sm`}>
+                                        <div className={`h-9 w-9 flex items-center justify-center rounded-[10px] ${link.color} text-white shadow-sm ring-1 ring-white/10`}>
                                             <link.icon className="h-5 w-5" />
                                         </div>
                                         <span className="font-bold text-sm text-foreground">{link.label}</span>
@@ -421,7 +433,7 @@ export default function ExplorePage() {
                                         <div className="cc-section cc-radius-24 overflow-hidden">
                                             <div>
                                                 {group.clubs.map(club => (
-                                                    <ClubRow key={club.id} club={club} />
+                                                    <ClubRow key={club.id} club={club} showChevron={true} />
                                                 ))}
                                             </div>
                                         </div>
@@ -451,27 +463,35 @@ export default function ExplorePage() {
                                     <div
                                         key={`${item.type}-${item.id}`}
                                         onClick={() => handleResultClick(item)}
-                                        className="group relative flex cursor-pointer items-center px-4 py-3 transition-colors hover:bg-secondary/10"
+                                        className="group relative flex cursor-pointer items-center mx-1.5 px-0.5 rounded-2xl transition-all hover:bg-secondary/10"
                                     >
                                         <div className="flex-1 min-w-0">
-                                            <UserRow
-                                                userData={{
-                                                    displayName: item.displayName,
-                                                    photoURL: item.photoURL,
-                                                    username: item.data?.username || ""
-                                                }}
-                                                subtitle={item.type !== "User" ? item.type : undefined}
-                                                onlyAvatar={false}
-                                                isVerified={item.data?.isVerified}
-                                                type={item.type === "User" ? "User" : item.type as any}
-                                            />
+                                            {item.type === "Post" || item.type === "Event" ? (
+                                                <PostRow post={item.data} />
+                                            ) : (item.type === "Club" || item.type === "Dorm") ? (
+                                                <ClubRow club={item.data} />
+                                            ) : (
+                                                <div className="pl-3.5 pr-3 py-2.5 w-full">
+                                                    <UserRow
+                                                        userData={{
+                                                            displayName: item.displayName,
+                                                            photoURL: item.photoURL,
+                                                            username: item.data?.username || ""
+                                                        }}
+                                                        subtitle={item.type !== "User" ? (item.type === "Dorm" ? "Dorm Club" : item.type) : undefined}
+                                                        onlyAvatar={false}
+                                                        isVerified={item.data?.isVerified}
+                                                        type={item.type as any}
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="group/icon p-1 rounded-full hover:bg-secondary/16 transition-colors">
+                                        <div className="group/icon p-1 rounded-full hover:bg-secondary/16 transition-colors pr-3">
                                             <ChevronRightIcon className="h-5 w-5 text-secondary transition-colors group-hover/icon:text-foreground" />
                                         </div>
 
                                         {/* Inset Divider */}
-                                        <div className="absolute bottom-0 left-16 right-0 h-px bg-secondary/10 group-last:hidden" />
+                                        <div className="absolute bottom-0 left-0 right-0 h-px bg-secondary/15 group-last/row:hidden" />
                                     </div>
                                 ))}
                             </div>

@@ -80,12 +80,15 @@ export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElem
     const initials = displayName.charAt(0).toUpperCase();
 
     // Allow overriding the default size (h-8 w-8)
-    const avatarClass = onlyAvatar ? "h-full w-full" : "h-8 w-8";
+    const avatarSizeClass = onlyAvatar ? "h-full w-full" : "h-8 w-8";
+    const isClubLike = (type === "Club" || type === "Dorm") ||
+        (subtitle?.toLowerCase().includes("club") || subtitle?.toLowerCase().includes("dorm"));
+    const roundingClass = isClubLike ? "rounded-[12px]" : "rounded-full";
 
     return (
         <div className={`flex w-full items-center ${onlyAvatar ? 'justify-center h-full' : 'justify-between py-1'}`}>
             <div className={`flex items-center ${onlyAvatar ? 'justify-center w-full h-full' : 'gap-3'}`}>
-                <div className={`${avatarClass} shrink-0 overflow-hidden rounded-full cc-avatar ring-1 ring-secondary/20 bg-secondary/10 flex items-center justify-center aspect-square`}>
+                <div className={`${avatarSizeClass} shrink-0 overflow-hidden ${roundingClass} cc-avatar ring-1 ring-secondary/20 bg-secondary/10 flex items-center justify-center aspect-square shadow-sm`}>
                     {photoURL ? (
                         <img src={photoURL} alt={displayName} className="!h-full !w-full object-cover object-center" />
                     ) : type === "Dorm" || subtitle === "Dorm" ? (

@@ -43,6 +43,9 @@ export interface Club {
     isVerified?: boolean; // New: Campus verified badge
     verificationStatus?: 'none' | 'pending' | 'approved' | 'rejected'; // New: Request flow
 
+    // Visibility/Status
+    status?: 'active' | 'hidden' | 'deleted';
+
     // Computed/Client-side
     isMember?: boolean;
 }
@@ -77,7 +80,9 @@ export async function createClub(
         name: string;
         description: string;
         coverImageUrl?: string;
+        logoUrl?: string;
         isPrivate: boolean;
+        postingPermission: 'anyone' | 'admins';
     }
 ) {
     const clubRef = await addDoc(collection(db, "clubs"), {
@@ -86,7 +91,7 @@ export async function createClub(
         memberIds: [userId], // crucial for "My Clubs" query
         createdBy: userId,
         createdAt: serverTimestamp(),
-        allowMemberPosts: false,
+        allowMemberPosts: data.postingPermission === 'anyone',
     });
 
     // Add creator as Owner in subcollection (for roles)

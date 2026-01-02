@@ -418,6 +418,12 @@ export function ClubProfileView({ clubId, isModerationMode = false }: ClubProfil
     return (
         <div className="w-full cc-page">
             <div className={`mx-auto w-full ${isNarrow ? 'px-0 py-4' : 'max-w-4xl px-4 py-8'} pb-32 space-y-6`}>
+                {club.status === 'hidden' && (
+                    <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 mb-2">
+                        <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                        <p className="text-sm font-bold text-red-500 uppercase tracking-wider">This Club is Hidden</p>
+                    </div>
+                )}
                 <ClubHeader
                     club={club}
                     currentUserRole={membership?.role || null}

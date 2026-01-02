@@ -12,10 +12,10 @@ interface ClubCardProps {
 export function ClubCard({ club }: ClubCardProps) {
     return (
         <Link href={`/clubs/${club.id}`} className="block group">
-            <div className="cc-section cc-radius-24 overflow-hidden shadow-lg transition-all duration-150 hover:cc-shadow-soft active:scale-[0.98]">
+            <div className="relative cc-section cc-radius-24 overflow-hidden shadow-lg transition-all duration-150 hover:cc-shadow-soft active:scale-[0.98]">
 
-                {/* Cover Image & Avatar */}
-                <div className="relative h-32 w-full overflow-hidden bg-secondary/10">
+                {/* Cover Image */}
+                <div className="relative h-32 w-full overflow-hidden cc-glass-strong">
                     {club.coverImageUrl ? (
                         <img
                             src={club.coverImageUrl}
@@ -23,35 +23,35 @@ export function ClubCard({ club }: ClubCardProps) {
                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                     ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-secondary/10">
+                        <div className="flex h-full w-full items-center justify-center cc-glass-strong">
                             <UserGroupIcon className="h-12 w-12 text-secondary/30" />
                         </div>
                     )}
-
-                    {/* Avatar Overlap */}
-                    <div className="absolute -bottom-6 left-4 h-16 w-16 overflow-hidden rounded-2xl border-4 border-background cc-avatar shadow-xl aspect-square">
-                        {club.logoUrl || club.profileImageUrl ? (
-                            <img
-                                src={club.logoUrl || club.profileImageUrl}
-                                alt={club.name}
-                                className="!h-full !w-full object-cover object-center"
-                            />
-                        ) : club.category === "dorm" ? (
-                            <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-secondary">
-                                <HomeIcon className="h-8 w-8" />
-                            </div>
-                        ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-secondary">
-                                <span className="text-2xl font-bold uppercase">{club.name.charAt(0)}</span>
-                            </div>
-                        )}
-                    </div>
 
                     {/* Private Badge */}
                     {club.isPrivate && (
                         <div className="absolute top-2 right-2 rounded-full bg-secondary/20 backdrop-blur-md px-2 py-1 text-[10px] font-medium text-foreground/90 border border-secondary/25">
                             <LockClosedIcon className="inline h-3 w-3 mr-1 mb-0.5" />
                             Private
+                        </div>
+                    )}
+                </div>
+
+                {/* Avatar Overlap - Moved out to prevent clipping */}
+                <div className="absolute top-[5.5rem] left-4 h-16 w-16 overflow-hidden rounded-2xl border-4 border-white/10 cc-avatar shadow-xl aspect-square z-10 cc-glass-strong">
+                    {club.logoUrl || club.profileImageUrl ? (
+                        <img
+                            src={club.logoUrl || club.profileImageUrl}
+                            alt={club.name}
+                            className="!h-full !w-full object-cover object-center"
+                        />
+                    ) : (club.category === "dorm" || (club as any).type === "dorm" || (club as any).isDorm || club.name?.toLowerCase().includes("dorm")) ? (
+                        <div className="flex h-full w-full items-center justify-center text-secondary">
+                            <span className="text-2xl font-bold uppercase">{club.name.charAt(0)}</span>
+                        </div>
+                    ) : (
+                        <div className="flex h-full w-full items-center justify-center text-secondary">
+                            <span className="text-2xl font-bold uppercase">{club.name.charAt(0)}</span>
                         </div>
                     )}
                 </div>

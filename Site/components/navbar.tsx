@@ -16,7 +16,8 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   PowerIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  WrenchScrewdriverIcon
 } from "@heroicons/react/24/outline";
 import { UserRow } from "./user-row";
 import { useAdminMode } from "./admin-mode-context";
@@ -166,6 +167,9 @@ export function Navbar({
                 <NavItem href="/admin/moderation" icon={ShieldCheckIcon} label="Moderation" isActive={pathname === "/admin/moderation"} />
                 <NavItem href={isGlobalAdminUser ? "/admin/campuses" : "/admin/campuses/manage-my"} icon={BuildingLibraryIcon} label="Manage Campuses" isActive={pathname.startsWith("/admin/campuses")} />
                 <NavItem href="/admin/support" icon={ChatBubbleLeftRightIcon} label="Support" isActive={pathname.startsWith("/admin/support")} />
+                {isGlobalAdminUser && (
+                  <NavItem href="/admin/config" icon={WrenchScrewdriverIcon} label="Config" isActive={pathname.startsWith("/admin/config")} />
+                )}
               </>
             ) : (
               <>
@@ -247,6 +251,19 @@ export function Navbar({
                   <ChatBubbleLeftRightIcon className="mr-1 h-4 w-4" />
                   Support
                 </Link>
+
+                {isGlobalAdminUser && (
+                  <Link
+                    href="/admin/config"
+                    className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname.startsWith("/admin/config")
+                      ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                      : "text-slate-200 hover:bg-white/10"
+                      }`}
+                  >
+                    <WrenchScrewdriverIcon className="mr-1 h-4 w-4" />
+                    Config
+                  </Link>
+                )}
               </div>
             ) : (
               <div className="inline-flex items-center gap-0 p-1 text-[12px] cc-glass-strong rounded-full overflow-hidden">

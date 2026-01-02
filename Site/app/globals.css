@@ -337,7 +337,6 @@ video {
 
   .cc-avatar {
     border: 1px solid rgb(var(--tw-secondary) / 0.3);
-    border-radius: 9999px;
     overflow: hidden;
   }
 

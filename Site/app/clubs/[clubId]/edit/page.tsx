@@ -19,6 +19,31 @@ import { Club } from "../../../../lib/clubs";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "../../../../lib/admin-utils";
 import { useAdminMode } from "../../../../components/admin-mode-context";
 
+import Toast, { ToastData } from "@/components/Toast";
+
+// Shared UI class definitions
+const ui = {
+    page: "mx-auto min-h-screen w-full max-w-2xl px-4 py-8 pb-32",
+    headerBackBtn: "flex h-10 w-10 items-center justify-center rounded-full cc-header-btn transition-transform active:scale-95",
+    title: "text-2xl font-bold text-foreground",
+    sectionLabel: "px-4 text-[13px] font-semibold uppercase tracking-wider cc-muted mb-2",
+    card: "cc-section cc-radius-24 shadow-lg overflow-hidden",
+    row: "relative group/row mx-1 px-3 py-3 flex flex-col gap-1 rounded-[18px] transition-all hover:bg-secondary/10 cursor-pointer overflow-hidden",
+    rowHover: "hover:bg-secondary/10 cursor-pointer", // Helper for non-interactive rows if needed
+    rowDivider: "absolute bottom-0 left-0 right-0 h-px bg-secondary/15 group-last/row:hidden",
+    label: "text-[11px] font-semibold text-neutral-500 uppercase tracking-wider",
+    input: "w-full bg-transparent text-foreground placeholder-neutral-500 focus:outline-none text-[15px]",
+    textarea: "w-full bg-transparent text-foreground placeholder-neutral-500 focus:outline-none text-[15px] resize-none",
+    dropzone: "flex aspect-video w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/5 transition-colors hover:border-white/30 hover:bg-white/10",
+    previewWrap: "relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 group",
+    clearBtn: "absolute right-2 top-2 z-10 rounded-full bg-black/50 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-red-500",
+    saveBtn: "w-full rounded-full bg-[#ffb200] py-4 text-[17px] font-semibold text-black transition-all hover:bg-[#ffc233] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+    cropOverlay: "fixed inset-0 z-50 flex items-center justify-center bg-black/90",
+    cropPill: "absolute bottom-32 left-1/2 -translate-x-1/2 flex items-center gap-4 rounded-full bg-black/60 px-6 py-3 backdrop-blur-sm ring-1 ring-white/10",
+    cropBtnGlass: "flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-all hover:bg-white/20 ring-1 ring-white/10",
+    cropBtnPrimary: "flex h-14 w-14 items-center justify-center rounded-full bg-[#ffb200] text-black transition-all hover:bg-[#ffc233] shadow-lg shadow-orange-500/20"
+};
+
 // Helper to create cropped image blob
 async function getCroppedImg(imageSrc: string, pixelCrop: any): Promise<Blob> {
     const image = new Image();
@@ -62,6 +87,7 @@ export default function EditClubPage() {
     const [membership, setMembership] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [toast, setToast] = useState<ToastData | null>(null);
     const { isGlobalAdminUser, isCampusAdminUser, adminModeOn } = useAdminMode();
 
     // Form state
@@ -75,14 +101,19 @@ export default function EditClubPage() {
 
     // Cover image state
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
-    const [coverFile, setCoverFile] = useState<File | null>(null);
+    const [coverCroppedBlob, setCoverCroppedBlob] = useState<Blob | null>(null);
 
     // Crop modal state
     const [cropModalOpen, setCropModalOpen] = useState(false);
+    const [cropType, setCropType] = useState<'logo' | 'cover'>('logo');
     const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+
+    // Refs for hidden inputs
+    const logoInputRef = React.useRef<HTMLInputElement>(null);
+    const coverInputRef = React.useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (u) => {
@@ -139,23 +170,27 @@ export default function EditClubPage() {
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
+                setCropType('logo');
                 setCropImageSrc(reader.result as string);
                 setCropModalOpen(true);
             };
             reader.readAsDataURL(file);
         }
+        if (logoInputRef.current) logoInputRef.current.value = "";
     };
 
     const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setCoverFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
-                setCoverPreview(reader.result as string);
+                setCropType('cover');
+                setCropImageSrc(reader.result as string);
+                setCropModalOpen(true);
             };
             reader.readAsDataURL(file);
         }
+        if (coverInputRef.current) coverInputRef.current.value = "";
     };
 
     const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
@@ -166,15 +201,22 @@ export default function EditClubPage() {
         if (!cropImageSrc || !croppedAreaPixels) return;
         try {
             const croppedBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels);
-            setLogoCroppedBlob(croppedBlob);
-            setLogoPreview(URL.createObjectURL(croppedBlob));
+
+            if (cropType === 'logo') {
+                setLogoCroppedBlob(croppedBlob);
+                setLogoPreview(URL.createObjectURL(croppedBlob));
+            } else {
+                setCoverCroppedBlob(croppedBlob);
+                setCoverPreview(URL.createObjectURL(croppedBlob));
+            }
+
             setCropModalOpen(false);
             setCropImageSrc(null);
             setCrop({ x: 0, y: 0 });
             setZoom(1);
         } catch (err) {
             console.error("Error cropping image:", err);
-            alert("Failed to crop image.");
+            setToast({ type: 'error', message: 'Failed to crop image.' });
         }
     };
 
@@ -185,16 +227,28 @@ export default function EditClubPage() {
         setZoom(1);
     };
 
+    const clearCover = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setCoverPreview(null);
+        setCoverCroppedBlob(null);
+    };
+
+    const clearLogo = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setLogoPreview(null);
+        setLogoCroppedBlob(null);
+    }
+
     const handleSave = async () => {
         if (!club || !name.trim()) {
-            alert("Club name is required.");
+            setToast({ type: 'error', message: "Club name is required." });
             return;
         }
 
         setSaving(true);
         try {
-            let logoUrl = club.logoUrl;
-            let coverImageUrl = club.coverImageUrl;
+            let logoUrl: string | null | undefined = club.logoUrl;
+            let coverImageUrl: string | null | undefined = club.coverImageUrl;
 
             // Upload cropped logo if available
             if (logoCroppedBlob) {
@@ -204,25 +258,34 @@ export default function EditClubPage() {
             }
 
             // Upload cover image if available
-            if (coverFile) {
+            if (coverCroppedBlob) {
                 const storageRef = ref(storage, `clubs/${clubId}/cover-${Date.now()}`);
-                await uploadBytes(storageRef, coverFile);
+                await uploadBytes(storageRef, coverCroppedBlob);
                 coverImageUrl = await getDownloadURL(storageRef);
             }
+
+            // Handle removal scenarios if cleared (logic simplified, assuming replace/update mostly)
+            if (!logoPreview) logoUrl = null;
+            if (!coverPreview) coverImageUrl = null;
 
             await updateDoc(doc(db, "clubs", clubId), {
                 name: name.trim(),
                 description: description.trim(),
                 category: category.trim(),
-                logoUrl: logoUrl || null,
-                coverImageUrl: coverImageUrl || null
+                logoUrl: logoUrl as any,
+                coverImageUrl: coverImageUrl as any
             });
 
-            alert("Club updated successfully!");
-            router.push(`/clubs/${clubId}/settings`);
+            setToast({ type: 'success', message: 'Club updated successfully' });
+
+            // Wait a moment before navigating back for user to see toast
+            setTimeout(() => {
+                router.push(`/clubs/${clubId}/settings`);
+            }, 1000);
+
         } catch (err) {
             console.error("Error saving club:", err);
-            alert("Failed to save changes.");
+            setToast({ type: 'error', message: 'Failed to save changes.' });
         } finally {
             setSaving(false);
         }
@@ -249,25 +312,31 @@ export default function EditClubPage() {
 
     return (
         <>
+            <Toast toast={toast} onClear={() => setToast(null)} />
+
             {/* Crop Modal */}
             {cropModalOpen && cropImageSrc && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+                <div className={ui.cropOverlay}>
                     <div className="relative h-[80vh] w-[90vw] max-w-lg">
                         <Cropper
                             image={cropImageSrc}
                             crop={crop}
                             zoom={zoom}
-                            aspect={1}
-                            cropShape="round"
+                            aspect={cropType === 'logo' ? 1 : 16 / 9}
+                            cropShape={cropType === 'logo' ? 'rect' : 'rect'}
                             showGrid={false}
                             onCropChange={setCrop}
                             onZoomChange={setZoom}
                             onCropComplete={onCropComplete}
+                            classes={{
+                                containerClassName: "rounded-3xl",
+                                cropAreaClassName: !cropImageSrc ? "" : "!border-2 border-[#ffb200] !rounded-[32px]"
+                            }}
                         />
                     </div>
 
                     {/* Zoom slider */}
-                    <div className="absolute bottom-32 left-1/2 -translate-x-1/2 flex items-center gap-4 rounded-full bg-black/60 px-6 py-3 backdrop-blur-sm">
+                    <div className={ui.cropPill}>
                         <span className="text-sm text-white/70">Zoom</span>
                         <input
                             type="range"
@@ -282,155 +351,141 @@ export default function EditClubPage() {
 
                     {/* Action buttons */}
                     <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4">
-                        <button
-                            onClick={handleCropCancel}
-                            className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-all hover:bg-white/20"
-                        >
+                        <button onClick={handleCropCancel} className={ui.cropBtnGlass}>
                             <XMarkIcon className="h-7 w-7" />
                         </button>
-                        <button
-                            onClick={handleCropConfirm}
-                            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ffb200] text-black transition-all hover:bg-[#ffc233]"
-                        >
+                        <button onClick={handleCropConfirm} className={ui.cropBtnPrimary}>
                             <CheckIcon className="h-7 w-7" />
                         </button>
                     </div>
                 </div>
             )}
 
-            <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-8">
-                <header className="mb-2">
-                    <button
-                        onClick={() => router.back()}
-                        className="mb-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 hover:text-white hover:bg-white/10 transition-all"
-                    >
+            <div className={ui.page}>
+                <header className="mb-8 flex items-center gap-4">
+                    <button onClick={() => router.back()} className={ui.headerBackBtn}>
                         <ChevronLeftIcon className="h-5 w-5" />
                     </button>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                        Edit Club
-                    </p>
-                    <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">
-                        Edit Details
-                    </h1>
+                    <h1 className={ui.title}>Edit Details</h1>
                 </header>
 
-                {/* Cover Image Upload */}
-                <section className="space-y-3">
-                    <h2 className="px-4 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">Cover Image</h2>
-                    <div className="overflow-hidden rounded-2xl bg-[#1C1C1E]">
-                        <div className="relative h-40 w-full bg-neutral-800">
-                            {coverPreview ? (
-                                <img
-                                    src={coverPreview}
-                                    alt="Cover"
-                                    className="h-full w-full object-cover"
-                                />
-                            ) : (
-                                <div className="flex h-full w-full items-center justify-center">
-                                    <PhotoIcon className="h-12 w-12 text-neutral-600" />
-                                </div>
-                            )}
-                            <label className="absolute bottom-3 right-3 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-all hover:bg-black/80">
-                                <CameraIcon className="h-5 w-5" />
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleCoverSelect}
-                                    className="hidden"
-                                />
-                            </label>
-                        </div>
-                        <div className="px-4 py-3">
-                            <p className="text-[13px] text-neutral-500">Recommended: 1200x400px or similar wide aspect ratio</p>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Logo Upload */}
-                <section className="space-y-3">
-                    <h2 className="px-4 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">Club Logo</h2>
-                    <div className="overflow-hidden rounded-2xl bg-[#1C1C1E] p-6">
-                        <div className="flex items-center gap-6">
-                            <div className="relative">
-                                <div className="h-24 w-24 overflow-hidden rounded-full border border-white/10 bg-neutral-800">
-                                    {logoPreview ? (
-                                        <img
-                                            src={logoPreview}
-                                            alt="Club Logo"
-                                            className="h-full w-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="flex h-full w-full items-center justify-center">
-                                            <PhotoIcon className="h-10 w-10 text-neutral-600" />
+                {/* Identity Section */}
+                <div className="space-y-2">
+                    <label className={ui.sectionLabel}>Identity</label>
+                    <div className={ui.card}>
+                        {/* Logo Row */}
+                        <div
+                            onClick={() => logoInputRef.current?.click()}
+                            className={ui.row}
+                        >
+                            <div className="flex items-center gap-6 py-2">
+                                <div className="relative h-20 w-20 shrink-0">
+                                    <div className="h-20 w-20 overflow-hidden rounded-[20px] cc-avatar ring-1 ring-secondary/20 bg-secondary/10 flex items-center justify-center aspect-square shadow-sm group">
+                                        {logoPreview ? (
+                                            <img src={logoPreview} alt="Logo Preview" className="h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-secondary">
+                                                <PhotoIcon className="h-8 w-8" />
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-[20px]">
+                                            <CameraIcon className="h-6 w-6 text-white" strokeWidth={2.5} />
                                         </div>
+                                    </div>
+                                    {logoPreview && (
+                                        <button
+                                            type="button"
+                                            onClick={clearLogo}
+                                            className="absolute -top-1 -right-1 z-10 rounded-full bg-black/60 p-1 text-white backdrop-blur-sm transition-colors hover:bg-red-500"
+                                        >
+                                            <XMarkIcon className="h-3 w-3" />
+                                        </button>
                                     )}
                                 </div>
-                                <label className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#ffb200] text-black shadow-lg transition-transform hover:scale-105">
-                                    <CameraIcon className="h-4 w-4" />
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleLogoSelect}
-                                        className="hidden"
-                                    />
-                                </label>
+                                <div className="flex flex-col">
+                                    <p className="text-[15px] font-semibold text-foreground">Club Logo</p>
+                                    <p className="text-[11px] text-neutral-500">Square organization branding</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-[15px] text-white">Upload a logo</p>
-                                <p className="text-[13px] text-neutral-500">You can resize after selecting</p>
+                            <div className={ui.rowDivider} />
+                            <input type="file" ref={logoInputRef} accept="image/*" onChange={handleLogoSelect} className="hidden" />
+                        </div>
+
+                        {/* Cover Row */}
+                        <div className="p-4">
+                            <div className="space-y-2">
+                                <label className={ui.label}>Cover Image</label>
+                                {coverPreview ? (
+                                    <div className={ui.previewWrap}>
+                                        <img src={coverPreview} alt="Cover Preview" className="h-full w-full object-cover" />
+                                        <button type="button" onClick={clearCover} className={ui.clearBtn}>
+                                            <XMarkIcon className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div onClick={() => coverInputRef.current?.click()} className={ui.dropzone}>
+                                        <PhotoIcon className="mb-2 h-8 w-8 text-zinc-500" />
+                                        <span className="text-sm font-medium text-zinc-400">Tap to select header image</span>
+                                        <span className="text-[10px] text-zinc-600 mt-1">Recommended: 16:9 aspect ratio</span>
+                                    </div>
+                                )}
+                                <input type="file" ref={coverInputRef} onChange={handleCoverSelect} accept="image/*" className="hidden" />
                             </div>
                         </div>
                     </div>
-                </section>
+                </div>
 
-                {/* Club Name */}
-                <section className="space-y-3">
-                    <h2 className="px-4 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">Club Name</h2>
-                    <div className="overflow-hidden rounded-2xl bg-[#1C1C1E]">
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Enter club name"
-                            className="w-full bg-transparent px-4 py-3 text-[15px] text-white placeholder-neutral-500 outline-none"
-                        />
-                    </div>
-                </section>
+                {/* Information Section */}
+                <div className="space-y-2">
+                    <label className={ui.sectionLabel}>Information</label>
+                    <div className={ui.card}>
+                        {/* Name */}
+                        <div className={`${ui.row} !cursor-text`}>
+                            <label className={ui.label}>Club Name</label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="e.g. Photography Club"
+                                className={ui.input}
+                            />
+                            <div className={ui.rowDivider} />
+                        </div>
 
-                {/* Description */}
-                <section className="space-y-3">
-                    <h2 className="px-4 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">Description</h2>
-                    <div className="overflow-hidden rounded-2xl bg-[#1C1C1E]">
-                        <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Describe your club..."
-                            rows={4}
-                            className="w-full resize-none bg-transparent px-4 py-3 text-[15px] text-white placeholder-neutral-500 outline-none"
-                        />
-                    </div>
-                </section>
+                        {/* Description */}
+                        <div className={`${ui.row} !cursor-text`}>
+                            <label className={ui.label}>Description</label>
+                            <textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="What is this club about?"
+                                rows={4}
+                                className={ui.textarea}
+                            />
+                            <div className={ui.rowDivider} />
+                        </div>
 
-                {/* Category */}
-                <section className="space-y-3">
-                    <h2 className="px-4 text-[13px] font-semibold uppercase tracking-wider text-neutral-500">Category</h2>
-                    <div className="overflow-hidden rounded-2xl bg-[#1C1C1E]">
-                        <input
-                            type="text"
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            placeholder="e.g., Sports, Academic, Social"
-                            className="w-full bg-transparent px-4 py-3 text-[15px] text-white placeholder-neutral-500 outline-none"
-                        />
+                        {/* Category */}
+                        <div className={`${ui.row} !cursor-text`}>
+                            <label className={ui.label}>Category</label>
+                            <input
+                                type="text"
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                                placeholder="e.g., Sports, Academic"
+                                className={ui.input}
+                            />
+                            {/* No divider on last item */}
+                        </div>
                     </div>
-                </section>
+                </div>
 
                 {/* Save Button */}
                 <div className="pt-4">
                     <button
                         onClick={handleSave}
                         disabled={saving || !name.trim()}
-                        className="w-full rounded-2xl bg-[#ffb200] py-4 text-[17px] font-semibold text-black transition-all hover:bg-[#ffc233] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={ui.saveBtn}
                     >
                         {saving ? "Saving..." : "Save Changes"}
                     </button>

@@ -12,9 +12,12 @@ interface Club {
     coverImageUrl?: string;
     memberCount?: number;
     isVerified?: boolean;
+    category?: string;
+    type?: string;
+    isDorm?: boolean;
 }
 
-import { CheckBadgeIcon } from "@heroicons/react/24/solid";
+import { CheckBadgeIcon, HomeIcon } from "@heroicons/react/24/solid";
 
 export function MyClubsView({ userId }: { userId: string }) {
     const router = useRouter();
@@ -43,7 +46,10 @@ export function MyClubsView({ userId }: { userId: string }) {
                             description: clubData.description,
                             coverImageUrl: clubData.coverImageUrl,
                             memberCount: clubData.memberCount || 0,
-                            isVerified: clubData.isVerified
+                            isVerified: clubData.isVerified,
+                            category: clubData.category,
+                            type: clubData.type,
+                            isDorm: clubData.isDorm
                         });
                     }
                 }
@@ -105,13 +111,15 @@ export function MyClubsView({ userId }: { userId: string }) {
                             <img
                                 src={club.coverImageUrl}
                                 alt={club.name}
-                                className="h-14 w-14 rounded-[18px] object-cover object-center"
+                                className="h-14 w-14 rounded-[14px] object-cover object-center shadow-sm"
                             />
+                        ) : (club.category === "dorm" || (club as any).type === "dorm" || (club as any).isDorm || club.name?.toLowerCase().includes("dorm")) ? (
+                            <div className="h-14 w-14 rounded-[14px] bg-secondary/10 flex items-center justify-center border border-secondary/20 transition-all shadow-sm">
+                                <HomeIcon className="w-7 h-7 text-secondary" />
+                            </div>
                         ) : (
-                            <div className="h-14 w-14 rounded-[18px] bg-gradient-to-br from-amber-500/20 to-orange-600/20 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 text-amber-400">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                                </svg>
+                            <div className="h-14 w-14 rounded-[14px] bg-gradient-to-br from-amber-500/20 to-orange-600/20 flex items-center justify-center transition-all shadow-sm">
+                                <span className="text-xl font-bold text-amber-500 uppercase">{club.name.charAt(0)}</span>
                             </div>
                         )}
                     </div>

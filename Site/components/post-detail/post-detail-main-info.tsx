@@ -219,7 +219,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                 {isClubPost ? (
                     <Link href={`/clubs/${clubId}`}>
                         <div className="shrink-0">
-                            <div className="h-9 w-9 overflow-hidden rounded-full border border-secondary/30 bg-surface-2 aspect-square">
+                            <div className="h-9 w-9 overflow-hidden rounded-[10px] border border-secondary/30 bg-surface-2 aspect-square shadow-sm">
                                 {clubProfile?.avatarUrl ? (
                                     <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="!h-full !w-full object-cover object-center" />
                                 ) : (

@@ -10,7 +10,8 @@ import {
     ArrowUpOnSquareIcon,
     ExclamationTriangleIcon,
     ArrowRightOnRectangleIcon,
-    LockClosedIcon
+    LockClosedIcon,
+    HomeIcon
 } from "@heroicons/react/24/outline";
 import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 import { Menu, Transition } from "@headlessui/react";
@@ -92,13 +93,17 @@ export function ClubHeader({
                         {/* Top Section: Avatar & Identity */}
                         <div className="flex items-center gap-4 md:gap-6">
                             <div className="relative shrink-0">
-                                <div className="h-16 w-16 overflow-hidden rounded-full cc-avatar md:h-20 md:w-20">
+                                <div className="h-16 w-16 overflow-hidden rounded-2xl cc-avatar md:h-20 md:w-20 shadow-md">
                                     {avatarUrl ? (
                                         <img
-                                            src={club.logoUrl || club.coverImageUrl}
+                                            src={avatarUrl}
                                             alt={club.name}
                                             className="!h-full !w-full object-cover object-center"
                                         />
+                                    ) : (club.category === "dorm" || (club as any).type === "dorm" || (club as any).isDorm || club.name?.toLowerCase().includes("dorm")) ? (
+                                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 border border-secondary/25 text-secondary">
+                                            <HomeIcon className="h-8 w-8 md:h-10 md:w-10" />
+                                        </div>
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-xl font-bold text-foreground md:text-2xl">
                                             {initials}

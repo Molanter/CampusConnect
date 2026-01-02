@@ -315,6 +315,18 @@ export default function SettingsPage() {
             </div>
             <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
           </Link>
+          <Link
+            href="/guidelines"
+            className="flex items-center gap-3 px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600">
+              <ShieldCheckIcon className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-normal text-white">Community Guidelines</p>
+            </div>
+            <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
+          </Link>
           <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-lime-500 to-lime-600">
               <DocumentTextIcon className="h-5 w-5 text-white" />

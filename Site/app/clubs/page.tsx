@@ -14,6 +14,7 @@ export default function ClubsHome() {
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [myClubs, setMyClubs] = useState<Club[]>([]);
     const [publicClubs, setPublicClubs] = useState<Club[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -30,18 +31,14 @@ export default function ClubsHome() {
                         isAdmin = true;
                     } else {
                         // Check if Campus Admin (admin for at least one campus)
-                        const qUni = query(
-                            collection(db, "universities"),
-                            where("adminEmails", "array-contains", u.email.toLowerCase())
-                        );
                         const qCampus = query(
                             collection(db, "campuses"),
                             where("adminEmails", "array-contains", u.email.toLowerCase())
                         );
 
-                        const [snapUni, snapCampus] = await Promise.all([getDocs(qUni), getDocs(qCampus)]);
+                        const snapCampus = await getDocs(qCampus);
 
-                        if (!snapUni.empty || !snapCampus.empty) {
+                        if (!snapCampus.empty) {
                             isAdmin = true;
                         }
                     }
@@ -70,10 +67,12 @@ export default function ClubsHome() {
                     clubsList = await getAllClubs();
                 }
 
+                const filteredPublic = (clubsList || []).filter(c => c.status !== 'hidden');
                 const userList = u ? await getUserClubs(u.uid) : [];
+                const filteredMy = (userList || []).filter(c => c.status !== 'hidden');
 
-                setPublicClubs(clubsList);
-                setMyClubs(userList);
+                setPublicClubs(filteredPublic);
+                setMyClubs(filteredMy);
             } catch (err) {
                 console.error("Error loading clubs:", err);
             } finally {
@@ -82,6 +81,18 @@ export default function ClubsHome() {
         });
         return () => unsub();
     }, []);
+
+    const filteredMyClubs = myClubs.filter(club => {
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return club.name.toLowerCase().includes(q) || club.description?.toLowerCase().includes(q);
+    });
+
+    const filteredPublicClubs = publicClubs.filter(club => {
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return club.name.toLowerCase().includes(q) || club.description?.toLowerCase().includes(q);
+    });
 
     return (
         <div className="cc-page min-h-screen pb-20">
@@ -112,11 +123,13 @@ export default function ClubsHome() {
                     </Link>
                 </div>
 
-                {/* Search (Visual Only for now) */}
+                {/* Search */}
                 <div className="relative mb-10 cc-glass cc-radius-24 border border-secondary/25">
                     <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-secondary" />
                     <input
                         type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search for clubs..."
                         className="
                           h-12 w-full
@@ -136,11 +149,11 @@ export default function ClubsHome() {
                 ) : (
                     <>
                         {/* My Clubs */}
-                        {myClubs.length > 0 && (
+                        {filteredMyClubs.length > 0 && (
                             <div className="mb-12">
                                 <h2 className="mb-4 text-xl font-semibold text-foreground">My Clubs</h2>
                                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                    {myClubs.map(club => (
+                                    {filteredMyClubs.map(club => (
                                         <ClubCard key={club.id} club={club} />
                                     ))}
                                 </div>
@@ -150,9 +163,9 @@ export default function ClubsHome() {
                         {/* Discovery */}
                         <div>
                             <h2 className="mb-4 text-xl font-semibold text-foreground">Discover</h2>
-                            {publicClubs.length > 0 ? (
+                            {filteredPublicClubs.length > 0 ? (
                                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                    {publicClubs.map(club => (
+                                    {filteredPublicClubs.map(club => (
                                         <ClubCard key={club.id} club={club} />
                                     ))}
                                 </div>
