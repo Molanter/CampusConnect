@@ -498,6 +498,29 @@ video {
     background-color: rgb(var(--tw-secondary) / 0.12);
   }
 
+  /* Header button with blur effect */
+  .cc-header-btn {
+    background: rgb(var(--tw-glass-tint) / 0.86);
+    -webkit-backdrop-filter: blur(4px) saturate(102%);
+    backdrop-filter: blur(4px) saturate(102%);
+    border: 1px solid rgb(var(--tw-glass-border) / 0.15);
+    box-shadow: 0 28px 65px rgb(0 0 0 / 0.18);
+    transition: all 150ms ease;
+  }
+
+  .cc-header-btn:hover {
+    background: rgb(var(--tw-glass-tint) / 0.92);
+  }
+
+  .dark .cc-header-btn {
+    background: rgb(var(--tw-glass-tint) / 0.80);
+    box-shadow: 0 32px 80px rgb(0 0 0 / 0.60);
+  }
+
+  .dark .cc-header-btn:hover {
+    background: rgb(var(--tw-glass-tint) / 0.86);
+  }
+
   /* Layout utilities for dynamic sidebar sizing */
   .cc-main-wrap {
     display: flex;
@@ -516,14 +539,17 @@ video {
     flex-shrink: 0;
   }
 }
+
 /* Responsive behavior overrides based on Main Layout Metrics (container width) */
-.cc-main-narrow .cc-page > div {
-  padding-left: 1rem !important; /* Force px-4 */
+.cc-main-narrow .cc-page>div {
+  padding-left: 1rem !important;
+  /* Force px-4 */
   padding-right: 1rem !important;
 }
 
-.cc-main-very-narrow .cc-page > div {
-  padding-left: 0.75rem !important; /* Force px-3 */
+.cc-main-very-narrow .cc-page>div {
+  padding-left: 0.75rem !important;
+  /* Force px-3 */
   padding-right: 0.75rem !important;
 }
 
@@ -535,7 +561,8 @@ video {
     color: rgb(var(--tw-foreground));
     font-size: 0.875rem;
     line-height: 1.25rem;
-    padding-right: 2rem; /* space for custom icon */
+    padding-right: 2rem;
+    /* space for custom icon */
     text-align: right;
     outline: none;
     position: relative;

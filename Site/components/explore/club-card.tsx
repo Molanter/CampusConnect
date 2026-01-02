@@ -18,12 +18,12 @@ export function ClubCard({ club }: ClubCardProps) {
             className="group flex flex-col cc-section cc-radius-24 p-4 transition-all duration-150 cc-hover-shadow active:scale-[0.98] cursor-pointer"
         >
             <div className="mb-3 flex items-start justify-between">
-                <div className="h-12 w-12 overflow-hidden rounded-full cc-avatar flex items-center justify-center">
+                <div className="h-12 w-12 overflow-hidden rounded-full cc-avatar flex items-center justify-center aspect-square">
                     {club.logoUrl || club.profileImageUrl || club.coverImageUrl ? (
                         <img
                             src={club.logoUrl || club.profileImageUrl || club.coverImageUrl}
                             alt={club.name}
-                            className="h-full w-full object-cover object-center"
+                            className="!h-full !w-full object-cover object-center"
                         />
                     ) : club.category === "dorm" ? (
                         <div className="flex h-full w-full items-center justify-center bg-secondary/10 border border-secondary/25 text-secondary">

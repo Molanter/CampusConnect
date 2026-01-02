@@ -30,10 +30,11 @@ interface ClubProfileViewProps {
 
 export function ClubProfileView({ clubId, isModerationMode = false }: ClubProfileViewProps) {
     const router = useRouter();
+
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [club, setClub] = useState<Club | null>(null);
     const [membership, setMembership] = useState<ClubMember | null>(null);
-    const [activeTab, setActiveTab] = useState<ClubTab>("about");
+    const [activeTab, setActiveTab] = useState<ClubTab>("posts");
     const [isGlobalAdminUser, setIsGlobalAdminUser] = useState(false);
 
     const { openView, isNarrow } = useRightSidebar();
@@ -64,6 +65,7 @@ export function ClubProfileView({ clubId, isModerationMode = false }: ClubProfil
         };
         checkAdmin();
     }, [currentUser]);
+
 
     useEffect(() => {
         if (!clubId || !canViewContent) return;
@@ -397,13 +399,13 @@ export function ClubProfileView({ clubId, isModerationMode = false }: ClubProfil
 
     if (loading) {
         return (
-            <div className="flex h-screen w-full items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-[#ffb200]" />
+            <div className="flex h-screen w-full items-center justify-center cc-page">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-secondary/25 border-t-brand" />
             </div>
         );
     }
 
-    if (!club) return <div className="pt-20 text-center text-white">Club not found</div>;
+    if (!club) return <div className="pt-20 text-center text-foreground cc-page h-screen">Club not found</div>;
 
     const canSeeRequests = !!(club && club.isPrivate && (membership?.role === "owner" || membership?.role === "admin" || (isGlobalAdminUser && adminModeOn)));
     const tabs: { key: ClubTab; label: string }[] = [
@@ -414,51 +416,53 @@ export function ClubProfileView({ clubId, isModerationMode = false }: ClubProfil
     ];
 
     return (
-        <div className={`mx-auto w-full ${isNarrow ? 'px-0 py-4' : 'max-w-4xl px-4 py-8'} pb-32 space-y-6`}>
-            <ClubHeader
-                club={club}
-                currentUserRole={membership?.role || null}
-                joinStatus={membership?.status || null}
-                stats={{
-                    posts: stats.totalPosts || 0,
-                    members: club.memberCount
-                }}
-                onJoin={handleJoin}
-                onLeave={handleLeave}
-                onInvite={handleShare}
-                onSettings={handleSettings}
-                onPostsClick={() => setActiveTab("posts")}
-                onMembersClick={() => setActiveTab("members")}
-                isNarrow={isNarrow}
-                isGlobalAdmin={isGlobalAdminUser && adminModeOn}
-            />
-
-            {!canViewContent ? (
-                <div className="mt-8 flex flex-col items-center justify-center rounded-[28px] border border-white/10 bg-[#1C1C1E] p-12 text-center shadow-lg">
-                    <div className="mb-4 rounded-full bg-zinc-800 p-6">
-                        <LockClosedIcon className="h-10 w-10 text-zinc-400" />
-                    </div>
-                    <h2 className="text-xl font-bold text-white">This Club is Private</h2>
-                    <p className="mt-2 text-zinc-400">Join this club to view its posts and members.</p>
-                </div>
-            ) : (
-                <ClubPager
-                    tabs={tabs}
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                    isNarrow={isNarrow}
-                    posts={posts}
-                    members={members}
-                    requests={requests}
+        <div className="w-full cc-page">
+            <div className={`mx-auto w-full ${isNarrow ? 'px-0 py-4' : 'max-w-4xl px-4 py-8'} pb-32 space-y-6`}>
+                <ClubHeader
                     club={club}
-                    membership={membership}
-                    isGlobalAdminUser={isGlobalAdminUser && adminModeOn}
-                    handleUpdateMember={handleUpdateMember}
-                    handleRemoveMember={handleRemoveMember}
-                    openView={openView}
-                    fetchContent={fetchContent}
+                    currentUserRole={membership?.role || null}
+                    joinStatus={membership?.status || null}
+                    stats={{
+                        posts: stats.totalPosts || 0,
+                        members: club.memberCount
+                    }}
+                    onJoin={handleJoin}
+                    onLeave={handleLeave}
+                    onInvite={handleShare}
+                    onSettings={handleSettings}
+                    onPostsClick={() => setActiveTab("posts")}
+                    onMembersClick={() => setActiveTab("members")}
+                    isNarrow={isNarrow}
+                    isGlobalAdmin={isGlobalAdminUser && adminModeOn}
                 />
-            )}
+
+                {!canViewContent ? (
+                    <div className="mt-8 flex flex-col items-center justify-center cc-section cc-radius-24 p-12 text-center shadow-lg">
+                        <div className="mb-4 rounded-full bg-secondary/10 p-6">
+                            <LockClosedIcon className="h-10 w-10 text-secondary" />
+                        </div>
+                        <h2 className="text-xl font-bold text-foreground">This Club is Private</h2>
+                        <p className="mt-2 cc-muted">Join this club to view its posts and members.</p>
+                    </div>
+                ) : (
+                    <ClubPager
+                        tabs={tabs}
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                        isNarrow={isNarrow}
+                        posts={posts}
+                        members={members}
+                        requests={requests}
+                        club={club}
+                        membership={membership}
+                        isGlobalAdminUser={isGlobalAdminUser && adminModeOn}
+                        handleUpdateMember={handleUpdateMember}
+                        handleRemoveMember={handleRemoveMember}
+                        openView={openView}
+                        fetchContent={fetchContent}
+                    />
+                )}
+            </div>
         </div>
     );
 }

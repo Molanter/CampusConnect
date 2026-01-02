@@ -137,12 +137,12 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
             <div className="relative flex gap-3">
                 {/* Avatar with light stroke that adapts to theme */}
                 <div className="shrink-0 w-9 h-9">
-                    <div className="h-9 w-9 overflow-hidden rounded-full bg-surface-2 border border-border">
+                    <div className="h-9 w-9 overflow-hidden rounded-full bg-surface-2 border border-border aspect-square">
                         {avatarUrl ? (
                             <img
                                 src={avatarUrl}
                                 alt={user.displayName || "User"}
-                                className="h-full w-full object-cover"
+                                className="!h-full !w-full object-cover object-center"
                             />
                         ) : (
                             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-600 to-neutral-700 text-sm font-bold text-white">

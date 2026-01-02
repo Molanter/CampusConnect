@@ -33,14 +33,14 @@ export function MemberMenu({
             <div className="flex items-center gap-2">
                 <button
                     onClick={() => onApprove?.(member.uid)}
-                    className="rounded-full bg-green-500/20 p-2 text-green-400 hover:bg-green-500/30"
+                    className="rounded-full bg-green-500/10 p-2 text-green-500 hover:bg-green-500/16 transition-colors shadow-sm active:scale-95"
                     title="Approve"
                 >
                     <CheckIcon className="h-4 w-4" />
                 </button>
                 <button
                     onClick={() => onReject?.(member.uid)}
-                    className="rounded-full bg-red-500/20 p-2 text-red-400 hover:bg-red-500/30"
+                    className="rounded-full bg-red-500/10 p-2 text-red-500 hover:bg-red-500/16 transition-colors shadow-sm active:scale-95"
                     title="Reject"
                 >
                     <XMarkIcon className="h-4 w-4" />
@@ -53,7 +53,7 @@ export function MemberMenu({
 
     return (
         <Menu as="div" className="relative inline-block text-left">
-            <Menu.Button className="flex items-center justify-center rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-white">
+            <Menu.Button className="flex items-center justify-center rounded-full p-2 text-secondary hover:bg-secondary/10 hover:text-foreground">
                 <EllipsisHorizontalIcon className="h-5 w-5" />
             </Menu.Button>
             <Transition
@@ -73,7 +73,7 @@ export function MemberMenu({
                                 {({ active }) => (
                                     <button
                                         onClick={() => onPromote?.(member.uid)}
-                                        className={`${active ? "bg-secondary/20 text-foreground" : "text-secondary"
+                                        className={`${active ? "bg-secondary/10 text-foreground" : "text-secondary"
                                             } group flex w-full items-center rounded-full px-3 py-2 text-sm transition-colors`}
                                     >
                                         Promote to Admin
@@ -86,7 +86,7 @@ export function MemberMenu({
                                 {({ active }) => (
                                     <button
                                         onClick={() => onDemote?.(member.uid)}
-                                        className={`${active ? "bg-secondary/20 text-foreground" : "text-secondary"
+                                        className={`${active ? "bg-secondary/10 text-foreground" : "text-secondary"
                                             } group flex w-full items-center rounded-full px-3 py-2 text-sm transition-colors`}
                                     >
                                         Demote to Member
@@ -100,7 +100,7 @@ export function MemberMenu({
                             {({ active }) => (
                                 <button
                                     onClick={() => onKick?.(member.uid)}
-                                    className={`${active ? "bg-red-500/20 text-red-500" : "text-red-400"
+                                    className={`${active ? "bg-red-500/10 text-red-500" : "text-red-500/80"
                                         } group flex w-full items-center rounded-full px-3 py-2 text-sm transition-colors`}
                                 >
                                     Remove from Club

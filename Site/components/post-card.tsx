@@ -348,9 +348,9 @@ export function PostCard({
                     <div className="shrink-0 self-start">
                         {isClubPost ? (
                             <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()}>
-                                <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30">
+                                <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square">
                                     {clubProfile?.avatarUrl ? (
-                                        <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="h-full w-full object-cover object-center" />
+                                        <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="!h-full !w-full object-cover object-center" />
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
                                             {clubProfile?.name ? clubProfile.name.charAt(0).toUpperCase() : "C"}
@@ -360,9 +360,9 @@ export function PostCard({
                             </Link>
                         ) : (
                             <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
-                                <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30">
+                                <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square">
                                     {displayedPhotoUrl ? (
-                                        <img src={displayedPhotoUrl} alt={displayedName} className="h-full w-full object-cover object-center" />
+                                        <img src={displayedPhotoUrl} alt={displayedName} className="!h-full !w-full object-cover object-center" />
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
                                             {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}

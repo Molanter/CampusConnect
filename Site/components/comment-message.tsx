@@ -197,12 +197,12 @@ export function CommentMessage({
           onTouchMove={handleLongPressEnd}
         >
           <div className="flex flex-col items-center">
-            <div className={cn("shrink-0 overflow-hidden rounded-full bg-surface-2 border border-secondary/30", avatarSize)}>
+            <div className={cn("shrink-0 overflow-hidden rounded-full bg-surface-2 border border-secondary/30 aspect-square", avatarSize)}>
               {displayPhotoURL ? (
                 <img
                   src={displayPhotoURL}
                   alt={displayName}
-                  className="h-full w-full object-cover"
+                  className="!h-full !w-full object-cover object-center"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-surface-3 text-[10px] font-semibold text-foreground">

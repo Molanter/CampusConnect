@@ -19,7 +19,7 @@ export function ClubRow({ club }: ClubRowProps) {
         >
             <div className="flex items-center gap-4 overflow-hidden">
                 {/* Avatar */}
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full cc-avatar flex items-center justify-center">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full cc-avatar flex items-center justify-center aspect-square">
                     {club.logoUrl || club.profileImageUrl || club.coverImageUrl ? (
                         <img
                             src={club.logoUrl || club.profileImageUrl || club.coverImageUrl}

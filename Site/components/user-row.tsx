@@ -85,7 +85,7 @@ export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElem
     return (
         <div className={`flex w-full items-center ${onlyAvatar ? 'justify-center h-full' : 'justify-between py-1'}`}>
             <div className={`flex items-center ${onlyAvatar ? 'justify-center w-full h-full' : 'gap-3'}`}>
-                <div className={`${avatarClass} shrink-0 overflow-hidden rounded-full cc-avatar ring-1 ring-secondary/20 bg-secondary/10 flex items-center justify-center`}>
+                <div className={`${avatarClass} shrink-0 overflow-hidden rounded-full cc-avatar ring-1 ring-secondary/20 bg-secondary/10 flex items-center justify-center aspect-square`}>
                     {photoURL ? (
                         <img src={photoURL} alt={displayName} className="!h-full !w-full object-cover object-center" />
                     ) : type === "Dorm" || subtitle === "Dorm" ? (
