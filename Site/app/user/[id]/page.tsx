@@ -124,6 +124,7 @@ export default function UserProfilePage() {
           return {
             id: doc.id,
             title: data.title,
+            description: data.description,
             content: data.content ?? data.description ?? "",
             isEvent: data.isEvent ?? true,
             date: data.date,
@@ -140,6 +141,7 @@ export default function UserProfilePage() {
             goingUids: data.goingUids || [],
             maybeUids: data.maybeUids || [],
             notGoingUids: data.notGoingUids || [],
+            editCount: data.editCount ?? 0,
             clubId: data.clubId,
             clubName: data.clubName,
             clubAvatarUrl: data.clubAvatarUrl,

@@ -40,6 +40,7 @@ export default function PostDetailPage() {
                     setPost({
                         id: snap.id,
                         title: data.title,
+                        description: data.description,
                         content: data.content ?? data.description ?? "",
                         isEvent: data.isEvent ?? true,
                         date: data.date,

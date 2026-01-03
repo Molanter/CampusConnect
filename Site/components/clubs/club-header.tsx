@@ -142,7 +142,7 @@ export function ClubHeader({
                         )}
 
                         {/* Stats Row - Capsules */}
-                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5">
+                        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-0.5 px-0.5">
                             {statItems.map((stat) => (
                                 <button
                                     key={stat.label}

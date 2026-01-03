@@ -32,6 +32,7 @@ export const mapDocToPost = (doc: QueryDocumentSnapshot<DocumentData>): Post => 
     return {
         id: doc.id,
         title: data.title,
+        description: data.description,
         content: data.content ?? data.description ?? "",
         imageUrls: (Array.isArray(data.imageUrls) ? data.imageUrls : null) ?? (data.imageUrl ? [data.imageUrl] : []),
         isEvent: data.isEvent ?? true,

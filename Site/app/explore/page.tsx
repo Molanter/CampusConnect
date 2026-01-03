@@ -59,7 +59,7 @@ export default function ExplorePage() {
                     results.push({
                         id: d.id,
                         type: isEvent ? "Event" : "Post",
-                        displayName: data.title || data.content?.slice(0, 30) || "",
+                        displayName: data.title || (data.description || data.content)?.slice(0, 30) || "",
                         photoURL: data.imageUrls?.[0],
                         data: finalData
                     });

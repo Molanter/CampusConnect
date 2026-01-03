@@ -17,6 +17,7 @@ export type Post = {
     clubAvatarUrl?: string;
 
     content?: string;
+    description?: string;
     title?: string;
     imageUrls?: string[];
     likes?: string[]; // Array of user IDs

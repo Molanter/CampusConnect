@@ -185,7 +185,7 @@ export function ProfileTabs({ tabs, value, onChange, progress }: ProfileTabsProp
         <div className="w-full flex justify-center py-1">
             <div
                 ref={containerRef}
-                className="relative inline-flex items-center justify-center gap-10 overflow-x-auto scrollbar-hide px-6 pb-3 pt-2 cc-glass cc-radius-24 border border-secondary/20"
+                className="relative inline-flex items-center justify-center gap-5 md:gap-8 overflow-x-auto scrollbar-hide px-2 md:px-4 pb-3 pt-2"
                 style={{ scrollBehavior: 'smooth' }}
             >
                 {tabs.map((tab, idx) => {

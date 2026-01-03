@@ -12,7 +12,8 @@ export function PostRow({ post }: PostRowProps) {
     const { title, content, authorName, authorUsername, imageUrls = [], createdAt, isEvent } = post;
 
     const photoURL = imageUrls?.[0] || (post as any).coverImageUrl;
-    const displayName = title || content?.slice(0, 60) || "Untitled Post";
+    const effectiveContent = post.description || post.content || "";
+    const displayName = title || effectiveContent.slice(0, 60) || "Untitled Post";
     const subtitle = authorUsername ? `@${authorUsername}` : (authorName || "Anonymous");
     const timeLabel = createdAt?.toDate ? formatDistanceToNow(createdAt.toDate(), { addSuffix: true }).replace("about ", "") : "";
 

@@ -33,20 +33,20 @@ export function EventDetailOverlay({
 
   if (inline) {
     return (
-      <div className="h-full w-full rounded-3xl border border-white/10 bg-neutral-950/95 px-5 py-5">
+      <div className="h-full w-full rounded-3xl border border-secondary/15 bg-background px-5 py-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
               Event details
             </p>
-            <h2 className="mt-1 text-lg font-semibold text-neutral-50">
+            <h2 className="mt-1 text-lg font-semibold text-foreground">
               {event.title}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-neutral-800/80 px-3 py-1 text-[11px] text-neutral-100 hover:bg-neutral-700"
+            className="rounded-full bg-secondary/10 px-3 py-1 text-[11px] text-foreground hover:bg-secondary/20 transition-colors"
           >
             Close
           </button>
@@ -81,10 +81,10 @@ export function EventDetailOverlay({
 
           {event.description && (
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-secondary">
                 Description
               </p>
-              <p className="mt-0.5 text-sm text-neutral-200 whitespace-pre-wrap">
+              <p className="mt-0.5 text-sm text-foreground/80 whitespace-pre-wrap">
                 {event.description}
               </p>
             </div>
@@ -98,8 +98,8 @@ export function EventDetailOverlay({
     "fixed inset-0 z-40 flex bg-black/40 backdrop-blur-sm";
 
   const innerClasses = isWide
-    ? "ml-auto mr-4 my-4 w-full max-w-md rounded-3xl border border-white/10 bg-neutral-950/95 px-5 py-5"
-    : "mx-4 my-6 w-full max-w-xl rounded-3xl border border-white/10 bg-neutral-950/95 px-5 py-5";
+    ? "ml-auto mr-4 my-4 w-full max-w-md rounded-3xl border border-secondary/15 bg-background px-5 py-5"
+    : "mx-4 my-6 w-full max-w-xl rounded-3xl border border-secondary/15 bg-background px-5 py-5";
 
   return (
     <div className={containerBase} aria-modal="true" role="dialog">
@@ -110,14 +110,14 @@ export function EventDetailOverlay({
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
               Event details
             </p>
-            <h2 className="mt-1 text-lg font-semibold text-neutral-50">
+            <h2 className="mt-1 text-lg font-semibold text-foreground">
               {event.title}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-neutral-800/80 px-3 py-1 text-[11px] text-neutral-100 hover:bg-neutral-700"
+            className="rounded-full bg-secondary/10 px-3 py-1 text-[11px] text-foreground hover:bg-secondary/20 transition-colors"
           >
             Close
           </button>
@@ -152,10 +152,10 @@ export function EventDetailOverlay({
 
           {event.description && (
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-secondary">
                 Description
               </p>
-              <p className="mt-0.5 text-sm text-neutral-200 whitespace-pre-wrap">
+              <p className="mt-0.5 text-sm text-foreground/80 whitespace-pre-wrap">
                 {event.description}
               </p>
             </div>

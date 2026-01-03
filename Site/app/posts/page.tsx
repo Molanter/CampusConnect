@@ -113,6 +113,7 @@ export default function EventsPage() {
           return {
             id: doc.id,
             title: data.title,
+            description: data.description,
             content: data.content ?? data.description ?? "",
             isEvent: data.isEvent ?? true, // Assume mostly events in "events" collection for now
             date: data.date,
@@ -129,6 +130,7 @@ export default function EventsPage() {
             goingUids: data.goingUids || [],
             maybeUids: data.maybeUids || [],
             notGoingUids: data.notGoingUids || [],
+            editCount: data.editCount ?? 0,
           };
         });
 
@@ -430,7 +432,7 @@ export default function EventsPage() {
                   key={`campus-${post.id}`}
                   id={post.id}
                   title={post.title || ""}
-                  description={post.content || ""}
+                  description={post.description || post.content || ""}
                   image={(post.imageUrls && post.imageUrls[0]) || undefined}
                   date={post.date || "Date"}
                   time={post.startTime ? `${post.startTime}${post.endTime ? ` - ${post.endTime}` : ""}` : "Time"}

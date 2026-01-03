@@ -269,6 +269,7 @@ function ProfileContent({ user }: { user: User }) {
         return {
           id: doc.id,
           title: data.title,
+          description: data.description,
           content: data.content ?? data.description ?? "",
           isEvent: data.isEvent ?? true,
           date: data.date,
@@ -285,6 +286,7 @@ function ProfileContent({ user }: { user: User }) {
           goingUids: data.goingUids || [],
           maybeUids: data.maybeUids || [],
           notGoingUids: data.notGoingUids || [],
+          editCount: data.editCount ?? 0,
         } as Post;
       });
     };

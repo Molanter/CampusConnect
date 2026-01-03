@@ -652,14 +652,14 @@ export function CommentsSheet({
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
             Comments
           </p>
-          <h2 className="text-sm font-semibold text-neutral-50 line-clamp-1">
+          <h2 className="text-sm font-semibold text-foreground line-clamp-1">
             {eventTitle}
           </h2>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white hover:bg-white/20"
+          className="rounded-full bg-secondary/10 px-3 py-1 text-[11px] text-foreground hover:bg-secondary/20 transition-colors"
         >
           Close
         </button>
@@ -708,7 +708,7 @@ export function CommentsSheet({
           ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-4 space-y-3 rounded-3xl border border-white/10 bg-[#101015] p-4">
+      <form onSubmit={handleSubmit} className="mt-4 space-y-3 rounded-3xl border border-secondary/15 bg-surface-2 p-4">
         {replyTarget && (
           <div className="flex items-center justify-between rounded-2xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200">
             <div>
@@ -763,8 +763,8 @@ export function CommentsSheet({
     "fixed inset-0 z-40 flex bg-black/40 backdrop-blur-sm";
 
   const innerClasses = isWide
-    ? "ml-auto mr-4 my-4 flex h-[90vh] w-full max-w-lg flex-col rounded-3xl border border-white/10 bg-neutral-950/90 px-4 py-4"
-    : "mx-auto mb-0 mt-auto flex h-[70vh] w-full max-w-lg flex-col rounded-t-3xl border border-white/10 bg-neutral-950/95 px-4 py-4";
+    ? "ml-auto mr-4 my-4 flex h-[90vh] w-full max-w-lg flex-col rounded-3xl border border-secondary/15 bg-background px-4 py-4"
+    : "mx-auto mb-0 mt-auto flex h-[70vh] w-full max-w-lg flex-col rounded-t-3xl border border-secondary/15 bg-background px-4 py-4";
 
   return (
     <>

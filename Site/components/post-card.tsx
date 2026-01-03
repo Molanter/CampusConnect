@@ -64,7 +64,8 @@ export function PostCard({
 
     const {
         id,
-        content: description,
+        description: postDescription,
+        content: postContent,
         imageUrls: images = [],
         date,
         startTime: time = "",
@@ -73,7 +74,10 @@ export function PostCard({
         isEvent,
         createdAt,
         clubId,
+        editCount = 0,
     } = post;
+
+    const description = postDescription || postContent || "";
 
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [status, setStatus] = useState<AttendanceStatus>(null);
@@ -473,16 +477,16 @@ export function PostCard({
                         )}
 
                         {/* Actions */}
-                        <div className="mt-[-4px] ml-[-8px] flex items-center gap-0">
+                        <div className="mt-[-4px] ml-[-8px] flex items-center gap-0.5">
                             {/* Like */}
-                            <div className={`flex h-7 items-center justify-center rounded-full hover:bg-secondary/20 transition-colors ${likesCount > 0 ? "gap-1 px-1.5" : "w-7"}`}>
+                            <div className={`flex h-8 items-center justify-center rounded-full hover:bg-secondary/20 transition-colors ${likesCount > 0 ? "gap-1 px-2" : "w-8"}`}>
                                 <button
                                     type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleToggleLike();
                                     }}
-                                    className="group flex items-center justify-center"
+                                    className="group flex h-full items-center justify-center"
                                 >
                                     {isLiked ? (
                                         <HeartIcon className={`${ACTION_ICON} text-brand transition-colors`} />
@@ -506,7 +510,7 @@ export function PostCard({
                             </div>
 
                             {/* Comments */}
-                            <div className={`flex h-7 items-center justify-center rounded-full text-secondary hover:bg-secondary/20 hover:text-foreground transition-colors ${commentsCount > 0 ? "gap-1 px-1.5" : "w-7"}`}>
+                            <div className={`flex h-8 items-center justify-center rounded-full text-secondary hover:bg-secondary/20 hover:text-foreground transition-colors ${commentsCount > 0 ? "gap-1 px-2" : "w-8"}`}>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onCommentsClick?.(); }}
                                     className="group flex items-center justify-center w-full h-full"
@@ -522,10 +526,26 @@ export function PostCard({
                                 </button>
                             </div>
 
+                            {/* Edit Count */}
+                            {editCount > 0 && (
+                                <button
+                                    onClick={(e) => {
+                                        if (isOwner) {
+                                            e.stopPropagation();
+                                            router.push(`/posts/${id}/edit`);
+                                        }
+                                    }}
+                                    className={`flex h-8 items-center justify-center rounded-full px-2 text-secondary transition-colors gap-1.5 ${isOwner ? "hover:bg-secondary/20 hover:text-foreground cursor-pointer" : "cursor-default"}`}
+                                >
+                                    <PencilIcon className={ACTION_ICON} />
+                                    <span className="text-xs font-medium">{editCount}</span>
+                                </button>
+                            )}
+
                             {/* Attendance (events only) */}
                             {isEvent && (
                                 <div className="relative">
-                                    <div className={`flex h-7 items-center justify-center rounded-full hover:bg-secondary/20 transition-colors ${(status === "maybe" ? maybeCount : goingCount) > 0 ? "gap-1 px-1.5" : "w-7"}`}>
+                                    <div className={`flex h-8 items-center justify-center rounded-full hover:bg-secondary/20 transition-colors ${(status === "maybe" ? maybeCount : goingCount) > 0 ? "gap-1 px-2" : "w-8"}`}>
                                         <div
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -601,14 +621,14 @@ export function PostCard({
                             {/* 3-dots menu (moved from header) */}
                             {!previewMode && (
                                 <div className="relative">
-                                    <div className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-secondary/20 transition-colors">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-secondary/20 transition-colors">
                                         <button
                                             type="button"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setOptionsMenuOpen((v) => !v);
                                             }}
-                                            className="group flex h-7 w-7 items-center justify-center"
+                                            className="group flex h-8 w-8 items-center justify-center"
                                         >
                                             <EllipsisVerticalIcon className={`${ACTION_ICON} text-secondary group-hover:text-foreground transition-colors`} />
                                         </button>

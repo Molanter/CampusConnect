@@ -219,7 +219,7 @@ export function Navbar({
 
       {/* Top navbar / tab bar (MOBILE ONLY) */}
       <header
-        className={`fixed top-0 left-0 right-0 z-20 flex justify-center py-3 text-sm text-slate-100 pointer-events-none ${showHeader ? "block" : "hidden"
+        className={`fixed top-0 left-0 right-0 z-20 flex justify-center py-3 text-sm text-foreground pointer-events-none ${showHeader ? "block" : "hidden"
           }`}
       >
         <div className="w-full max-w-6xl flex items-center justify-center gap-3 px-4 pointer-events-auto">
@@ -231,7 +231,7 @@ export function Navbar({
                   href="/settings"
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/settings"
                     ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                    : "text-slate-200 hover:bg-white/10"
+                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
                 >
                   <Cog6ToothIcon className="mr-1 h-4 w-4" />
@@ -242,7 +242,7 @@ export function Navbar({
                   href="/admin/moderation"
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/admin/moderation"
                     ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                    : "text-slate-200 hover:bg-white/10"
+                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
                 >
                   <ShieldCheckIcon className="mr-1 h-4 w-4" />
@@ -253,7 +253,7 @@ export function Navbar({
                   href={isGlobalAdminUser ? "/admin/campuses" : "/admin/campuses/manage-my"}
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname.startsWith("/admin/campuses")
                     ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                    : "text-slate-200 hover:bg-white/10"
+                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
                 >
                   <BuildingLibraryIcon className="mr-1 h-4 w-4" />
@@ -264,7 +264,7 @@ export function Navbar({
                   href="/admin/support"
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname.startsWith("/admin/support")
                     ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                    : "text-slate-200 hover:bg-white/10"
+                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
                 >
                   <ChatBubbleLeftRightIcon className="mr-1 h-4 w-4" />
@@ -292,7 +292,7 @@ export function Navbar({
                   href="/"
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/"
                     ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                    : "text-slate-200 hover:bg-white/10"
+                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
                 >
                   <svg
@@ -311,7 +311,7 @@ export function Navbar({
                   href="/explore"
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/explore"
                     ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                    : "text-slate-200 hover:bg-white/10"
+                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
                 >
                   <MagnifyingGlassIcon className="mr-1 h-4 w-4" />
@@ -322,7 +322,7 @@ export function Navbar({
                   href="/posts/new"
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/posts/new"
                     ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                    : "text-slate-200 hover:bg-white/10"
+                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
                 >
                   <PlusIcon className="mr-1 h-4 w-4" />
@@ -333,7 +333,7 @@ export function Navbar({
                   href="/profile"
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/profile"
                     ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                    : "text-slate-200 hover:bg-white/10"
+                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
                 >
                   <UserIcon className="mr-1 h-4 w-4" />

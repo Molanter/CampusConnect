@@ -104,7 +104,7 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
 
             const docData: any = {
                 authorId: user.uid,
-                content: content.trim(),
+                description: content.trim(),
                 createdAt: serverTimestamp(),
                 isEvent: false,
                 likes: [],

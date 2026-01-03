@@ -115,7 +115,8 @@ export function EventHero({ post }: EventHeroProps) {
         const start = new Date(`${date}T${startTime}:00`);
         const end = endTime ? new Date(`${date}T${endTime}:00`) : new Date(start.getTime() + 3600000);
         const fmt = (d: Date) => d.toISOString().replace(/-|:|\.\d+/g, "");
-        const url = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title || "")}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(post.content || "")}&location=${encodeURIComponent(locationLabel || "")}`;
+        const details = post.description || post.content || "";
+        const url = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title || "")}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(locationLabel || "")}`;
         window.open(url, '_blank');
     };
 

@@ -38,7 +38,7 @@ interface PostDetailMainInfoProps {
 type AttendanceStatus = "going" | "maybe" | "not_going" | null;
 
 // Constants for consistent action sizing (matches Feed PostCard)
-const ACTION_BUTTON_HEIGHT = "h-7";
+const ACTION_BUTTON_HEIGHT = "h-8";
 const ACTION_ICON = "h-5 w-5";
 const HOVER_BG = "hover:bg-secondary/20";
 
@@ -48,7 +48,8 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
     const {
         id,
         title,
-        content: description,
+        description: postDescription,
+        content: postContent,
         authorName: hostName,
         authorUsername: hostUsername,
         authorAvatarUrl: hostAvatarUrl,
@@ -62,8 +63,11 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
         locationUrl,
         mood = [],
         priceLevel,
-        clubId
+        clubId,
+        editCount = 0
     } = post;
+
+    const description = postDescription || postContent || "";
 
     const [status, setStatus] = useState<AttendanceStatus>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -305,7 +309,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
             {/* Actions Row (Matched to Feed PostCard) */}
             <div className="flex items-center gap-0 ml-[-8px] mt-[-2px]">
                 {/* Like Button */}
-                <div className={`flex ${ACTION_BUTTON_HEIGHT} items-center justify-center rounded-full ${HOVER_BG} transition-colors ${likesCount > 0 ? "gap-1 px-1.5" : "w-7"}`}>
+                <div className={`flex ${ACTION_BUTTON_HEIGHT} items-center justify-center rounded-full ${HOVER_BG} transition-colors ${likesCount > 0 ? "gap-1 px-2" : "w-8"}`}>
                     <button
                         onClick={handleToggleLike}
                         className={`group flex items-center justify-center ${isLiked ? "text-brand" : "text-secondary hover:text-foreground"}`}
@@ -324,7 +328,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                 </div>
 
                 {/* Comment Button (Visual only here, functionally used in detail) */}
-                <div className={`flex ${ACTION_BUTTON_HEIGHT} items-center justify-center rounded-full text-secondary ${HOVER_BG} hover:text-foreground transition-colors ${stats.comments > 0 ? "gap-1 px-1.5" : "w-7"}`}>
+                <div className={`flex ${ACTION_BUTTON_HEIGHT} items-center justify-center rounded-full text-secondary ${HOVER_BG} hover:text-foreground transition-colors ${stats.comments > 0 ? "gap-1 px-2" : "w-8"}`}>
                     <div className="flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className={ACTION_ICON}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.633 9-8.4375 0-4.805-4.03-8.4375-9-8.4375-4.97 0-9 3.6325-9 8.4375 0 2.457 1.056 4.675 2.76 6.223.109.1.18.232.2.378l.583 3.996a.25.25 0 00.322.253l3.655-1.428a.56.56 0 01.373-.02c.365.103.743.176 1.127.2.062.003.125.006.188.006z" />
@@ -340,18 +344,34 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                 {/* Share Button */}
                 <button
                     onClick={handleShare}
-                    className={`flex ${ACTION_BUTTON_HEIGHT} w-7 items-center justify-center rounded-full text-secondary ${HOVER_BG} hover:text-foreground transition-colors`}
+                    className={`flex ${ACTION_BUTTON_HEIGHT} w-8 items-center justify-center rounded-full text-secondary ${HOVER_BG} hover:text-foreground transition-colors`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className={ACTION_ICON}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                     </svg>
                 </button>
 
+                {/* Edit Count */}
+                {editCount > 0 && (
+                    <button
+                        onClick={(e) => {
+                            if (isOwner) {
+                                e.stopPropagation();
+                                router.push(`/posts/${id}/edit`);
+                            }
+                        }}
+                        className={`flex ${ACTION_BUTTON_HEIGHT} items-center justify-center rounded-full px-2 text-secondary transition-colors gap-1.5 ${isOwner ? "hover:bg-secondary/20 hover:text-foreground cursor-pointer" : "cursor-default"}`}
+                    >
+                        <PencilIcon className={ACTION_ICON} />
+                        <span className="text-xs font-medium">{editCount}</span>
+                    </button>
+                )}
+
                 {/* More Options */}
                 <div className="relative">
                     <button
                         onClick={() => setOptionsMenuOpen(!optionsMenuOpen)}
-                        className={`flex ${ACTION_BUTTON_HEIGHT} px-2.5 w-auto items-center justify-center rounded-full text-secondary hover:bg-secondary/20 hover:text-foreground transition-all outline-none focus:outline-none ring-0 focus:ring-0 ${optionsMenuOpen ? "bg-secondary/20 text-foreground" : ""}`}
+                        className={`flex ${ACTION_BUTTON_HEIGHT} px-3 w-auto items-center justify-center rounded-full text-secondary hover:bg-secondary/20 hover:text-foreground transition-all outline-none focus:outline-none ring-0 focus:ring-0 ${optionsMenuOpen ? "bg-secondary/20 text-foreground" : ""}`}
                     >
                         <EllipsisVerticalIcon className={ACTION_ICON} />
                     </button>

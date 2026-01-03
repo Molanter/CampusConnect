@@ -123,7 +123,7 @@ export function UserProfileHeader({
                         {/* Top Section: Avatar & Identity */}
                         <div className="flex items-center gap-4 md:gap-6">
                             <div className="relative shrink-0">
-                                <div className="h-16 w-16 overflow-hidden rounded-full border border-white/10 bg-neutral-800 md:h-20 md:w-20">
+                                <div className="h-16 w-16 overflow-hidden rounded-full cc-avatar bg-surface-2 md:h-20 md:w-20 shadow-md">
                                     {photoURL ? (
                                         <img
                                             src={photoURL}
@@ -131,7 +131,7 @@ export function UserProfileHeader({
                                             className="!h-full !w-full object-cover object-center"
                                         />
                                     ) : (
-                                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500/20 to-purple-600/20 text-xl font-bold text-white/50 md:text-2xl">
+                                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-xl font-bold text-foreground md:text-2xl">
                                             {initials}
                                         </div>
                                     )}
@@ -156,7 +156,7 @@ export function UserProfileHeader({
 
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-col">
-                                    <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+                                    <h1 className="line-clamp-2 text-xl font-semibold tracking-tight text-foreground md:text-3xl">
                                         {displayName}
                                     </h1>
                                     {username && (
@@ -178,7 +178,7 @@ export function UserProfileHeader({
                         )}
 
                         {/* Stats Row - Capsules with Strokes */}
-                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5">
+                        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-0.5 px-0.5">
                             <button
                                 onClick={onPostsClick}
                                 className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary/10 px-2.5 py-0.5 border border-secondary/25 transition-all hover:bg-secondary/16 cursor-pointer active:scale-95"
@@ -217,14 +217,14 @@ export function UserProfileHeader({
                     {isOwnProfile ? (
                         <button
                             onClick={onEdit}
-                            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-white text-base font-semibold text-black transition-transform active:scale-[0.98]"
+                            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full cc-header-btn text-base font-semibold text-foreground transition-transform active:scale-[0.98]"
                         >
                             <PencilIcon className="h-4 w-4 stroke-[2.5]" />
                             Edit Profile
                         </button>
                     ) : (
                         <button
-                            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[#ffb200] text-base font-semibold text-black transition-transform active:scale-[0.98]"
+                            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-brand text-base font-semibold text-brand-foreground transition-transform active:scale-[0.98]"
                         >
                             Follow
                         </button>
@@ -261,13 +261,8 @@ function ActionControls({
     onReport?: () => void;
     onSignOut?: () => void;
 }) {
-    // Menu Items Definition for Apple-style list
-    const menuItems = [
-        { label: "Share Profile", icon: ArrowUpOnSquareIcon, action: onShare },
-        { label: "Settings", icon: Cog6ToothIcon, action: onSettings, condition: isOwnProfile },
-        { label: "Report User", icon: ExclamationTriangleIcon, action: onReport, condition: !isOwnProfile, divider: true },
-        { label: "Sign Out", icon: ArrowRightOnRectangleIcon, action: onSignOut, condition: isOwnProfile, destructive: true, divider: true },
-    ].filter(item => item.condition !== false);
+    const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
         <>
@@ -281,114 +276,139 @@ function ActionControls({
                 )}
 
                 {/* Desktop Overflow Menu */}
-                <Menu as="div" className="relative">
-                    <Menu.Button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 backdrop-blur-xl border border-white/15 text-white hover:bg-white/10 active:scale-95 transition">
-                        <EllipsisHorizontalIcon className="h-6 w-6" />
-                    </Menu.Button>
+                <div className="relative">
+                    <div onClick={(e) => {
+                        e.stopPropagation();
+                        setDesktopMenuOpen((v) => !v);
+                    }}>
+                        <IconButton icon={EllipsisHorizontalIcon} />
+                    </div>
 
-                    <Transition
-                        enter="transition ease-out duration-200"
-                        enterFrom="transform opacity-0 scale-95"
-                        enterTo="transform opacity-100 scale-100"
-                        leave="transition ease-in duration-150"
-                        leaveFrom="transform opacity-100 scale-100"
-                        leaveTo="transform opacity-0 scale-95"
-                    >
-                        <Menu.Items className="absolute right-0 top-full mt-2 z-50 w-56 origin-top-right divide-y divide-secondary/10 overflow-hidden cc-radius-menu cc-glass-strong cc-glass-highlight focus:outline-none">
-                            <div className="p-1.5">
-                                {isOwnProfile && onSignOut && (
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button onClick={onSignOut} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-red-500 transition-colors`}>
-                                                <ArrowRightOnRectangleIcon className="h-[22px] w-[22px]" />
-                                                <span>Sign Out</span>
-                                            </button>
-                                        )}
-                                    </Menu.Item>
-                                )}
-                                {!isOwnProfile && onReport && (
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button onClick={onReport} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-red-500 transition-colors`}>
-                                                <ExclamationTriangleIcon className="h-[22px] w-[22px]" />
-                                                <span>Report User</span>
-                                            </button>
-                                        )}
-                                    </Menu.Item>
-                                )}
+                    {desktopMenuOpen && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setDesktopMenuOpen(false)} />
+                            <div className="absolute bottom-full right-0 z-50 mb-2 min-w-[180px] overflow-hidden cc-radius-menu cc-glass-strong">
+                                <div className="p-1.5">
+                                    {isOwnProfile && onSignOut && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSignOut?.();
+                                                setDesktopMenuOpen(false);
+                                            }}
+                                            className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400 transition-colors"
+                                        >
+                                            <span className="font-medium">Sign Out</span>
+                                            <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                    {!isOwnProfile && onReport && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onReport?.();
+                                                setDesktopMenuOpen(false);
+                                            }}
+                                            className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400 transition-colors"
+                                        >
+                                            <span className="font-medium">Report User</span>
+                                            <ExclamationTriangleIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </Menu.Items>
-                    </Transition>
-                </Menu>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Mobile: Single Menu Button */}
-            <Menu as="div" className="relative md:hidden">
-                <Menu.Button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 backdrop-blur-xl border border-white/15 text-white hover:bg-white/10 active:scale-95 transition">
-                    <EllipsisHorizontalIcon className="h-6 w-6" />
-                </Menu.Button>
-
-                <Transition
-                    enter="transition ease-out duration-200"
-                    enterFrom="transform opacity-0 scale-95"
-                    enterTo="transform opacity-100 scale-100"
-                    leave="transition ease-in duration-150"
-                    leaveFrom="transform opacity-100 scale-100"
-                    leaveTo="transform opacity-0 scale-95"
+            <div className="relative md:hidden shrink-0">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setMobileMenuOpen((v) => !v);
+                    }}
+                    className="flex h-11 w-11 items-center justify-center rounded-full cc-header-btn text-foreground transition-all active:scale-95"
                 >
-                    <Menu.Items className="absolute right-0 top-full mt-2 z-50 w-56 origin-top-right divide-y divide-secondary/10 overflow-hidden cc-radius-menu cc-glass-strong cc-glass-highlight focus:outline-none">
+                    <EllipsisHorizontalIcon className="h-6 w-6" />
+                </button>
 
-                        {/* Standard Actions */}
-                        <div className="p-1.5">
-                            <Menu.Item>
-                                {({ active }) => (
-                                    <button onClick={onShare} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-foreground transition-colors`}>
-                                        <ArrowUpOnSquareIcon className="h-[22px] w-[22px] text-foreground" />
-                                        <span>Share Profile</span>
+                {mobileMenuOpen && (
+                    <>
+                        <div className="fixed inset-0 z-40" onClick={() => setMobileMenuOpen(false)} />
+                        <div className="absolute bottom-full right-0 z-50 mb-2 min-w-[180px] overflow-hidden cc-radius-menu cc-glass-strong">
+                            <div className="p-1.5">
+                                {onShare && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onShare();
+                                            setMobileMenuOpen(false);
+                                        }}
+                                        className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-foreground hover:bg-secondary/20 transition-colors"
+                                    >
+                                        <span className="font-medium">Share Profile</span>
+                                        <ArrowUpOnSquareIcon className="h-4 w-4" />
                                     </button>
                                 )}
-                            </Menu.Item>
 
-                            {isOwnProfile && onSettings && (
-                                <Menu.Item>
-                                    {({ active }) => (
-                                        <button onClick={onSettings} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-foreground transition-colors`}>
-                                            <Cog6ToothIcon className="h-[22px] w-[22px] text-foreground" />
-                                            <span>Settings</span>
-                                        </button>
-                                    )}
-                                </Menu.Item>
-                            )}
-                        </div>
-
-                        {/* Destructive / Report Actions */}
-                        {(onSignOut || (!isOwnProfile && onReport)) && (
-                            <div className="p-1.5">
-                                {isOwnProfile && onSignOut && (
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button onClick={onSignOut} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-red-500 transition-colors`}>
-                                                <ArrowRightOnRectangleIcon className="h-[22px] w-[22px]" />
-                                                <span>Sign Out</span>
-                                            </button>
-                                        )}
-                                    </Menu.Item>
-                                )}
-                                {!isOwnProfile && onReport && (
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button onClick={onReport} className={`${active ? 'bg-secondary/20' : ''} group flex w-full items-center gap-3 rounded-full px-3 py-3 text-[17px] text-red-500 transition-colors`}>
-                                                <ExclamationTriangleIcon className="h-[22px] w-[22px]" />
-                                                <span>Report User</span>
-                                            </button>
-                                        )}
-                                    </Menu.Item>
+                                {isOwnProfile && onSettings && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSettings();
+                                            setMobileMenuOpen(false);
+                                        }}
+                                        className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-foreground hover:bg-secondary/20 transition-colors"
+                                    >
+                                        <span className="font-medium">Settings</span>
+                                        <Cog6ToothIcon className="h-4 w-4" />
+                                    </button>
                                 )}
                             </div>
-                        )}
-                    </Menu.Items>
-                </Transition>
-            </Menu>
+
+                            {/* Destructive Actions */}
+                            {(onSignOut || (!isOwnProfile && onReport)) && (
+                                <div className="p-1.5 border-t border-secondary/10">
+                                    {isOwnProfile && onSignOut && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSignOut?.();
+                                                setMobileMenuOpen(false);
+                                            }}
+                                            className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400 transition-colors"
+                                        >
+                                            <span className="font-medium">Sign Out</span>
+                                            <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                    {!isOwnProfile && onReport && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onReport?.();
+                                                setMobileMenuOpen(false);
+                                            }}
+                                            className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400 transition-colors"
+                                        >
+                                            <span className="font-medium">Report User</span>
+                                            <ExclamationTriangleIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
         </>
     );
 }
@@ -397,7 +417,7 @@ function IconButton({ onClick, icon: Icon }: { onClick?: () => void, icon: React
     return (
         <button
             onClick={onClick}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 backdrop-blur-xl border border-white/15 text-white hover:bg-white/10 active:scale-95 transition"
+            className="flex h-11 w-11 items-center justify-center rounded-full cc-header-btn text-foreground transition-all active:scale-95"
         >
             <Icon className="h-6 w-6" />
         </button>

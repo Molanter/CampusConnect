@@ -37,14 +37,18 @@ export function CompactPostCard({
     const {
         id,
         title,
-        content,
+        description: postDescription,
+        content: postContent,
         imageUrls,
         isEvent,
         date,
         startTime,
         coordinates,
         likes = [],
+        editCount = 0,
     } = post;
+
+    const content = postDescription || postContent || "";
 
     const isLiked = currentUser ? likes.includes(currentUser.uid) : false;
     const likeCount = likes.length;
@@ -245,6 +249,17 @@ export function CompactPostCard({
                                 {post.commentsCount || 0}
                             </span>
                         </button>
+
+                        {editCount > 0 && (
+                            <div className="flex items-center gap-1 text-white/60">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-[17px] w-[17px]">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                                </svg>
+                                <span className="text-xs font-semibold tabular-nums leading-none">
+                                    {editCount}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Detail Indicator for events */}

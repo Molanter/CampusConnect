@@ -78,9 +78,6 @@ export default function SettingsPage() {
   return (
     <div className={ui.page}>
       <header className="mb-2">
-        <p className={ui.headerKicker}>
-          Settings
-        </p>
         <h1 className={ui.headerTitle}>
           Settings
         </h1>

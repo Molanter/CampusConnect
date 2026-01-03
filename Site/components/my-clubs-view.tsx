@@ -103,48 +103,52 @@ export function MyClubsView({ userId }: { userId: string }) {
                 <button
                     key={club.id}
                     onClick={() => router.push(`/clubs/${club.id}`)}
-                    className="flex items-start gap-3 rounded-[24px] cc-section p-4 hover:bg-white/10 transition-all text-left"
+                    className="flex items-start gap-3 rounded-2xl cc-section p-4 hover:bg-secondary/5 transition-all text-left shadow-sm"
                 >
                     {/* Club Cover/Icon */}
                     <div className="shrink-0">
-                        {club.coverImageUrl ? (
-                            <img
-                                src={club.coverImageUrl}
-                                alt={club.name}
-                                className="h-14 w-14 rounded-[14px] object-cover object-center shadow-sm"
-                            />
-                        ) : (club.category === "dorm" || (club as any).type === "dorm" || (club as any).isDorm || club.name?.toLowerCase().includes("dorm")) ? (
-                            <div className="h-14 w-14 rounded-[14px] bg-secondary/10 flex items-center justify-center border border-secondary/20 transition-all shadow-sm">
-                                <HomeIcon className="w-7 h-7 text-secondary" />
-                            </div>
-                        ) : (
-                            <div className="h-14 w-14 rounded-[14px] bg-gradient-to-br from-amber-500/20 to-orange-600/20 flex items-center justify-center transition-all shadow-sm">
-                                <span className="text-xl font-bold text-amber-500 uppercase">{club.name.charAt(0)}</span>
-                            </div>
-                        )}
+                        <div className="h-14 w-14 overflow-hidden rounded-2xl cc-avatar bg-surface-2 shadow-sm ring-1 ring-secondary/10">
+                            {club.coverImageUrl ? (
+                                <img
+                                    src={club.coverImageUrl}
+                                    alt={club.name}
+                                    className="!h-full !w-full object-cover object-center transition-transform hover:scale-105"
+                                />
+                            ) : (club.category === "dorm" || (club as any).type === "dorm" || (club as any).isDorm || club.name?.toLowerCase().includes("dorm")) ? (
+                                <div className="h-full w-full flex items-center justify-center bg-secondary/10 text-secondary">
+                                    <HomeIcon className="w-7 h-7" />
+                                </div>
+                            ) : (
+                                <div className="h-full w-full flex items-center justify-center bg-secondary/10">
+                                    <span className="text-xl font-bold text-secondary uppercase">{club.name.charAt(0)}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Club Info */}
-                    <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold text-white mb-0.5 truncate flex items-center gap-1">
-                            {club.name}
+                    <div className="flex-1 min-w-0 py-0.5">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                            <h3 className="text-[15px] font-semibold text-foreground truncate">
+                                {club.name}
+                            </h3>
                             {club.isVerified && (
-                                <CheckBadgeIcon className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                                <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
                             )}
-                        </h3>
+                        </div>
                         {club.description && (
-                            <p className="text-xs text-neutral-400 line-clamp-2 mb-1">
+                            <p className="text-xs text-secondary line-clamp-1 mb-1">
                                 {club.description}
                             </p>
                         )}
-                        <p className="text-[10px] text-neutral-500">
-                            {club.memberCount || 0} {club.memberCount === 1 ? 'member' : 'members'}
+                        <p className="text-[11px] font-medium cc-muted">
+                            {club.memberCount || 0} {club.memberCount === 1 ? 'member' : 'members'} • {club.category || "General"}
                         </p>
                     </div>
 
                     {/* Arrow */}
-                    <div className="shrink-0 pt-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-neutral-400">
+                    <div className="shrink-0 self-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-secondary/30">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                         </svg>
                     </div>

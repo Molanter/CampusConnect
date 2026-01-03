@@ -31,15 +31,15 @@ export function MobileFullScreenModal({ isOpen, onClose, children, title }: Mobi
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: "100%" }}
                     transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                    className="fixed inset-0 z-50 bg-[#121212] flex flex-col"
+                    className="fixed inset-0 z-50 bg-background flex flex-col"
                 >
                     {/* Header */}
                     {title && (
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
-                            <h2 className="text-lg font-semibold text-white">{title}</h2>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-secondary/15 shrink-0">
+                            <h2 className="text-lg font-semibold text-foreground">{title}</h2>
                             <button
                                 onClick={onClose}
-                                className="rounded-full p-2 text-neutral-400 hover:bg-white/10 hover:text-white transition-colors"
+                                className="rounded-full p-2 text-secondary hover:bg-secondary/10 hover:text-foreground transition-colors"
                             >
                                 <XMarkIcon className="h-6 w-6" />
                             </button>

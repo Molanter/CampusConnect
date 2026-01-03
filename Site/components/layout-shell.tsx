@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { RightSidebarProvider, useRightSidebar } from "@/components/right-sidebar-context";
 import { RightSidebar } from "@/components/right-sidebar";
@@ -15,6 +16,14 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
     const { setMainWidth, isMainNarrow, isMainVeryNarrow, mainWidth } = useMainLayoutMetrics();
     const contentRef = useRef<HTMLDivElement>(null);
     const mainRef = useRef<HTMLElement>(null);
+    const pathname = usePathname();
+
+    // Reset scroll to top on route change
+    useEffect(() => {
+        if (mainRef.current) {
+            mainRef.current.scrollTop = 0;
+        }
+    }, [pathname]);
 
     // Measure Real Main Width
     useEffect(() => {
@@ -24,7 +33,7 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
             for (const entry of entries) {
                 // Measure the MAIN container width
                 const measuredWidth = entry.contentRect.width;
-                setMainWidth(Math.max(measuredWidth, 450));
+                setMainWidth(measuredWidth);
 
                 // Update legacy "isNarrow" for sidebar interaction (optional, keeping existing logic sync)
                 // Existing logic used contentRef (inner div), but mainRef is the flex container.
@@ -93,7 +102,7 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
                 {/* Main content area - shrinks when sidebar opens */}
                 <main
                     ref={mainRef}
-                    className="flex-1 min-w-[450px] overflow-y-auto overflow-x-hidden relative scrollbar-track-transparent"
+                    className="flex-1 md:min-w-[500px] min-w-0 overflow-y-auto overflow-x-hidden relative scrollbar-track-transparent"
                 >
                     <div
                         ref={contentRef}
