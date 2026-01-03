@@ -70,7 +70,7 @@ export default function UserTicketChatPage() {
         }, (error) => {
             console.error("Ticket read error", error);
             if (error.code === 'permission-denied') {
-                router.push("/help-support/tickets");
+                router.push("/settings/help-support/tickets");
             }
         });
 

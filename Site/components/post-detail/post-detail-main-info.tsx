@@ -9,7 +9,7 @@ import {
     EllipsisVerticalIcon,
     CheckBadgeIcon
 } from "@heroicons/react/24/solid";
-import { HeartIcon as HeartIconOutline } from "@heroicons/react/24/outline";
+import { HeartIcon as HeartIconOutline, TrashIcon as TrashIconOutline } from "@heroicons/react/24/outline";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -351,7 +351,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                 <div className="relative">
                     <button
                         onClick={() => setOptionsMenuOpen(!optionsMenuOpen)}
-                        className={`flex ${ACTION_BUTTON_HEIGHT} w-7 items-center justify-center rounded-full text-secondary ${HOVER_BG} hover:text-foreground transition-colors ${optionsMenuOpen ? "bg-secondary/20 text-foreground" : ""}`}
+                        className={`flex ${ACTION_BUTTON_HEIGHT} px-2.5 w-auto items-center justify-center rounded-full text-secondary hover:bg-secondary/20 hover:text-foreground transition-all outline-none focus:outline-none ring-0 focus:ring-0 ${optionsMenuOpen ? "bg-secondary/20 text-foreground" : ""}`}
                     >
                         <EllipsisVerticalIcon className={ACTION_ICON} />
                     </button>
@@ -367,22 +367,22 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                                                     setOptionsMenuOpen(false);
                                                     router.push(`/posts/${id}/edit`);
                                                 }}
-                                                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] text-foreground hover:bg-surface-3 transition-colors"
+                                                className="flex w-full items-center justify-between rounded-full px-3.5 py-2 text-[13px] text-foreground hover:bg-secondary/15 transition-colors"
                                             >
                                                 <span>Edit</span>
                                                 <PencilIcon className="h-3.5 w-3.5" />
                                             </button>
                                             <button
                                                 onClick={handleDeletePost}
-                                                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] text-red-500 hover:bg-red-500/10 transition-colors"
+                                                className="flex w-full items-center justify-between rounded-full px-3.5 py-2 text-[13px] text-red-500 hover:bg-red-500/10 transition-colors"
                                             >
                                                 <span>Delete</span>
-                                                <TrashIcon className="h-3.5 w-3.5" />
+                                                <TrashIconOutline className="h-3.5 w-3.5" />
                                             </button>
                                         </>
                                     )}
                                     <button
-                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] text-secondary hover:bg-surface-3 hover:text-foreground transition-colors"
+                                        className="flex w-full items-center justify-between rounded-full px-3.5 py-2 text-[13px] text-secondary hover:bg-secondary/15 hover:text-foreground transition-colors"
                                         onClick={() => {
                                             openView("report", { id: post.id, type: isEvent ? "event" : "post" });
                                             setOptionsMenuOpen(false);

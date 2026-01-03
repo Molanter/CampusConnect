@@ -185,7 +185,7 @@ export function ProfileTabs({ tabs, value, onChange, progress }: ProfileTabsProp
         <div className="w-full flex justify-center py-1">
             <div
                 ref={containerRef}
-                className="relative inline-flex items-center justify-center gap-10 overflow-x-auto scrollbar-hide px-6 pb-3 pt-2"
+                className="relative inline-flex items-center justify-center gap-10 overflow-x-auto scrollbar-hide px-6 pb-3 pt-2 cc-glass cc-radius-24 border border-secondary/20"
                 style={{ scrollBehavior: 'smooth' }}
             >
                 {tabs.map((tab, idx) => {
@@ -204,8 +204,8 @@ export function ProfileTabs({ tabs, value, onChange, progress }: ProfileTabsProp
                                 className={`
                                     whitespace-nowrap text-[15px] transition-colors duration-200
                                     ${isActive
-                                        ? "font-semibold text-white shadow-black drop-shadow-sm"
-                                        : "font-semibold text-neutral-400 group-hover:text-neutral-200"
+                                        ? "font-semibold text-foreground"
+                                        : "font-semibold cc-muted group-hover:text-foreground/80"
                                     }
                                 `}
                             >
@@ -219,7 +219,7 @@ export function ProfileTabs({ tabs, value, onChange, progress }: ProfileTabsProp
                 {/* Render only if we have metrics to avoid jumping */}
                 {isHydrated && (
                     <motion.div
-                        className="absolute bottom-0 left-0 h-[4px] bg-amber-500 rounded-full pointer-events-none"
+                        className="absolute bottom-0 left-0 h-[4px] bg-brand rounded-full pointer-events-none"
                         style={{
                             x,
                             width,

@@ -384,13 +384,13 @@ export default function ExplorePage() {
                                     },
                                     {
                                         label: "Guidelines",
-                                        href: "/guidelines",
+                                        href: "/settings/guidelines",
                                         icon: BookOpenIcon,
                                         color: "bg-orange-500"
                                     },
                                     {
                                         label: "Help Center",
-                                        href: "/help-support",
+                                        href: "/settings/help-support",
                                         icon: QuestionMarkCircleIcon,
                                         color: "bg-green-600"
                                     },

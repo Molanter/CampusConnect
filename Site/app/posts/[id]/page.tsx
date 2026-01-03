@@ -6,7 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { Menu, Transition } from "@headlessui/react";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
-import { ChevronLeftIcon, EllipsisHorizontalIcon, ArrowUpTrayIcon, BellIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
+import { ArrowUpTrayIcon, BellIcon, EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 import { Post } from "@/lib/posts";
 import { PostMediaStrip } from "@/components/post-detail/post-media-strip";
 import { PostCard } from "@/components/post-card";
@@ -114,23 +114,7 @@ export default function PostDetailPage() {
     return (
         <div className="min-h-screen cc-page pb-32">
             {/* Header */}
-            <header className="flex h-12 items-center justify-between px-4 sticky top-0 cc-glass z-40">
-                <button
-                    onClick={() => router.back()}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-foreground border border-secondary/20 hover:bg-surface-3 transition-all"
-                >
-                    <ChevronLeftIcon className="h-5 w-5" />
-                </button>
 
-                {isAdmin && adminModeOn && (
-                    <button
-                        onClick={() => openView("post-history", { postId })}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-foreground border border-secondary/20 hover:bg-surface-3 transition-all"
-                    >
-                        <InformationCircleIcon className="h-5 w-5" />
-                    </button>
-                )}
-            </header>
 
             <main className="mx-auto max-w-2xl">
                 {/* 1) Top: Media section (hero) if available */}

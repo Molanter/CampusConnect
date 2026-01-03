@@ -13,7 +13,7 @@ import { useRightSidebar } from "@/components/right-sidebar-context";
 import { UserRow } from "@/components/user-row";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeftIcon } from "@heroicons/react/24/outline";
+
 import { UserProfileHeader } from "@/components/profile/user-profile-header";
 import { Post } from "@/lib/posts";
 import { TextPostListItem } from "@/components/text-post-list-item";
@@ -89,6 +89,22 @@ export default function ProfilePage() {
 function ProfileContent({ user }: { user: User }) {
   const router = useRouter();
   const { openView } = useRightSidebar();
+
+  // Shared UI class definitions
+  const ui = {
+    page: "relative min-h-screen",
+    inner: "max-w-3xl mx-auto px-4 pb-24 pt-20",
+
+    glassCard: "rounded-2xl bg-white/5 backdrop-blur-xl ring-1 ring-white/10",
+    glassCardHover: "rounded-2xl bg-white/5 backdrop-blur-xl ring-1 ring-white/10 hover:bg-white/10 transition-colors",
+    emptyState: "rounded-2xl cc-section px-4 py-12 text-center flex flex-col items-center justify-center",
+    loadingPill: "rounded-2xl bg-white/5 backdrop-blur-xl ring-1 ring-white/10 px-4 py-3 text-sm text-foreground",
+    warningCard: "rounded-2xl bg-amber-500/5 backdrop-blur-xl ring-1 ring-amber-500/20",
+    commentCard: "w-full rounded-2xl cc-section p-4 hover:bg-white/10 transition-all text-left",
+    loadMoreBtn: "w-full rounded-2xl bg-white/5 backdrop-blur-xl ring-1 ring-white/10 px-6 py-3 text-center text-sm font-medium text-foreground hover:bg-white/10 transition-colors",
+    createPostBtn: "rounded-full bg-white/10 hover:bg-white/20 ring-1 ring-white/10 px-6 py-3 text-sm font-medium text-foreground transition-colors",
+  };
+
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("my-events");
@@ -241,16 +257,14 @@ function ProfileContent({ user }: { user: User }) {
     void loadProfile();
   }, [user]);
 
-  // Load Attended Events
+  // Load Attended Events (Going or Maybe)
   useEffect(() => {
     if (activeTab !== "attended") return;
     setAttendedLoading(true);
-    const q = query(
-      collection(db, "events"),
-      where("goingUids", "array-contains", user.uid)
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: Post[] = snapshot.docs.map((doc) => {
+
+    // Helper to map docs
+    const mapDocs = (docs: any[]) => {
+      return docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -271,16 +285,63 @@ function ProfileContent({ user }: { user: User }) {
           goingUids: data.goingUids || [],
           maybeUids: data.maybeUids || [],
           notGoingUids: data.notGoingUids || [],
-        };
+        } as Post;
       });
+    };
+
+    // We can't do OR query with array-contains, so we run two listeners or two gets. 
+    // For simplicity with real-time updates, we'll set up two listeners.
+
+    let goingDocs: Post[] = [];
+    let maybeDocs: Post[] = [];
+
+    const updateCombined = () => {
+      // Merge by ID to avoid duplicates (though a user shouldn't be both going and maybe)
+      const combined = new Map<string, Post>();
+      [...goingDocs, ...maybeDocs].forEach(p => {
+        // Only include if it is actually an event
+        // Note: p.isEvent might be undefined if not set, depending on mapping. 
+        // Our mapping defaults it to true if missing, which is risky if regular posts don't have it.
+        // However, regular posts shouldn't have 'goingUids'.
+        if (p.isEvent) combined.set(p.id, p);
+      });
+
+      const items = Array.from(combined.values());
       items.sort((a, b) => {
         if (!a.date || !b.date) return 0;
         return a.date.localeCompare(b.date);
       });
+      console.log("Updated attended posts (merged):", items);
       setAttendedPosts(items);
       setAttendedLoading(false);
+    };
+
+    const qGoing = query(
+      collection(db, "posts"),
+      where("goingUids", "array-contains", user.uid)
+    );
+
+    const qMaybe = query(
+      collection(db, "posts"),
+      where("maybeUids", "array-contains", user.uid)
+    );
+
+    const unsubGoing = onSnapshot(qGoing, (snap) => {
+      console.log("Fetched going docs (raw):", snap.size);
+      goingDocs = mapDocs(snap.docs);
+      updateCombined();
     });
-    return () => unsubscribe();
+
+    const unsubMaybe = onSnapshot(qMaybe, (snap) => {
+      console.log("Fetched maybe docs (raw):", snap.size);
+      maybeDocs = mapDocs(snap.docs);
+      updateCombined();
+    });
+
+    return () => {
+      unsubGoing();
+      unsubMaybe();
+    };
   }, [user.uid, activeTab]);
 
   // Load Clubs Count
@@ -328,16 +389,6 @@ function ProfileContent({ user }: { user: User }) {
   return (
     <div className="min-h-screen text-neutral-50 mb-12">
       <div className="mx-auto w-full max-w-2xl px-1 py-6 pb-32 space-y-6">
-        {/* Header Bar */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => router.back()}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-white transition-all active:scale-95"
-          >
-            <ChevronLeftIcon className="h-6 w-6" />
-          </button>
-        </div>
-
         {/* Profile Incomplete Warning */}
         {!isProfileComplete && (
           <div className="rounded-[24px] border border-amber-500/10 bg-amber-500/5 p-4">
@@ -410,18 +461,18 @@ function ProfileContent({ user }: { user: User }) {
           <div className="w-full shrink-0 snap-start px-1">
             <div className="space-y-6">
               {myPostsLoading && (
-                <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
+                <div className={ui.loadingPill}>
                   Loading your posts...
                 </div>
               )}
               {!myPostsLoading && myPosts.length === 0 && (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-12 text-center">
+                <div className={ui.emptyState}>
                   <p className="text-sm text-neutral-400 mb-4">
                     You haven't posted anything yet.
                   </p>
                   <Link
                     href="/"
-                    className="rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm text-white hover:bg-white/20 transition"
+                    className={ui.createPostBtn}
                   >
                     Create a post
                   </Link>
@@ -448,12 +499,12 @@ function ProfileContent({ user }: { user: User }) {
           <div className="w-full shrink-0 snap-start px-1">
             <div className="space-y-6">
               {attendedLoading && (
-                <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
+                <div className={ui.loadingPill}>
                   Loading attended events...
                 </div>
               )}
               {!attendedLoading && attendedPosts.length === 0 && (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-12 text-center">
+                <div className={ui.emptyState}>
                   <p className="text-sm text-neutral-400">
                     You haven't marked any events as "Going" yet.
                   </p>
@@ -480,12 +531,12 @@ function ProfileContent({ user }: { user: User }) {
           <div className="w-full shrink-0 snap-start px-1">
             <div className="space-y-3">
               {commentsLoading && (
-                <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
+                <div className={ui.loadingPill}>
                   Loading your comments...
                 </div>
               )}
               {!commentsLoading && comments.length === 0 && (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-12 text-center">
+                <div className={ui.emptyState}>
                   <p className="text-sm text-neutral-400 mb-2">
                     You haven't commented on anything yet.
                   </p>
@@ -506,7 +557,7 @@ function ProfileContent({ user }: { user: User }) {
                       <button
                         key={comment.id}
                         onClick={() => router.push(`/posts/${comment.postId}`)}
-                        className="w-full rounded-[24px] border border-white/10 bg-[#1C1C1E] p-4 ring-1 ring-white/5 hover:bg-white/[0.02] hover:border-white/15 transition-all text-left"
+                        className={ui.commentCard}
                       >
                         <p className="text-sm text-neutral-200 mb-2 line-clamp-3">
                           {comment.text}

@@ -58,34 +58,29 @@ export function UserProfileHeader({
     onFollowingClick,
 }: UserProfileHeaderProps) {
     const initials = displayName.charAt(0).toUpperCase();
-    const [campusLogoUrl, setCampusLogoUrl] = useState<string | null>(null); // Renamed state
+    const [campusLogoUrl, setCampusLogoUrl] = useState<string | null>(null);
     const [logoLoading, setLogoLoading] = useState(false);
 
-    // Fetch campus logo
+    // Fetch campus logo from campuses collection
     useEffect(() => {
         if (!campusId) return;
 
         const fetchCampusLogo = async () => {
             setLogoLoading(true);
             try {
-                // Fetch campus document
-                const { getCampusOrLegacy } = await import("@/lib/firestore-paths");
-                const campusData = await getCampusOrLegacy(campusId);
+                // Fetch campus document directly from campuses collection
+                const campusDocRef = doc(db, "campuses", campusId);
+                const campusDoc = await getDoc(campusDocRef);
 
-                if (campusData) {
-                    const shortName = campusData.shortName;
-                    if (shortName) {
-                        try {
-                            // Updated to use new campuses/ storage path
-                            const logoPath = `campuses/${campusId}/${shortName}.png`;
-
-                            const logoRef = ref(storage, logoPath);
-                            const url = await getDownloadURL(logoRef);
-                            setCampusLogoUrl(url);
-                        } catch (e) {
-                            console.log("Logo not found at campus path");
-                        }
+                if (campusDoc.exists()) {
+                    const campusData = campusDoc.data();
+                    if (campusData.logoUrl) {
+                        setCampusLogoUrl(campusData.logoUrl);
+                    } else {
+                        setCampusLogoUrl(null);
                     }
+                } else {
+                    setCampusLogoUrl(null);
                 }
             } catch (error) {
                 console.error("Error fetching campus logo:", error);
@@ -106,23 +101,23 @@ export function UserProfileHeader({
     const effectiveBgUrl = backgroundImageUrl || photoURL;
 
     return (
-        <div className="relative rounded-[36px] md:rounded-[44px] border border-white/10 shadow-2xl ring-1 ring-white/5">
+        <div className="relative cc-section cc-radius-24 overflow-visible">
             {/* Shared Background Image Layer */}
             {effectiveBgUrl && (
-                <div className="absolute inset-0 z-0 overflow-hidden rounded-[36px] md:rounded-[44px]">
+                <div className="absolute inset-0 z-0 overflow-hidden cc-radius-24">
                     <img
                         src={effectiveBgUrl}
                         alt=""
                         className="!h-full !w-full object-cover object-center transition-opacity duration-700"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-[#0A0A0A]" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-secondary/10 to-background/90" />
                 </div>
             )}
 
             {/* Content Container */}
             <div className="relative z-10 p-2 pb-4 space-y-3 md:p-4 md:space-y-4">
                 {/* Main Profile Card */}
-                <div className="w-full overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] backdrop-blur-md shadow-lg ring-1 ring-white/5">
+                <div className="w-full overflow-hidden cc-radius-24 border border-secondary/20 cc-glass-strong shadow-lg">
                     {/* Foreground Content */}
                     <div className="space-y-4 p-4 md:space-y-6 md:p-6">
                         {/* Top Section: Avatar & Identity */}
@@ -144,7 +139,7 @@ export function UserProfileHeader({
 
                                 {/* Campus Logo Badge */}
                                 {campusLogoUrl && (
-                                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/15 p-0.5 shadow-md backdrop-blur-xl">
+                                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-secondary/20 shadow-md backdrop-blur-xl border border-secondary/25 p-0.5">
                                         <img
                                             src={campusLogoUrl}
                                             alt="Campus logo"
@@ -153,19 +148,19 @@ export function UserProfileHeader({
                                     </div>
                                 )}
                                 {!campusLogoUrl && campusId && !logoLoading && (
-                                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/15 shadow-md backdrop-blur-xl">
-                                        <AcademicCapIcon className="h-3.5 w-3.5 text-white/40" />
+                                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-secondary/20 shadow-md backdrop-blur-xl border border-secondary/25">
+                                        <AcademicCapIcon className="h-3.5 w-3.5 text-foreground/70" />
                                     </div>
                                 )}
                             </div>
 
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-col">
-                                    <h1 className="truncate text-2xl font-semibold tracking-tight text-white md:text-3xl">
+                                    <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
                                         {displayName}
                                     </h1>
                                     {username && (
-                                        <p className="text-sm text-neutral-400 md:text-base">
+                                        <p className="text-sm cc-muted md:text-base">
                                             {username}
                                         </p>
                                     )}
@@ -176,7 +171,7 @@ export function UserProfileHeader({
                         {/* Info Line: University • Year • Major - Below Avatar */}
                         {infoLine && (
                             <div className="mt-3">
-                                <p className="text-sm text-neutral-400 md:text-base">
+                                <p className="text-sm cc-muted md:text-base">
                                     {infoLine}
                                 </p>
                             </div>
@@ -186,31 +181,31 @@ export function UserProfileHeader({
                         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5">
                             <button
                                 onClick={onPostsClick}
-                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10 cursor-pointer active:scale-95"
+                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary/10 px-2.5 py-0.5 border border-secondary/25 transition-all hover:bg-secondary/16 cursor-pointer active:scale-95"
                             >
-                                <span className="text-xs font-bold text-white">{stats.posts}</span>
-                                <span className="text-[9px] font-bold uppercase tracking-tight text-neutral-400">Posts</span>
+                                <span className="text-xs font-bold text-foreground">{stats.posts}</span>
+                                <span className="text-[9px] font-bold uppercase tracking-tight cc-muted">Posts</span>
                             </button>
                             <button
                                 onClick={onClubsClick}
-                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10 cursor-pointer active:scale-95"
+                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary/10 px-2.5 py-0.5 border border-secondary/25 transition-all hover:bg-secondary/16 cursor-pointer active:scale-95"
                             >
-                                <span className="text-xs font-bold text-white">{stats.clubs || 0}</span>
-                                <span className="text-[9px] font-bold uppercase tracking-tight text-neutral-400">Clubs</span>
+                                <span className="text-xs font-bold text-foreground">{stats.clubs || 0}</span>
+                                <span className="text-[9px] font-bold uppercase tracking-tight cc-muted">Clubs</span>
                             </button>
                             <button
                                 onClick={onFollowersClick}
-                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10 cursor-pointer active:scale-95"
+                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary/10 px-2.5 py-0.5 border border-secondary/25 transition-all hover:bg-secondary/16 cursor-pointer active:scale-95"
                             >
-                                <span className="text-xs font-bold text-white">{stats.followers}</span>
-                                <span className="text-[9px] font-bold uppercase tracking-tight text-neutral-400">Followers</span>
+                                <span className="text-xs font-bold text-foreground">{stats.followers}</span>
+                                <span className="text-[9px] font-bold uppercase tracking-tight cc-muted">Followers</span>
                             </button>
                             <button
                                 onClick={onFollowingClick}
-                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10 cursor-pointer active:scale-95"
+                                className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary/10 px-2.5 py-0.5 border border-secondary/25 transition-all hover:bg-secondary/16 cursor-pointer active:scale-95"
                             >
-                                <span className="text-xs font-bold text-white">{stats.following}</span>
-                                <span className="text-[9px] font-bold uppercase tracking-tight text-neutral-400">Following</span>
+                                <span className="text-xs font-bold text-foreground">{stats.following}</span>
+                                <span className="text-[9px] font-bold uppercase tracking-tight cc-muted">Following</span>
                             </button>
                         </div>
                     </div>
@@ -287,7 +282,7 @@ function ActionControls({
 
                 {/* Desktop Overflow Menu */}
                 <Menu as="div" className="relative">
-                    <Menu.Button className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2C2C2E]/80 text-white backdrop-blur-md transition-all active:scale-95 hover:bg-[#3A3A3C]">
+                    <Menu.Button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 backdrop-blur-xl border border-white/15 text-white hover:bg-white/10 active:scale-95 transition">
                         <EllipsisHorizontalIcon className="h-6 w-6" />
                     </Menu.Button>
 
@@ -329,7 +324,7 @@ function ActionControls({
 
             {/* Mobile: Single Menu Button */}
             <Menu as="div" className="relative md:hidden">
-                <Menu.Button className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2C2C2E]/80 text-white backdrop-blur-md transition-all active:scale-95 hover:bg-[#3A3A3C]">
+                <Menu.Button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 backdrop-blur-xl border border-white/15 text-white hover:bg-white/10 active:scale-95 transition">
                     <EllipsisHorizontalIcon className="h-6 w-6" />
                 </Menu.Button>
 
@@ -402,7 +397,7 @@ function IconButton({ onClick, icon: Icon }: { onClick?: () => void, icon: React
     return (
         <button
             onClick={onClick}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2C2C2E]/80 text-white backdrop-blur-md transition-all active:scale-95 hover:bg-[#3A3A3C]"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 backdrop-blur-xl border border-white/15 text-white hover:bg-white/10 active:scale-95 transition"
         >
             <Icon className="h-6 w-6" />
         </button>

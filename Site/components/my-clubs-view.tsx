@@ -103,7 +103,7 @@ export function MyClubsView({ userId }: { userId: string }) {
                 <button
                     key={club.id}
                     onClick={() => router.push(`/clubs/${club.id}`)}
-                    className="flex items-start gap-3 rounded-[24px] border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-all text-left"
+                    className="flex items-start gap-3 rounded-[24px] cc-section p-4 hover:bg-white/10 transition-all text-left"
                 >
                     {/* Club Cover/Icon */}
                     <div className="shrink-0">

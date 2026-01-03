@@ -186,7 +186,7 @@ export default function UserTicketsPage() {
                             <h1 className="text-xl font-bold">My Support Tickets</h1>
                         </div>
                         <Link
-                            href="/help-support"
+                            href="/settings/help-support"
                             className="flex items-center gap-2 bg-[#ffb200] text-black px-4 py-2.5 rounded-full font-semibold hover:bg-[#e6a000] transition-colors text-sm"
                         >
                             <PlusIcon className="h-4 w-4" />
@@ -221,7 +221,7 @@ export default function UserTicketsPage() {
                                 ) : tickets.length === 0 ? (
                                     <div className="text-center py-12 px-4">
                                         <p className="text-neutral-500 text-sm mb-3">No tickets yet</p>
-                                        <Link href="/help-support" className="text-[#ffb200] text-sm hover:underline">
+                                        <Link href="/settings/help-support" className="text-[#ffb200] text-sm hover:underline">
                                             Create one
                                         </Link>
                                     </div>

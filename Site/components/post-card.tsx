@@ -433,7 +433,7 @@ export function PostCard({
                             <div className={description ? "mt-2 mb-2" : "mt-2.5 mb-2"}>
                                 {images.length === 1 ? (
                                     // Single image: inline-block to fit content
-                                    <div className="inline-block max-w-full overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary/10">
+                                    <div className="inline-block max-w-full overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary">
                                         <img
                                             src={images[0]}
                                             alt=""
@@ -452,7 +452,7 @@ export function PostCard({
                                             {images.slice(0, 4).map((src, idx) => (
                                                 <div
                                                     key={src + idx}
-                                                    className="inline-block shrink-0 overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary/10"
+                                                    className="inline-block shrink-0 overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary"
                                                 >
                                                     <img
                                                         src={src}

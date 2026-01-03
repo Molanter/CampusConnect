@@ -48,7 +48,7 @@ export function MediaHorizontalScroll({ post, noPadding = false, className = "",
                                 onClick();
                             }
                         }}
-                        className={`inline-block shrink-0 snap-start overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary/10 relative mx-0 ${images.length === 0 ? "w-full" : "w-[240px] sm:w-[300px]"} ${onClick ? 'cursor-pointer hover:brightness-[1.05] transition-all' : ''}`}
+                        className={`inline-block shrink-0 snap-start overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary relative mx-0 ${images.length === 0 ? "w-full" : "w-[240px] sm:w-[300px]"} ${onClick ? 'cursor-pointer hover:brightness-[1.05] transition-all' : ''}`}
                     >
                         <div className="h-[180px] sm:h-[220px] md:h-[240px] w-full">
                             {isLoaded && coordinates ? (
@@ -82,7 +82,7 @@ export function MediaHorizontalScroll({ post, noPadding = false, className = "",
                     return (
                         <div
                             key={index}
-                            className="inline-block shrink-0 overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary/10 mx-0"
+                            className="inline-block shrink-0 overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary mx-0"
                             onClick={(e) => {
                                 if (onClick) {
                                     e.stopPropagation();

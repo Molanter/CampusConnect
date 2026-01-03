@@ -153,7 +153,7 @@ export function CompactPostCard({
         >
             {/* 1. Media Layer (if exists) */}
             {hasMedia && (
-                <div className="absolute inset-0 h-full w-full bg-neutral-900">
+                <div className="absolute inset-0 h-full w-full bg-secondary">
                     {renderMedia()}
                 </div>
             )}

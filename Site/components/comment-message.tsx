@@ -351,7 +351,7 @@ export function CommentMessage({
               >
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 hover:bg-surface-3 transition-colors active:scale-95"
+                  className="flex w-full items-center gap-2.5 rounded-full px-3.5 py-2.5 hover:bg-secondary/15 transition-colors active:scale-95"
                   onClick={(e) => {
                     e.stopPropagation();
                     closeMenu();
@@ -364,7 +364,7 @@ export function CommentMessage({
                 {canEdit && (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 hover:bg-surface-3 transition-colors active:scale-95"
+                    className="flex w-full items-center gap-2.5 rounded-full px-3.5 py-2.5 hover:bg-secondary/15 transition-colors active:scale-95"
                     onClick={(e) => {
                       e.stopPropagation();
                       closeMenu();
@@ -380,7 +380,7 @@ export function CommentMessage({
                     <div className="my-1 h-px bg-secondary/10 mx-2" />
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-red-400 hover:bg-red-500/10 transition-colors active:scale-95"
+                      className="flex w-full items-center gap-2.5 rounded-full px-3.5 py-2.5 text-red-400 hover:bg-red-500/10 transition-colors active:scale-95"
                       onClick={(e) => {
                         e.stopPropagation();
                         closeMenu();

@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { getCommunityGuidelines, CommunityGuidelines } from "@/lib/guidelines";
@@ -9,6 +10,7 @@ import { getCommunityGuidelines, CommunityGuidelines } from "@/lib/guidelines";
 export default function GuidelinesPage() {
     const [guidelines, setGuidelines] = useState<CommunityGuidelines | null>(null);
     const [loading, setLoading] = useState(true);
+    const pathname = usePathname();
 
     useEffect(() => {
         async function fetchGuidelines() {
@@ -21,6 +23,40 @@ export default function GuidelinesPage() {
         }
         fetchGuidelines();
     }, []);
+
+    // Ensure page always loads at the top with multiple attempts
+    useEffect(() => {
+        // Immediate scroll
+        window.scrollTo(0, 0);
+
+        // Delayed scroll to handle any layout shifts
+        const timeoutId = setTimeout(() => {
+            window.scrollTo(0, 0);
+        }, 100);
+
+        return () => clearTimeout(timeoutId);
+    }, []);
+
+    // Scroll to top when pathname changes (navigation occurs)
+    useEffect(() => {
+        if (pathname === '/settings/guidelines') {
+            window.scrollTo(0, 0);
+
+            // Also try with a small delay for client-side navigation
+            const timeoutId = setTimeout(() => {
+                window.scrollTo(0, 0);
+            }, 50);
+
+            return () => clearTimeout(timeoutId);
+        }
+    }, [pathname]);
+
+    // Scroll to top when loading completes
+    useEffect(() => {
+        if (!loading && guidelines) {
+            window.scrollTo(0, 0);
+        }
+    }, [loading, guidelines]);
 
     if (loading) {
         return (
@@ -36,10 +72,10 @@ export default function GuidelinesPage() {
         <div className="min-h-screen bg-background pb-20">
             {/* Header */}
             {/* Header */}
-            <header className="sticky top-0 z-40 pt-4 pointer-events-none">
+            <header className="fixed top-0 left-0 right-0 z-40 pt-4 pointer-events-none">
                 <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 pointer-events-auto">
                     <Link
-                        href="/"
+                        href="/settings"
                         className="flex h-10 w-10 items-center justify-center rounded-full cc-header-btn active:scale-95"
                     >
                         <ChevronLeftIcon className="h-5 w-5 text-foreground" />
@@ -50,7 +86,7 @@ export default function GuidelinesPage() {
                 </div>
             </header>
 
-            <main className="mx-auto max-w-2xl px-4 py-8">
+            <main className="mx-auto max-w-2xl px-4 pt-24 pb-8">
                 <div className="space-y-8">
                     {/* Introduction */}
                     <div className="cc-section rounded-3xl p-6 md:p-8 space-y-4">

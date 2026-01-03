@@ -431,7 +431,7 @@ export default function CreateClubPage() {
                         <p className="text-center text-xs text-neutral-500 mt-4">
                             By creating a club, you agree to our{" "}
                             <Link
-                                href="/guidelines"
+                                href="/settings/guidelines"
                                 target="_blank"
                                 className="text-brand hover:underline font-medium"
                             >
