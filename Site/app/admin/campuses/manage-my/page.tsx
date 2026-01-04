@@ -588,7 +588,7 @@ export default function ManageMyCampusPage() {
                                 className={ui.dropdownBtn}
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="h-6 w-6 rounded-full border border-brand/20 flex items-center justify-center overflow-hidden shrink-0">
+                                    <div className="h-6 w-6 rounded-full flex items-center justify-center overflow-hidden shrink-0">
                                         {selectedCampus?.logoUrl ? (
                                             <img src={selectedCampus.logoUrl} className="h-full w-full object-contain" alt="" />
                                         ) : (
@@ -655,7 +655,7 @@ export default function ManageMyCampusPage() {
                                 <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-secondary/10">
                                     <div className="p-5 flex flex-col items-center justify-center shrink-0">
                                         <div
-                                            className="relative h-28 w-28 rounded-[24px] overflow-hidden border border-secondary/15 flex items-center justify-center cursor-pointer group hover:ring-2 hover:ring-brand/30 transition-all shadow-md"
+                                            className="relative h-28 w-28 rounded-[24px] overflow-hidden flex items-center justify-center cursor-pointer group hover:ring-2 hover:ring-brand/30 transition-all shadow-md"
                                             onClick={() => document.getElementById(`campus-logo-input`)?.click()}
                                         >
                                             {campus.logoUrl ? (
