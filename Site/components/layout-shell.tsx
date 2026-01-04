@@ -83,9 +83,13 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
     }, []);
 
     const width = viewportWidth ?? 1024;
-    const leftSidebarClass = width > 768 ? "md:pl-[120px]" : "";
-    const showHeader = width <= 768;
     const isMobile = width <= 768;
+    const leftSidebarClass = width > 768 ? "md:pl-[120px]" : "";
+
+    // Determine if we are on a main tabbed page that shows the floating mobile navbar
+    const tabRoutes = ["/", "/explore", "/posts/new", "/profile", "/settings"];
+    const isTabPage = tabRoutes.includes(pathname) || pathname.startsWith("/admin");
+    const showHeader = isMobile && isTabPage;
 
     return (
         <div
@@ -95,7 +99,7 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
                 ["--cc-main-width" as any]: `${mainWidth}px`
             }}
         >
-            <Navbar viewportWidth={viewportWidth} />
+            <Navbar viewportWidth={viewportWidth} isTabPage={isTabPage} />
 
             {/* Main content + sidebar flex container */}
             <div className="flex flex-1 overflow-hidden">
@@ -106,7 +110,7 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
                 >
                     <div
                         ref={contentRef}
-                        className={`mx-auto max-w-[1600px] w-full pt-20 md:pt-6 px-4 md:px-6 transition-all duration-200 [@container] ${leftSidebarClass}`}
+                        className={`mx-auto max-w-[1600px] w-full ${isMobile && isTabPage ? 'pt-10' : 'pt-0'} md:pt-6 px-4 md:px-6 transition-all duration-200 [@container] ${leftSidebarClass}`}
                     >
                         {children}
                     </div>

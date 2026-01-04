@@ -124,7 +124,7 @@ export default function SettingsPage() {
           </Link>
           <Link
             href="/profile/setup"
-            className={ui.row}
+            className={`${ui.row} ${ui.rowBorder}`}
           >
             <div className={`${ui.iconBox} bg-gradient-to-br from-purple-500 to-purple-600`}>
               <UserIcon className="h-5 w-5 text-white" />
@@ -134,6 +134,7 @@ export default function SettingsPage() {
             </div>
             <ChevronRightIcon className={ui.chevron} />
           </Link>
+
         </div>
       </section>
 
@@ -185,18 +186,6 @@ export default function SettingsPage() {
               </div>
               <ChevronRightIcon className={ui.chevron} />
             </Link>
-            <Link
-              href="/admin/campuses"
-              className={`${ui.row} ${ui.rowBorder}`}
-            >
-              <div className={`${ui.iconBox} bg-gradient-to-br from-yellow-500 to-yellow-600`}>
-                <PencilSquareIcon className="h-5 w-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-[15px] font-normal text-foreground">Edit Campuses</p>
-              </div>
-              <ChevronRightIcon className={ui.chevron} />
-            </Link>
             {user?.email === "YOUR_APP_ADMIN_EMAIL" && (
               <Link
                 href="/admin/campuses"
@@ -242,15 +231,18 @@ export default function SettingsPage() {
             </div>
             <div className="text-sm cc-muted">Coming soon</div>
           </div>
-          <div className={`${ui.row} ${ui.rowBorder}`}>
+          <Link
+            href="/settings/display"
+            className={`${ui.row} ${ui.rowBorder}`}
+          >
             <div className={`${ui.iconBox} bg-gradient-to-br from-pink-500 to-pink-600`}>
               <SwatchIcon className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1">
               <p className="text-[15px] font-normal text-foreground">Display</p>
             </div>
-            <div className="text-sm cc-muted">Coming soon</div>
-          </div>
+            <ChevronRightIcon className={ui.chevron} />
+          </Link>
           <div className={ui.row}>
             <div className={`${ui.iconBox} bg-gradient-to-br from-indigo-500 to-indigo-600`}>
               <LanguageIcon className="h-5 w-5 text-white" />

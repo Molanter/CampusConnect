@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import {
     collection,
@@ -14,7 +14,6 @@ import {
     setDoc,
     where,
     serverTimestamp,
-    collectionGroup
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "@/lib/firebase";
@@ -25,15 +24,10 @@ import {
     ChevronLeftIcon,
     BuildingOfficeIcon,
     MapPinIcon,
-    EnvelopeIcon,
-    HomeIcon,
     ChevronDownIcon,
-    CheckCircleIcon,
-    CloudArrowUpIcon,
     PlusIcon,
     TrashIcon,
     XMarkIcon,
-    UserGroupIcon,
     PhotoIcon,
     CameraIcon,
     CheckIcon,
@@ -41,7 +35,7 @@ import {
     ShieldExclamationIcon
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef } from "react";
+import Link from 'next/link';
 
 // Helper to create cropped image blob
 async function getCroppedImg(imageSrc: string, pixelCrop: any): Promise<Blob> {
@@ -75,6 +69,40 @@ async function getCroppedImg(imageSrc: string, pixelCrop: any): Promise<Blob> {
         }, 'image/png');
     });
 }
+
+const ui = {
+    page: "mx-auto w-full max-w-2xl px-4 py-4 pb-32",
+    header: "flex flex-col gap-6 px-1 pt-2 pb-8",
+    backBtn: "inline-flex h-10 w-10 items-center justify-center rounded-full cc-glass border border-secondary/15 text-foreground transition-all hover:bg-secondary/10",
+    title: "text-2xl font-bold tracking-tight text-foreground",
+    subtitle: "text-secondary text-[13px] font-medium leading-relaxed",
+    section: "space-y-2.5",
+    sectionLabel: "text-[12px] font-bold uppercase tracking-widest text-secondary ml-1.5",
+    card: "cc-glass cc-section rounded-[28px] overflow-hidden shadow-xl border border-secondary/15",
+    // Input patterns
+    inputGroup: "px-5 py-4 space-y-1.5",
+    label: "text-[11px] font-bold text-secondary uppercase tracking-wider block ml-0.5",
+    input: "w-full bg-transparent text-[15px] font-medium text-foreground placeholder:text-secondary/40 focus:outline-none transition-colors",
+    textarea: "w-full bg-transparent text-[15px] font-medium text-foreground placeholder:text-secondary/40 focus:outline-none transition-colors resize-none",
+    footerText: "text-[11px] text-secondary/60 ml-1.5 leading-relaxed",
+    // Item Inputs (for lists)
+    itemTitleInput: "w-full bg-transparent text-[15px] font-bold text-foreground placeholder:text-secondary/40 focus:outline-none",
+    itemSubInput: "w-full bg-transparent text-[12px] font-medium text-secondary placeholder:text-secondary/30 focus:outline-none",
+    // Selection Dropdown
+    dropdownBtn: "w-full flex items-center justify-between gap-3 px-5 py-3 rounded-2xl cc-glass border border-secondary/15 transition-all hover:bg-secondary/10 active:scale-[0.99]",
+    dropdownMenu: "absolute top-full mt-2 w-full z-50 overflow-hidden rounded-[24px] cc-glass border border-secondary/15 shadow-2xl animate-in fade-in zoom-in-95 duration-200",
+    dropdownItem: "w-full text-left px-4 py-3 rounded-[16px] flex items-center justify-between transition-all",
+    // Buttons
+    primaryBtn: "flex-1 rounded-full bg-brand py-3 text-base font-bold text-brand-foreground shadow-lg shadow-brand/20 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50",
+    secondaryBtn: "flex h-12 w-full items-center justify-center rounded-full bg-secondary/10 text-[15px] font-bold text-foreground transition-all hover:bg-secondary/20 active:scale-[0.98]",
+    mobileCancelBtn: "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-foreground transition-all hover:bg-secondary/20 active:scale-[0.98]",
+    iconBtn: "flex h-10 w-10 items-center justify-center rounded-full bg-secondary/10 text-secondary transition-all hover:bg-secondary/20 active:scale-[0.95]",
+    deleteBtn: "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-secondary transition-all hover:bg-red-500/20 hover:text-red-400 border border-secondary/10 hover:border-red-500/30",
+    addBtn: "w-full flex items-center justify-center gap-2 rounded-2xl border border-dashed border-secondary/20 bg-secondary/5 py-4 text-[13px] font-bold text-secondary transition-all hover:bg-secondary/10 hover:text-foreground hover:border-secondary/40",
+    // Modal
+    modalOverlay: "fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-200 p-4",
+    modalContent: "w-full max-w-sm cc-glass border border-secondary/15 rounded-[32px] p-8 shadow-2xl animate-in zoom-in-95 duration-200",
+};
 
 export default function ManageMyCampusPage() {
     const router = useRouter();
@@ -313,12 +341,25 @@ export default function ManageMyCampusPage() {
 
             const formattedEmails = adminEmailsText.split('\n').map(e => e.trim().toLowerCase()).filter(Boolean);
 
+            // Resolve UIDs for moderators
+            let adminUids: string[] = [];
+            if (formattedEmails.length > 0) {
+                const uidPromises = formattedEmails.map(async (email) => {
+                    const q = query(collection(db, 'users'), where('email', '==', email));
+                    const snap = await getDocs(q);
+                    return snap.docs[0]?.id;
+                });
+                const resolved = await Promise.all(uidPromises);
+                adminUids = resolved.filter((uid): uid is string => !!uid);
+            }
+
             const updateData = {
                 name: campus.name,
                 shortName: campus.shortName || null,
                 locations: campus.locations,
                 isActive: campus.isActive,
                 adminEmails: formattedEmails,
+                adminUids: adminUids,
                 isUniversity: campus.isUniversity,
                 logoUrl: logoUrl
             };
@@ -511,70 +552,57 @@ export default function ManageMyCampusPage() {
     };
 
     if (loading) return (
-        <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-[#ffb200]" />
+        <div className="flex h-screen items-center justify-center">
+            <div className="cc-muted animate-pulse font-medium">Loading network...</div>
         </div>
     );
 
     if (!user) return (
-        <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
-            <div className="text-center">
-                <h2 className="text-2xl font-semibold text-white mb-2">Sign In Required</h2>
-                <p className="text-neutral-400">Please sign in to manage your campus.</p>
-            </div>
+        <div className="flex h-screen flex-col items-center justify-center gap-4 text-secondary">
+            <p className="font-medium">Please sign in to manage your campus.</p>
         </div>
     );
 
     if (myCampuses.length === 0) return (
-        <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
-            <div className="text-center">
-                <h2 className="text-2xl font-semibold text-white mb-2">No Access</h2>
-                <p className="text-neutral-400">You are not an admin of any campus.</p>
-            </div>
+        <div className="flex h-screen flex-col items-center justify-center gap-4 text-secondary">
+            <p className="font-medium text-center px-8">You are not an admin of any campus currently.</p>
         </div>
     );
 
     const selectedCampus = myCampuses.find(c => c.id === selectedCampusId);
 
     return (
-        <div className="min-h-[calc(100vh-64px)] text-white flex flex-col max-w-[1200px] mx-auto">
+        <div className={ui.page}>
             <Toast toast={toast} onClear={() => setToast(null)} />
 
-            <div className="pt-8 md:pt-12 px-8 pb-0 shrink-0">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-                    <div>
-                        <button
-                            onClick={() => router.back()}
-                            className="mb-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 hover:text-white hover:bg-white/10 transition-all border border-white/5"
-                        >
-                            <ChevronLeftIcon className="h-5 w-5" />
-                        </button>
-                        <h1 className="text-4xl font-bold tracking-tight mb-2">Manage Campus</h1>
-                        <p className="text-neutral-400 text-lg">Update details for the campuses you moderate.</p>
-                    </div>
+            <div className={ui.header}>
+                <div className="flex items-center justify-between">
+                    <button onClick={() => router.back()} className={ui.backBtn}>
+                        <ChevronLeftIcon className="h-5 w-5" />
+                    </button>
 
                     {myCampuses.length > 1 && (
-                        <div className="relative min-w-[240px]">
+                        <div className="relative min-w-[200px]">
                             <button
                                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                className="w-full flex items-center justify-between gap-3 px-5 py-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group"
+                                className={ui.dropdownBtn}
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-full bg-[#ffb200]/20 flex items-center justify-center">
-                                        <BuildingOfficeIcon className="h-4 w-4 text-[#ffb200]" />
+                                    <div className="h-6 w-6 rounded-lg bg-brand/20 flex items-center justify-center">
+                                        <BuildingOfficeIcon className="h-3.5 w-3.5 text-brand" />
                                     </div>
-                                    <span className="font-semibold text-sm">
+                                    <span className="font-bold text-[13px] text-foreground">
                                         {selectedCampus?.name || "Select Campus"}
                                     </span>
                                 </div>
-                                <ChevronDownIcon className={`h-4 w-4 text-neutral-500 group-hover:text-white transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                                <ChevronDownIcon className={`h-4 w-4 text-secondary/50 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
 
                             {isDropdownOpen && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
-                                    <div className="absolute top-full mt-2 w-full z-50 overflow-hidden rounded-2xl bg-[#1C1C1E]/95 backdrop-blur-xl border border-white/10 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                                        <div className="p-1.5">
+                                    <div className={ui.dropdownMenu}>
+                                        <div className="p-1.5 flex flex-col gap-1">
                                             {myCampuses.map(c => (
                                                 <button
                                                     key={c.id}
@@ -582,12 +610,12 @@ export default function ManageMyCampusPage() {
                                                         setSelectedCampusId(c.id);
                                                         setIsDropdownOpen(false);
                                                     }}
-                                                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between group transition-all ${selectedCampusId === c.id ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                                                    className={`${ui.dropdownItem} ${selectedCampusId === c.id ? 'bg-secondary/10' : 'hover:bg-secondary/5'}`}
                                                 >
-                                                    <span className={`text-sm font-medium ${selectedCampusId === c.id ? 'text-white' : 'text-neutral-400 group-hover:text-neutral-200'}`}>
+                                                    <span className={`text-[13px] font-bold ${selectedCampusId === c.id ? 'text-foreground' : 'text-secondary'}`}>
                                                         {c.name}
                                                     </span>
-                                                    {selectedCampusId === c.id && <CheckCircleIcon className="h-4 w-4 text-[#ffb200]" />}
+                                                    {selectedCampusId === c.id && <CheckIcon className="h-4 w-4 text-brand" />}
                                                 </button>
                                             ))}
                                         </div>
@@ -597,30 +625,34 @@ export default function ManageMyCampusPage() {
                         </div>
                     )}
                 </div>
+
+                <div>
+                    <h1 className={ui.title}>Manage Campus</h1>
+                    <p className={ui.subtitle}>Update details for the campuses you moderate.</p>
+                </div>
             </div>
 
-            <div className="flex-1 px-8 pb-12">
+            <div className="space-y-8">
                 {campus && (
-                    <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Main Info */}
-                        <div className="lg:col-span-2 space-y-6">
-                            <div className="space-y-4">
-                                <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Campus Info</label>
-                                <div className="bg-[#1A1A1A] border border-white/10 rounded-[2rem] overflow-hidden shadow-lg p-6 flex flex-col sm:flex-row items-center gap-6">
-                                    {/* Campus Logo Picker */}
-                                    <div className="relative group/img h-24 w-24 shrink-0">
+                    <form onSubmit={handleSave} className="space-y-10">
+                        {/* Identity Section */}
+                        <div className={ui.section}>
+                            <label className={ui.sectionLabel}>Identity & Branding</label>
+                            <div className={ui.card}>
+                                <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-secondary/10">
+                                    <div className="p-5 flex flex-col items-center justify-center shrink-0">
                                         <div
-                                            className="h-24 w-24 rounded-2xl flex items-center justify-center text-neutral-500 overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#ffb200]/50 transition-all"
-                                            onClick={() => {
-                                                const input = document.getElementById(`campus-logo-input`);
-                                                input?.click();
-                                            }}
+                                            className="relative h-28 w-28 rounded-[24px] overflow-hidden cc-glass cc-section border border-secondary/15 flex items-center justify-center cursor-pointer group hover:ring-2 hover:ring-brand/30 transition-all shadow-md"
+                                            onClick={() => document.getElementById(`campus-logo-input`)?.click()}
                                         >
                                             {campus.logoUrl ? (
-                                                <img src={campus.logoUrl} alt={campus.name} className="h-full w-full object-contain" />
+                                                <img src={campus.logoUrl} alt={campus.name} className="h-full w-full object-contain p-1" />
                                             ) : (
-                                                <CameraIcon className="h-10 w-10 opacity-30 group-hover/img:opacity-100 transition-opacity" />
+                                                <CameraIcon className="h-10 w-10 text-secondary/30 group-hover:text-secondary group-hover:scale-110 transition-all" />
                                             )}
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <PhotoIcon className="h-8 w-8 text-white" />
+                                            </div>
                                         </div>
                                         <input
                                             type="file"
@@ -629,42 +661,45 @@ export default function ManageMyCampusPage() {
                                             accept="image/*"
                                             onChange={(e) => handleImageSelect('campus', undefined, e)}
                                         />
+                                        <p className="text-[10px] font-bold text-secondary/50 uppercase tracking-widest mt-2">Campus Logo</p>
                                     </div>
 
-                                    <div className="flex-1 w-full space-y-3">
-                                        <div className="bg-white/5 rounded-2xl border border-white/5 focus-within:border-[#ffb200]/30 transition-colors overflow-hidden">
+                                    <div className="flex-1 divide-y divide-secondary/10">
+                                        <div className={ui.inputGroup}>
+                                            <label className={ui.label}>Institutional Name <span className="text-red-500">*</span></label>
                                             <input
                                                 required
                                                 type="text"
                                                 value={campus.name}
                                                 onChange={e => setCampus({ ...campus, name: e.target.value })}
-                                                className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                                                placeholder="Full Name (e.g. Stanford University)"
+                                                className={ui.input}
+                                                placeholder="e.g. Stanford University"
                                             />
                                         </div>
-                                        <div className="bg-white/5 rounded-2xl border border-white/5 focus-within:border-[#ffb200]/30 transition-colors overflow-hidden">
+                                        <div className={ui.inputGroup}>
+                                            <label className={ui.label}>Abbreviation <span className="text-red-500">*</span></label>
                                             <input
                                                 type="text"
                                                 value={campus.shortName || ''}
                                                 onChange={e => setCampus({ ...campus, shortName: e.target.value })}
-                                                className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                                                placeholder="Short Name / Acronym (e.g. STAN)"
+                                                className={ui.input}
+                                                placeholder="e.g. STAN"
                                             />
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Locations</label>
-                                <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                        {/* Locations Section */}
+                        <div className={ui.section}>
+                            <label className={ui.sectionLabel}>Locations <span className="text-red-500">*</span></label>
+                            <div className={ui.card}>
+                                <div className="divide-y divide-secondary/10">
                                     {campus.locations.map((loc, i) => (
-                                        <div key={i} className="flex gap-4 items-center group">
-                                            <div className="h-12 w-12 flex items-center justify-center text-neutral-600 bg-white/[0.01] border-r border-white/5 font-mono text-xs">
-                                                {loc.id}
-                                            </div>
+                                        <div key={i} className="flex items-center gap-4 px-5 py-4 min-h-[56px] hover:bg-secondary/5 transition-colors group">
                                             <input
-                                                className="flex-1 bg-transparent px-2 py-3.5 text-sm text-white focus:outline-none hover:bg-white/[0.02] transition-colors"
+                                                className="flex-1 bg-transparent text-[15px] font-medium text-foreground placeholder:text-secondary/40 focus:outline-none"
                                                 value={loc.name}
                                                 onChange={e => {
                                                     const newLocs = [...campus.locations];
@@ -673,137 +708,59 @@ export default function ManageMyCampusPage() {
                                                 }}
                                                 placeholder="Main Campus"
                                             />
+                                            <MapPinIcon className="h-4 w-4 text-secondary/20 group-hover:text-secondary/40 transition-colors" />
                                         </div>
                                     ))}
                                 </div>
                             </div>
+                        </div>
 
-                            {campus.isUniversity && (
-                                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Dorms & Residences</label>
-                                    <div className="space-y-3">
-                                        {dorms.map((dorm, i) => (
-                                            <div key={i} className="flex items-start gap-3">
-                                                <div className="flex-1 bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg">
-                                                    <div className="flex items-center gap-4 p-4">
-                                                        <div className="relative group/img h-14 w-14 shrink-0">
-                                                            <div
-                                                                className="h-14 w-14 rounded-xl flex items-center justify-center text-neutral-500 overflow-hidden cursor-pointer hover:ring-1 hover:ring-[#ffb200]/50 transition-all"
-                                                                onClick={() => {
-                                                                    const input = document.getElementById(`dorm-img-${i}`);
-                                                                    input?.click();
-                                                                }}
-                                                            >
-                                                                {dorm.logoUrl ? (
-                                                                    <img src={dorm.logoUrl} alt={dorm.name} className="h-full w-full object-contain" />
-                                                                ) : (
-                                                                    <CameraIcon className="h-6 w-6 opacity-40 group-hover/img:opacity-100 transition-opacity" />
-                                                                )}
-                                                            </div>
-                                                            <input
-                                                                type="file"
-                                                                id={`dorm-img-${i}`}
-                                                                className="hidden"
-                                                                accept="image/*"
-                                                                onChange={(e) => handleImageSelect('dorm', i, e)}
-                                                            />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <input
-                                                                placeholder="Dorm Name"
-                                                                className="w-full bg-transparent text-sm font-semibold text-white placeholder:text-neutral-500 focus:outline-none"
-                                                                value={dorm.name}
-                                                                onChange={e => handleDormChange(i, 'name', e.target.value)}
-                                                            />
-                                                            <input
-                                                                placeholder="Admin email (optional)"
-                                                                className="w-full bg-transparent text-xs text-neutral-400 placeholder:text-neutral-600 focus:outline-none mt-1"
-                                                                value={dorm.adminEmail}
-                                                                onChange={e => handleDormChange(i, 'adminEmail', e.target.value)}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleRemoveDorm(i)}
-                                                    className="flex h-9 w-9 mt-4 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-all hover:bg-red-500/20 hover:text-red-400 border border-white/5 hover:border-red-500/30"
-                                                >
-                                                    <TrashIcon className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        ))}
-
-                                        <button
-                                            type="button"
-                                            onClick={handleAddDorm}
-                                            className="w-full flex items-center justify-center gap-2 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] py-4 text-sm font-medium text-neutral-400 transition-all hover:bg-white/[0.04] hover:text-white hover:border-white/20"
-                                        >
-                                            <PlusIcon className="h-4 w-4" />
-                                            Add Dorm
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Default Clubs Section */}
-                            <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300" style={{ animationDelay: '100ms' }}>
-                                <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Default Clubs</label>
-                                <div className="space-y-3">
-                                    {defaultClubs.map((club, i) => (
-                                        <div key={club.id || i} className="flex items-start gap-3">
-                                            <div className="flex-1 bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg">
+                        {/* Dorms Section */}
+                        {campus.isUniversity && (
+                            <div className={ui.section}>
+                                <label className={ui.sectionLabel}>Dorms & Residences</label>
+                                <div className="space-y-4">
+                                    {dorms.map((dorm, i) => (
+                                        <div key={i} className="flex items-start gap-4">
+                                            <div className={`${ui.card} flex-1`}>
                                                 <div className="flex items-center gap-4 p-4">
-                                                    <div className="relative group/img h-14 w-14 shrink-0">
-                                                        <div
-                                                            className="h-14 w-14 rounded-xl flex items-center justify-center text-neutral-500 overflow-hidden cursor-pointer hover:ring-1 hover:ring-[#ffb200]/50 transition-all"
-                                                            onClick={() => {
-                                                                const input = document.getElementById(`club-img-${i}`);
-                                                                input?.click();
-                                                            }}
-                                                        >
-                                                            {club.logoUrl ? (
-                                                                <img src={club.logoUrl} alt={club.name} className="h-full w-full object-contain" />
-                                                            ) : (
-                                                                <CameraIcon className="h-6 w-6 opacity-40 group-hover/img:opacity-100 transition-opacity" />
-                                                            )}
-                                                        </div>
-                                                        <input
-                                                            type="file"
-                                                            id={`club-img-${i}`}
-                                                            className="hidden"
-                                                            accept="image/*"
-                                                            onChange={(e) => handleImageSelect('club', i, e)}
-                                                        />
+                                                    <div
+                                                        className="relative h-14 w-14 rounded-xl cc-glass cc-section border border-secondary/15 flex items-center justify-center cursor-pointer hover:ring-1 hover:ring-brand/30 transition-all overflow-hidden"
+                                                        onClick={() => document.getElementById(`dorm-img-${i}`)?.click()}
+                                                    >
+                                                        {dorm.logoUrl ? (
+                                                            <img src={dorm.logoUrl} alt={dorm.name} className="h-full w-full object-contain p-1" />
+                                                        ) : (
+                                                            <CameraIcon className="h-6 w-6 text-secondary/30" />
+                                                        )}
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
+                                                    <input
+                                                        type="file"
+                                                        id={`dorm-img-${i}`}
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={(e) => handleImageSelect('dorm', i, e)}
+                                                    />
+                                                    <div className="flex-1 min-w-0 space-y-1">
                                                         <input
-                                                            placeholder="Club Name"
-                                                            className="w-full bg-transparent text-sm font-semibold text-white placeholder:text-neutral-500 focus:outline-none"
-                                                            value={club.name}
-                                                            onChange={e => {
-                                                                const newClubs = [...defaultClubs];
-                                                                newClubs[i].name = e.target.value;
-                                                                setDefaultClubs(newClubs);
-                                                            }}
+                                                            placeholder="Dorm Name"
+                                                            className={ui.itemTitleInput}
+                                                            value={dorm.name}
+                                                            onChange={e => handleDormChange(i, 'name', e.target.value)}
                                                         />
                                                         <input
                                                             placeholder="Admin email (optional)"
-                                                            className="w-full bg-transparent text-xs text-neutral-400 placeholder:text-neutral-600 focus:outline-none mt-1"
-                                                            value={club.adminEmail}
-                                                            onChange={e => {
-                                                                const newClubs = [...defaultClubs];
-                                                                newClubs[i].adminEmail = e.target.value;
-                                                                setDefaultClubs(newClubs);
-                                                            }}
+                                                            className={ui.itemSubInput}
+                                                            value={dorm.adminEmail}
+                                                            onChange={e => handleDormChange(i, 'adminEmail', e.target.value)}
                                                         />
                                                     </div>
                                                 </div>
                                             </div>
                                             <button
                                                 type="button"
-                                                onClick={() => handleRemoveDefaultClub(i)}
-                                                className="flex h-9 w-9 mt-4 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-all hover:bg-red-500/20 hover:text-red-400 border border-white/5 hover:border-red-500/30"
+                                                onClick={() => handleRemoveDorm(i)}
+                                                className={ui.deleteBtn}
                                             >
                                                 <TrashIcon className="h-4 w-4" />
                                             </button>
@@ -812,50 +769,125 @@ export default function ManageMyCampusPage() {
 
                                     <button
                                         type="button"
-                                        onClick={handleAddDefaultClub}
-                                        className="w-full flex items-center justify-center gap-2 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] py-4 text-sm font-medium text-neutral-400 transition-all hover:bg-white/[0.04] hover:text-white hover:border-white/20"
+                                        onClick={handleAddDorm}
+                                        className={ui.addBtn}
                                     >
                                         <PlusIcon className="h-4 w-4" />
-                                        Add Club
+                                        Add Dorm
                                     </button>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
-                        {/* Sidebar */}
-                        <div className="space-y-8">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Administration</label>
-                                <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg">
-                                    <textarea
-                                        rows={4}
-                                        className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none hover:bg-white/[0.02] transition-colors custom-scrollbar"
-                                        value={adminEmailsText}
-                                        onChange={e => setAdminEmailsText(e.target.value)}
-                                        placeholder="Admin emails (one per line)"
-                                    />
-                                </div>
-                                <p className="text-xs text-neutral-500 ml-1">These users gain control of this campus.</p>
-                            </div>
+                        {/* Default Clubs Section */}
+                        <div className={ui.section}>
+                            <label className={ui.sectionLabel}>Default Clubs</label>
+                            <div className="space-y-4">
+                                {defaultClubs.map((club, i) => (
+                                    <div key={club.id || i} className="flex items-start gap-4">
+                                        <div className={`${ui.card} flex-1`}>
+                                            <div className="flex items-center gap-4 p-4">
+                                                <div
+                                                    className="relative h-14 w-14 rounded-xl cc-glass cc-section border border-secondary/15 flex items-center justify-center cursor-pointer hover:ring-1 hover:ring-brand/30 transition-all overflow-hidden"
+                                                    onClick={() => document.getElementById(`club-img-${i}`)?.click()}
+                                                >
+                                                    {club.logoUrl ? (
+                                                        <img src={club.logoUrl} alt={club.name} className="h-full w-full object-contain p-1" />
+                                                    ) : (
+                                                        <CameraIcon className="h-6 w-6 text-secondary/30" />
+                                                    )}
+                                                </div>
+                                                <input
+                                                    type="file"
+                                                    id={`club-img-${i}`}
+                                                    className="hidden"
+                                                    accept="image/*"
+                                                    onChange={(e) => handleImageSelect('club', i, e)}
+                                                />
+                                                <div className="flex-1 min-w-0 space-y-1">
+                                                    <input
+                                                        placeholder="Club Name"
+                                                        className={ui.itemTitleInput}
+                                                        value={club.name}
+                                                        onChange={e => {
+                                                            const newClubs = [...defaultClubs];
+                                                            newClubs[i].name = e.target.value;
+                                                            setDefaultClubs(newClubs);
+                                                        }}
+                                                    />
+                                                    <input
+                                                        placeholder="Admin email (optional)"
+                                                        className={ui.itemSubInput}
+                                                        value={club.adminEmail}
+                                                        onChange={e => {
+                                                            const newClubs = [...defaultClubs];
+                                                            newClubs[i].adminEmail = e.target.value;
+                                                            setDefaultClubs(newClubs);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveDefaultClub(i)}
+                                            className={ui.deleteBtn}
+                                        >
+                                            <TrashIcon className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ))}
 
-                            <div className="flex items-center gap-3 pt-4">
                                 <button
                                     type="button"
-                                    onClick={() => router.back()}
-                                    className="flex-1 rounded-full bg-neutral-800/50 py-3 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-white"
+                                    onClick={handleAddDefaultClub}
+                                    className={ui.addBtn}
                                 >
-                                    <span className="hidden sm:inline">Cancel</span>
-                                    <XMarkIcon className="h-5 w-5 sm:hidden" />
-                                </button>
-
-                                <button
-                                    type="submit"
-                                    disabled={saving}
-                                    className="flex-1 rounded-full bg-[#ffb200] py-3.5 text-sm font-bold text-black shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
-                                >
-                                    {saving ? "Saving..." : "Save"}
+                                    <PlusIcon className="h-4 w-4" />
+                                    Add Club
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Admin Emails Section */}
+                        <div className={ui.section}>
+                            <label className={ui.sectionLabel}>Administrative Control</label>
+                            <div className={ui.card}>
+                                <div className={ui.inputGroup}>
+                                    <label className={ui.label}>Authorized Moderators <span className="text-red-500">*</span></label>
+                                    <textarea
+                                        rows={4}
+                                        className={ui.textarea}
+                                        value={adminEmailsText}
+                                        onChange={e => setAdminEmailsText(e.target.value)}
+                                        placeholder="Enter admin emails (one per line)"
+                                    />
+                                </div>
+                            </div>
+                            <p className={ui.footerText}>These users will have full administrative control over this campus profile.</p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-4 pt-4">
+                            {/* Desktop Cancel */}
+                            <Link href="/profile" className="hidden sm:flex flex-1">
+                                <div className={ui.secondaryBtn}>Cancel</div>
+                            </Link>
+
+                            {/* Mobile Cancel (X mark) */}
+                            <Link href="/profile" className="flex sm:hidden">
+                                <div className={ui.mobileCancelBtn}>
+                                    <XMarkIcon className="h-6 w-6" />
+                                </div>
+                            </Link>
+
+                            <button
+                                type="submit"
+                                disabled={saving}
+                                className={ui.primaryBtn}
+                            >
+                                {saving ? "Saving Changes..." : "Save Changes"}
+                            </button>
                         </div>
                     </form>
                 )}
@@ -863,112 +895,103 @@ export default function ManageMyCampusPage() {
 
             {/* Crop Modal */}
             {cropModalOpen && cropImageSrc && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/90 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="relative h-[80vh] w-[90vw] max-w-lg bg-neutral-800 rounded-3xl overflow-hidden shadow-2xl overflow-hidden">
-                        <Cropper
-                            image={cropImageSrc}
-                            crop={crop}
-                            zoom={zoom}
-                            aspect={1}
-                            cropShape="round"
-                            showGrid={false}
-                            onCropChange={setCrop}
-                            onZoomChange={setZoom}
-                            onCropComplete={onCropComplete}
-                        />
-                    </div>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="relative h-[70vh] w-full max-w-lg cc-glass border border-secondary/15 rounded-[40px] overflow-hidden shadow-2xl mx-4">
+                        <div className="absolute inset-0">
+                            <Cropper
+                                image={cropImageSrc}
+                                crop={crop}
+                                zoom={zoom}
+                                aspect={1}
+                                cropShape="round"
+                                showGrid={false}
+                                onCropChange={setCrop}
+                                onZoomChange={setZoom}
+                                onCropComplete={onCropComplete}
+                            />
+                        </div>
 
-                    {/* Zoom slider */}
-                    <div className="absolute bottom-32 left-1/2 -translate-x-1/2 flex items-center gap-4 rounded-full bg-black/60 px-6 py-3 backdrop-blur-sm border border-white/10">
-                        <span className="text-xs font-bold uppercase tracking-widest text-white/70">Zoom</span>
-                        <input
-                            type="range"
-                            min={1}
-                            max={3}
-                            step={0.1}
-                            value={zoom}
-                            onChange={(e) => setZoom(Number(e.target.value))}
-                            className="w-32 accent-[#ffb200] cursor-pointer"
-                        />
-                    </div>
+                        {/* Zoom toolbar */}
+                        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 flex items-center gap-4 cc-glass border border-secondary/15 px-6 py-3 rounded-full backdrop-blur-xl shadow-xl">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-secondary/60">Zoom</span>
+                            <input
+                                type="range"
+                                min={1}
+                                max={3}
+                                step={0.1}
+                                value={zoom}
+                                onChange={(e) => setZoom(Number(e.target.value))}
+                                className="w-24 accent-brand cursor-pointer"
+                            />
+                        </div>
 
-                    {/* Action buttons */}
-                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4">
-                        <button
-                            onClick={handleCropCancel}
-                            className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-all hover:bg-white/20 border border-white/10"
-                        >
-                            <XMarkIcon className="h-7 w-7" />
-                        </button>
-                        <button
-                            onClick={handleCropConfirm}
-                            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ffb200] text-black shadow-xl transition-all hover:scale-110 active:scale-95"
-                        >
-                            <CheckIcon className="h-7 w-7" />
-                        </button>
+                        {/* Control buttons */}
+                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4">
+                            <button
+                                onClick={handleCropCancel}
+                                className="flex h-14 w-14 items-center justify-center rounded-full cc-glass border border-secondary/15 text-foreground shadow-lg transition-all hover:bg-secondary/10"
+                            >
+                                <XMarkIcon className="h-7 w-7" />
+                            </button>
+                            <button
+                                onClick={handleCropConfirm}
+                                className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-lg shadow-brand/30 transition-all hover:scale-110 active:scale-95"
+                            >
+                                <CheckIcon className="h-7 w-7" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
+
             {/* Delete Confirmation Modal */}
             {confirmDeleteStep > 0 && (pendingDormDeletions.length > 0 || pendingClubDeletions.length > 0) && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200 p-4">
-                    <div className="w-full max-w-sm bg-[#1A1A1A] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className={ui.modalOverlay}>
+                    <div className={ui.modalContent}>
                         <div className="flex flex-col items-center text-center space-y-6">
-                            <div className={`h-20 w-20 rounded-full flex items-center justify-center transition-all duration-300 ${confirmDeleteStep === 1 ? 'bg-amber-500/10 text-amber-500' :
-                                confirmDeleteStep === 2 ? 'bg-orange-500/20 text-orange-500 scale-110' :
-                                    'bg-red-500/20 text-red-500 scale-125'
+                            <div className={`h-20 w-20 rounded-full flex items-center justify-center transition-all duration-300 ${confirmDeleteStep === 3 ? 'bg-red-500/20 text-red-500 scale-110' : 'bg-brand/10 text-brand'
                                 }`}>
-                                {confirmDeleteStep === 1 && <TrashIcon className="h-10 w-10" />}
-                                {confirmDeleteStep === 2 && <ExclamationTriangleIcon className="h-10 w-10" />}
-                                {confirmDeleteStep === 3 && <ShieldExclamationIcon className="h-10 w-10" />}
+                                {confirmDeleteStep === 1 && <TrashIcon className="h-10 w-10 text-brand" />}
+                                {confirmDeleteStep === 2 && <ExclamationTriangleIcon className="h-10 w-10 text-brand" />}
+                                {confirmDeleteStep === 3 && <ShieldExclamationIcon className="h-10 w-10 text-red-500" />}
                             </div>
 
                             <div className="space-y-2">
-                                <h3 className="text-xl font-bold text-white">
+                                <h3 className="text-xl font-bold text-foreground">
                                     {confirmDeleteStep === 1 && "Confirm Deletions"}
                                     {confirmDeleteStep === 2 && "Permanent Action"}
                                     {confirmDeleteStep === 3 && "Final Confirmation"}
                                 </h3>
-                                <div className="text-neutral-400 text-sm leading-relaxed">
+                                <div className="text-secondary text-sm font-medium leading-relaxed">
                                     {confirmDeleteStep === 1 && (
-                                        <div className="space-y-2">
-                                            <p>You are about to delete following items:</p>
-                                            <div className="bg-white/5 rounded-2xl p-3 text-left max-h-32 overflow-y-auto custom-scrollbar">
+                                        <div className="space-y-4">
+                                            <p>The following items will be removed:</p>
+                                            <div className="bg-secondary/5 rounded-2xl p-4 text-left max-h-40 overflow-y-auto cc-muted border border-secondary/10">
                                                 {pendingDormDeletions.map(d => (
-                                                    <div key={d.id || d.name} className="flex items-center gap-2 text-xs py-1 text-neutral-300">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                                                        {d.name || 'Unnamed Dorm'} (Dorm)
+                                                    <div key={d.id || d.name} className="flex items-center gap-2 text-[12px] font-bold py-1.5 text-secondary">
+                                                        <div className="h-1.5 w-1.5 rounded-full bg-brand" />
+                                                        {d.name} (Dorm)
                                                     </div>
                                                 ))}
                                                 {pendingClubDeletions.map(c => (
-                                                    <div key={c.id || c.name} className="flex items-center gap-2 text-xs py-1 text-neutral-300">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-                                                        {c.name || 'Unnamed Club'} (Club)
+                                                    <div key={c.id || c.name} className="flex items-center gap-2 text-[12px] font-bold py-1.5 text-secondary">
+                                                        <div className="h-1.5 w-1.5 rounded-full bg-brand" />
+                                                        {c.name} (Club)
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
                                     )}
                                     {confirmDeleteStep === 2 && (
-                                        <p>Deleting {pendingDormDeletions.length + pendingClubDeletions.length} items will remove all associated records from Firestore. This cannot be undone.</p>
+                                        <p>Deleting {pendingDormDeletions.length + pendingClubDeletions.length} items will purge all associated records. This action cannot be reversed.</p>
                                     )}
                                     {confirmDeleteStep === 3 && (
-                                        <p>This is your <span className="text-red-400 font-bold underline">final warning</span>. Proceed with saving and deleting these items?</p>
+                                        <p>This is your <span className="text-red-500 font-bold underline decoration-2 underline-offset-4">final warning</span>. Proceed with the deletion?</p>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="w-full grid grid-cols-2 gap-3 pt-2">
-                                <button
-                                    onClick={() => {
-                                        setConfirmDeleteStep(0);
-                                        // Reset confirm state but keep pending deletions in case they want to hit save again?
-                                        // Actually, if they cancel the confirmation, they probably don't want to save yet.
-                                    }}
-                                    className="rounded-full bg-white/5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-                                >
-                                    Cancel
-                                </button>
+                            <div className="w-full flex flex-col gap-3 pt-4">
                                 <button
                                     onClick={() => {
                                         if (confirmDeleteStep < 3) {
@@ -976,27 +999,30 @@ export default function ManageMyCampusPage() {
                                         } else {
                                             setIsConfirmed(true);
                                             setConfirmDeleteStep(0);
-                                            // Handle the save after confirming
                                             setTimeout(() => performFinalSave(), 100);
                                         }
                                     }}
-                                    className={`rounded-full py-3.5 text-sm font-bold text-black transition-all shadow-lg active:scale-95 ${confirmDeleteStep === 1 ? 'bg-amber-500 hover:bg-amber-400' :
-                                        confirmDeleteStep === 2 ? 'bg-orange-500 hover:bg-orange-400' :
-                                            'bg-red-500 hover:bg-red-400'
+                                    className={`w-full py-4 rounded-full text-[15px] font-bold shadow-lg transition-all active:scale-[0.98] ${confirmDeleteStep === 3 ? 'bg-red-500 text-white' : 'bg-brand text-brand-foreground'
                                         }`}
                                 >
-                                    {confirmDeleteStep === 3 ? "CONFIRM" : "Next"}
+                                    {confirmDeleteStep === 3 ? "DELETE FOREVER" : "Understand & Continue"}
+                                </button>
+                                <button
+                                    onClick={() => setConfirmDeleteStep(0)}
+                                    className="w-full py-3.5 rounded-full text-[15px] font-bold text-secondary hover:bg-secondary/10 transition-colors"
+                                >
+                                    Cancel
                                 </button>
                             </div>
 
                             {/* Step indicators */}
-                            <div className="flex gap-2 pt-2">
+                            <div className="flex gap-2.5 pt-4">
                                 {[1, 2, 3].map(step => (
                                     <div
                                         key={step}
-                                        className={`h-1 rounded-full transition-all duration-300 ${step <= confirmDeleteStep
-                                            ? (confirmDeleteStep === 3 ? 'w-8 bg-red-500' : 'w-8 bg-white/40')
-                                            : 'w-2 bg-white/10'
+                                        className={`h-1.5 rounded-full transition-all duration-300 ${step <= confirmDeleteStep
+                                            ? (confirmDeleteStep === 3 ? 'w-10 bg-red-500' : 'w-10 bg-brand')
+                                            : 'w-2.5 bg-secondary/10'
                                             }`}
                                     />
                                 ))}

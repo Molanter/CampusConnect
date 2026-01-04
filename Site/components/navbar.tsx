@@ -45,10 +45,12 @@ function SidebarIcon(props: SVGProps<SVGSVGElement>) {
 
 type NavbarProps = {
   viewportWidth: number | null;
+  isTabPage?: boolean;
 };
 
 export function Navbar({
   viewportWidth,
+  isTabPage = true,
 }: NavbarProps) {
   const [uid, setUid] = useState<string | null>(null);
   const { isGlobalAdminUser, isCampusAdminUser, adminModeOn, setAdminModeOn } = useAdminMode();
@@ -129,8 +131,8 @@ export function Navbar({
     ? "text-brand"
     : "bg-brand text-brand-foreground shadow-md shadow-brand/20 font-semibold";
 
-  // Header is always shown on mobile
-  const showHeader = isMobile;
+  // Header is always shown on mobile if it's a tabbed page
+  const showHeader = isMobile && isTabPage;
 
   const NavItem = ({ href, icon: Icon, label, isActive, onClick }: { href: string, icon: any, label: string, isActive: boolean, onClick?: () => void }) => (
     <Link
@@ -276,7 +278,7 @@ export function Navbar({
                     href="/admin/config"
                     className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname.startsWith("/admin/config")
                       ? "bg-[#ffb200] text-black shadow-sm font-medium"
-                      : "text-slate-200 hover:bg-white/10"
+                      : "text-secondary hover:text-foreground hover:bg-secondary/10"
                       }`}
                   >
                     <WrenchScrewdriverIcon className="mr-1 h-4 w-4" />

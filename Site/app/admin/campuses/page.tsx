@@ -3,16 +3,38 @@
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getAllCampusesAndUniversities } from '@/lib/firestore-paths';
 import { Campus } from '@/lib/types/campus';
-import { PlusIcon, MagnifyingGlassIcon, BuildingOffice2Icon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, BuildingOffice2Icon, UserGroupIcon } from '@heroicons/react/24/outline';
 
 function isGlobalAdmin(email?: string | null, admins?: string[] | null) {
     if (!email || !admins) return false;
     return admins.includes(email.toLowerCase());
 }
+
+const ui = {
+    page: "mx-auto w-full max-w-2xl px-4 py-6 pb-32",
+    header: "mb-8 space-y-1.5 px-1",
+    title: "text-2xl font-bold tracking-tight text-foreground",
+    subtitle: "text-secondary text-[13px] font-medium leading-relaxed",
+    section: "space-y-4 mb-8",
+    card: "block cc-section rounded-[28px] overflow-hidden shadow-xl border border-secondary/15 transition-all hover:bg-secondary/10 active:scale-[0.99]",
+    inputGroup: "cc-glass border border-secondary/15 rounded-full overflow-hidden shadow-lg focus-within:ring-2 focus-within:ring-brand/20 transition-all",
+    input: "flex-1 bg-transparent px-5 py-3.5 text-[15px] text-foreground placeholder:text-secondary/40 focus:outline-none",
+    // Buttons
+    primaryBtn: "flex items-center justify-center gap-2 w-full rounded-full bg-brand py-3.5 text-base font-bold text-brand-foreground shadow-lg shadow-brand/20 transition-all hover:scale-[1.01] active:scale-[0.99]",
+    // Item styling
+    itemContainer: "flex items-center gap-4 p-4",
+    itemIcon: "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-secondary transition-colors group-hover:text-brand",
+    itemTitle: "text-[15px] font-bold text-foreground truncate",
+    itemMeta: "text-[12px] font-medium text-secondary truncate",
+    badge: "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+    universityBadge: "bg-brand/15 text-brand",
+    campusBadge: "bg-secondary/10 text-secondary",
+    emptyState: "cc-glass border border-secondary/15 rounded-[28px] p-10 text-center",
+};
 
 export default function AdminCampusesPage() {
     const [user, setUser] = useState<User | null>(null);
@@ -21,6 +43,7 @@ export default function AdminCampusesPage() {
     const [adminConfigLoading, setAdminConfigLoading] = useState(true);
 
     const [campuses, setCampuses] = useState<Campus[]>([]);
+    const [userCounts, setUserCounts] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
 
@@ -64,6 +87,20 @@ export default function AdminCampusesPage() {
                 const data = await getAllCampusesAndUniversities();
                 data.sort((a, b) => a.name.localeCompare(b.name));
                 setCampuses(data);
+
+                // Fetch user counts for each campus
+                const counts: Record<string, number> = {};
+                await Promise.all(data.map(async (c) => {
+                    try {
+                        const q = query(collection(db, 'users'), where('campusId', '==', c.id));
+                        const snapshot = await getCountFromServer(q);
+                        counts[c.id] = snapshot.data().count;
+                    } catch (e) {
+                        console.error(`Error counting users for ${c.id}:`, e);
+                        counts[c.id] = 0;
+                    }
+                }));
+                setUserCounts(counts);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -86,70 +123,67 @@ export default function AdminCampusesPage() {
     // Guards
     if (authLoading || adminConfigLoading) {
         return (
-            <div className="flex h-screen items-center justify-center text-neutral-400">
-                <div className="animate-pulse">Loading...</div>
+            <div className="flex h-screen items-center justify-center">
+                <div className="cc-muted animate-pulse font-medium">Authenticating...</div>
             </div>
         );
     }
 
     if (!user) {
         return (
-            <div className="flex h-screen flex-col items-center justify-center gap-4 text-neutral-300">
-                <p>You must sign in to access the admin area.</p>
+            <div className="flex h-screen flex-col items-center justify-center gap-4 text-secondary">
+                <p className="font-medium">You must sign in to access the admin area.</p>
             </div>
         );
     }
 
     if (!userIsGlobalAdmin) {
         return (
-            <div className="flex h-screen items-center justify-center text-neutral-400">
+            <div className="flex h-screen items-center justify-center text-secondary font-medium">
                 You are not authorized to view this admin page.
             </div>
         );
     }
 
     return (
-        <div className="mx-auto w-full max-w-2xl px-4 py-8">
+        <div className={ui.page}>
             {/* Header */}
-            <header className="mb-8 space-y-1">
-                <h1 className="text-2xl font-bold tracking-tight text-white">Campuses</h1>
-                <p className="text-neutral-400 text-sm">Manage all campuses and universities.</p>
+            <header className={ui.header}>
+                <h1 className={ui.title}>Campuses</h1>
+                <p className={ui.subtitle}>Manage all campuses and universities in the system.</p>
             </header>
 
             {/* Search & Create */}
-            <div className="space-y-4 mb-6">
+            <div className={ui.section}>
                 {/* Search */}
-                <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg">
-                    <div className="flex items-center px-4 py-3 gap-3">
-                        <MagnifyingGlassIcon className="h-5 w-5 text-neutral-500" />
+                <div className={ui.inputGroup}>
+                    <div className="flex items-center px-4 gap-3">
+                        <MagnifyingGlassIcon className="h-5 w-5 text-secondary/50" />
                         <input
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search campuses..."
-                            className="flex-1 bg-transparent text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                            placeholder="Search by name or code..."
+                            className={ui.input}
                         />
                     </div>
                 </div>
 
                 {/* Create Button */}
-                <Link
-                    href="/admin/campuses/create"
-                    className="flex items-center justify-center gap-2 w-full rounded-full bg-[#ffb200] py-3 text-sm font-bold text-black shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                >
-                    <PlusIcon className="h-5 w-5" />
-                    Create Campus
+                <Link href="/admin/campuses/create" className={ui.primaryBtn}>
+                    <PlusIcon className="h-5 w-5" strokeWidth={2.5} />
+                    <span>Create New Campus</span>
                 </Link>
             </div>
 
             {/* Campus List */}
             <div className="space-y-3">
                 {loading ? (
-                    <div className="text-center py-12 text-neutral-500">Loading campuses...</div>
+                    <div className="text-center py-12 text-secondary animate-pulse font-medium">Loading network...</div>
                 ) : filteredCampuses.length === 0 ? (
-                    <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl p-8 text-center">
-                        <p className="text-neutral-400 text-sm">
-                            {search ? 'No campuses match your search.' : 'No campuses found.'}
+                    <div className={ui.emptyState}>
+                        <p className="text-secondary font-medium text-[15px]">
+                            {search ? 'No campuses match your criteria.' : 'No campuses registered yet.'}
                         </p>
                     </div>
                 ) : (
@@ -157,34 +191,39 @@ export default function AdminCampusesPage() {
                         <Link
                             key={campus.id}
                             href={`/admin/campuses/${campus.id}`}
-                            className="block bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg transition-all hover:bg-white/[0.04] hover:border-white/20"
+                            className={`${ui.card} group`}
                         >
-                            <div className="flex items-center gap-4 p-4">
+                            <div className={ui.itemContainer}>
                                 {/* Icon */}
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/5 text-neutral-500">
-                                    <BuildingOffice2Icon className="h-6 w-6" />
+                                <div className={`${ui.itemIcon} ${!campus.logoUrl ? 'bg-secondary/10' : ''}`}>
+                                    {campus.logoUrl ? (
+                                        <img
+                                            src={campus.logoUrl}
+                                            alt={campus.name}
+                                            className="h-full w-full rounded-xl object-contain"
+                                        />
+                                    ) : (
+                                        <BuildingOffice2Icon className="h-6 w-6" />
+                                    )}
                                 </div>
 
                                 {/* Info */}
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="text-sm font-medium text-white truncate">{campus.name}</h3>
+                                    <h3 className={ui.itemTitle}>{campus.name}</h3>
                                     <div className="flex items-center gap-2 mt-0.5">
                                         {campus.shortName && (
-                                            <span className="text-xs text-neutral-500">{campus.shortName}</span>
+                                            <span className={ui.itemMeta}>{campus.shortName}</span>
                                         )}
-                                        <span className={`text-xs px-2 py-0.5 rounded-full ${campus.isUniversity
-                                            ? 'bg-[#ffb200]/10 text-[#ffb200]'
-                                            : 'bg-white/5 text-neutral-400'
-                                            }`}>
+                                        <span className={`${ui.badge} ${campus.isUniversity ? ui.universityBadge : ui.campusBadge}`}>
                                             {campus.isUniversity ? 'University' : 'Campus'}
                                         </span>
                                     </div>
                                 </div>
 
-                                {/* Locations count */}
+                                {/* User count */}
                                 <div className="text-right shrink-0">
-                                    <span className="text-xs text-neutral-500">
-                                        {campus.locations?.length || 0} location{campus.locations?.length !== 1 ? 's' : ''}
+                                    <span className="text-[11px] font-bold text-secondary/60 uppercase tracking-tight">
+                                        {userCounts[campus.id] || 0} {userCounts[campus.id] === 1 ? 'member' : 'members'}
                                     </span>
                                 </div>
                             </div>
@@ -192,6 +231,7 @@ export default function AdminCampusesPage() {
                     ))
                 )}
             </div>
-        </div>
+        </div >
     );
 }
+

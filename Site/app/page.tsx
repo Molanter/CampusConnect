@@ -84,7 +84,6 @@ export default function HomePage() {
         <div className="py-4">
           <header className="flex items-center justify-between gap-4">
             <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">Feed</p>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">Your Feed</h1>
             </div>
           </header>

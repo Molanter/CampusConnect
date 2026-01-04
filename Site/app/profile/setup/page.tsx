@@ -10,6 +10,28 @@ import { ChevronLeftIcon, XMarkIcon, ExclamationTriangleIcon } from "@heroicons/
 import { getAllCampusesAndUniversities, getDormsForCampus } from "@/lib/firestore-paths";
 import { getUserOwnedClubs, getDefaultClubsForCampus, getDormClubForCampus, joinClub } from "@/lib/clubs";
 
+const ui = {
+    page: "mx-auto w-full max-w-2xl px-4 py-4 pb-32",
+    header: "flex items-center gap-3.5 px-2 pt-2 pb-6",
+    backBtn: "inline-flex h-10 w-10 items-center justify-center rounded-full cc-glass border border-secondary/15 text-foreground transition-all hover:bg-secondary/10",
+    title: "text-2xl font-bold tracking-tight text-foreground",
+    section: "space-y-2",
+    sectionLabel: "text-[12px] font-bold uppercase tracking-widest text-secondary ml-1.5",
+    card: "cc-glass cc-section rounded-[28px] overflow-hidden shadow-xl border border-secondary/15 divide-y divide-secondary/10",
+    inputGroup: "px-5 py-4 space-y-1.5",
+    label: "text-[11px] font-bold text-secondary uppercase tracking-wider block ml-0.5",
+    input: "w-full bg-transparent text-[15px] text-foreground placeholder:text-secondary/40 focus:outline-none transition-colors",
+    select: "w-full bg-transparent text-[15px] text-foreground focus:outline-none transition-colors cursor-pointer",
+    footerText: "text-[11px] text-secondary/60 ml-1.5 leading-relaxed",
+    // Alerts
+    errorAlert: "rounded-[24px] border border-red-500/20 bg-red-500/5 px-5 py-4 flex items-start gap-3 backdrop-blur-xl",
+    warningAlert: "rounded-[24px] border border-brand/20 bg-brand/5 px-5 py-4 flex items-start gap-3 backdrop-blur-xl",
+    // Buttons
+    primaryBtn: "flex-1 rounded-full bg-brand py-3 text-base font-bold text-brand-foreground shadow-lg shadow-brand/20 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50",
+    secondaryBtn: "flex h-12 w-full items-center justify-center rounded-full bg-secondary/10 text-[15px] font-bold text-foreground transition-all hover:bg-secondary/20 active:scale-[0.98]",
+    mobileCancelBtn: "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-foreground transition-all hover:bg-secondary/20 active:scale-[0.98]",
+};
+
 export default function ProfileSetupPage() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
@@ -211,184 +233,179 @@ export default function ProfileSetupPage() {
     if (loading) {
         return (
             <div className="flex h-screen items-center justify-center">
-                <p className="text-neutral-400">Loading...</p>
+                <p className="text-secondary cc-muted animate-pulse">Loading setup...</p>
             </div>
         );
     }
 
-    if (!user) {
-        return null;
-    }
+    if (!user) return null;
 
     return (
-        <div className="mx-auto min-h-screen w-full max-w-4xl">
-            {/* iOS-Style Navigation Bar - Scrollable */}
-            <div className="relative flex items-center justify-center px-6 pt-6 pb-4">
-                <Link
-                    href="/profile"
-                    className="absolute left-6 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-                >
+        <div className={ui.page}>
+            {/* iOS-Style Navigation Bar */}
+            <div className={ui.header}>
+                <Link href="/profile" className={ui.backBtn}>
                     <ChevronLeftIcon className="h-5 w-5" />
                 </Link>
-                <h1 className="text-xl font-bold text-white">Complete Profile</h1>
+                <h1 className={ui.title}>Complete Profile</h1>
             </div>
 
             {/* Content */}
-            <div className="px-6 py-6 space-y-6">
+            <div className="space-y-6">
                 {/* Error Message */}
                 {error && (
-                    <div className="rounded-[28px] border border-red-500/20 bg-red-500/10 px-4 py-3 flex items-start gap-3">
-                        <ExclamationTriangleIcon className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
-                        <p className="text-sm text-red-400">{error}</p>
+                    <div className={ui.errorAlert}>
+                        <ExclamationTriangleIcon className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-[13px] font-medium text-red-500 leading-snug">{error}</p>
                     </div>
                 )}
 
                 {/* Campus Change Warning */}
                 {isCampusChanging && (
-                    <div className="rounded-[28px] border border-[#ffb200]/20 bg-[#ffb200]/10 px-4 py-3 flex items-start gap-3">
-                        <ExclamationTriangleIcon className="h-5 w-5 text-[#ffb200] shrink-0 mt-0.5" />
+                    <div className={ui.warningAlert}>
+                        <ExclamationTriangleIcon className="h-5 w-5 text-brand shrink-0 mt-0.5" />
                         <div>
-                            <p className="text-sm font-medium text-[#ffb200]">Changing Campus</p>
-                            <p className="text-xs text-[#ffb200]/70 mt-1">You will be automatically added to default clubs of the new campus. Your existing club memberships will remain.</p>
+                            <p className="text-[13px] font-bold text-brand">Changing Campus</p>
+                            <p className="text-[11px] text-brand/80 mt-1 leading-relaxed">
+                                You will be auto-joined to default clubs of the new campus. Existing memberships remain.
+                            </p>
                         </div>
                     </div>
                 )}
 
-                {/* iOS-Style Form Group - Profile Info */}
-                <div className="rounded-[28px] border border-white/10 bg-[#1C1C1E] overflow-hidden">
-                    {/* Username */}
-                    <div className="px-4 py-3 border-b border-white/10">
-                        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">Username</label>
-                        <input
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="username"
-                            className="w-full bg-transparent text-white placeholder-neutral-500 focus:outline-none"
-                        />
-                    </div>
-
-                    {/* Campus (renamed UI) */}
-                    <div className="px-4 py-3 border-b border-white/10">
-                        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">Campus</label>
-                        <select
-                            value={campusId}
-                            onChange={(e) => {
-                                const selectedId = e.target.value;
-                                setCampusId(selectedId);
-                                const selectedCampus = campuses.find(u => u.id === selectedId);
-                                setCampusName(selectedCampus?.name || "");
-                                setDorm("");
-                            }}
-                            disabled={loadingCampuses}
-                            className="w-full bg-transparent text-white focus:outline-none"
-                        >
-                            <option value="" className="bg-[#1C1C1E]">Select a campus</option>
-                            {campuses.map((c) => (
-                                <option key={c.id} value={c.id} className="bg-[#1C1C1E]">
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Role */}
-                    <div className="px-4 py-3">
-                        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">Role</label>
-                        <select
-                            value={role}
-                            onChange={(e) => setRole(e.target.value as "student" | "faculty" | "staff")}
-                            className="w-full bg-transparent text-white focus:outline-none"
-                        >
-                            <option value="" className="bg-[#1C1C1E]">Select role</option>
-                            <option value="student" className="bg-[#1C1C1E]">Student</option>
-                            <option value="faculty" className="bg-[#1C1C1E]">Faculty</option>
-                            <option value="staff" className="bg-[#1C1C1E]">Staff</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* iOS-Style Form Group - Academic Info (Only for Students) */}
-                {role === "student" && (
-                    <div className="rounded-[28px] border border-white/10 bg-[#1C1C1E] overflow-hidden">
-                        {/* Major */}
-                        <div className="px-4 py-3 border-b border-white/10">
-                            <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">Major</label>
+                {/* Basic Info */}
+                <div className={ui.section}>
+                    <label className={ui.sectionLabel}>Identity</label>
+                    <div className={ui.card}>
+                        <div className={ui.inputGroup}>
+                            <label className={ui.label}>Username <span className="text-red-500 ml-0.5">*</span></label>
                             <input
                                 type="text"
-                                value={major}
-                                onChange={(e) => setMajor(e.target.value)}
-                                placeholder="e.g., Computer Science"
-                                className="w-full bg-transparent text-white placeholder-neutral-500 focus:outline-none"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                placeholder="Choose a unique username"
+                                className={ui.input}
                             />
                         </div>
 
-                        {/* Year of Study */}
-                        <div className="px-4 py-3 border-b border-white/10">
-                            <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 block">Year of Study</label>
+                        <div className={ui.inputGroup}>
+                            <label className={ui.label}>Campus <span className="text-red-500 ml-0.5">*</span></label>
                             <select
-                                value={yearOfStudy}
-                                onChange={(e) => setYearOfStudy(e.target.value)}
-                                className="w-full bg-transparent text-white focus:outline-none"
+                                value={campusId}
+                                onChange={(e) => {
+                                    const selectedId = e.target.value;
+                                    setCampusId(selectedId);
+                                    const selectedCampus = campuses.find(u => u.id === selectedId);
+                                    setCampusName(selectedCampus?.name || "");
+                                    setDorm("");
+                                }}
+                                disabled={loadingCampuses}
+                                className={ui.select}
                             >
-                                <option value="" className="bg-[#1C1C1E]">Select year</option>
-                                <option value="Freshman" className="bg-[#1C1C1E]">Freshman</option>
-                                <option value="Sophomore" className="bg-[#1C1C1E]">Sophomore</option>
-                                <option value="Junior" className="bg-[#1C1C1E]">Junior</option>
-                                <option value="Senior" className="bg-[#1C1C1E]">Senior</option>
-                                <option value="Super Senior" className="bg-[#1C1C1E]">Super Senior</option>
-                                <option value="Unc" className="bg-[#1C1C1E]">Unc</option>
-                                <option value="Graduate" className="bg-[#1C1C1E]">Graduate</option>
-                            </select>
-                        </div>
-
-                        {/* Dorm */}
-                        <div className="px-4 py-3">
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
-                                    Dorm/Residence
-                                    {isUniversityWithDorms && <span className="text-red-400 ml-1">*</span>}
-                                </label>
-                                {isUniversityWithDorms && (
-                                    <span className="text-[10px] text-red-400/70 uppercase tracking-wider">Required</span>
-                                )}
-                            </div>
-                            <select
-                                value={dorm}
-                                onChange={(e) => setDorm(e.target.value)}
-                                disabled={!campusId || dorms.length === 0}
-                                className="w-full bg-transparent text-white focus:outline-none disabled:opacity-50"
-                            >
-                                <option value="" className="bg-[#1C1C1E]">Select a dorm</option>
-                                {dorms.map((dormName) => (
-                                    <option key={dormName} value={dormName} className="bg-[#1C1C1E]">
-                                        {dormName}
+                                <option value="" className="bg-background">Select your campus</option>
+                                {campuses.map((c) => (
+                                    <option key={c.id} value={c.id} className="bg-background">
+                                        {c.name}
                                     </option>
                                 ))}
                             </select>
-                            {campusId && dorms.length === 0 && (
-                                <p className="text-xs text-neutral-500 mt-2">No dorms available (only available for university campuses)</p>
-                            )}
                         </div>
+
+                        <div className={ui.inputGroup}>
+                            <label className={ui.label}>Primary Role <span className="text-red-500 ml-0.5">*</span></label>
+                            <select
+                                value={role}
+                                onChange={(e) => setRole(e.target.value as "student" | "faculty" | "staff")}
+                                className={ui.select}
+                            >
+                                <option value="student" className="bg-background">Student</option>
+                                <option value="faculty" className="bg-background">Faculty</option>
+                                <option value="staff" className="bg-background">Staff</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p className={ui.footerText}>Your profile identity is visible to other members on campus.</p>
+                </div>
+
+                {/* Academic Info */}
+                {role === "student" && (
+                    <div className={ui.section}>
+                        <label className={ui.sectionLabel}>Academic Details</label>
+                        <div className={ui.card}>
+                            <div className={ui.inputGroup}>
+                                <label className={ui.label}>Major</label>
+                                <input
+                                    type="text"
+                                    value={major}
+                                    onChange={(e) => setMajor(e.target.value)}
+                                    placeholder="e.g. Computer Science"
+                                    className={ui.input}
+                                />
+                            </div>
+
+                            <div className={ui.inputGroup}>
+                                <label className={ui.label}>Year of Study</label>
+                                <select
+                                    value={yearOfStudy}
+                                    onChange={(e) => setYearOfStudy(e.target.value)}
+                                    className={ui.select}
+                                >
+                                    <option value="" className="bg-background">Select year</option>
+                                    <option value="Freshman" className="bg-background">Freshman</option>
+                                    <option value="Sophomore" className="bg-background">Sophomore</option>
+                                    <option value="Junior" className="bg-background">Junior</option>
+                                    <option value="Senior" className="bg-background">Senior</option>
+                                    <option value="Super Senior" className="bg-background">Super Senior</option>
+                                    <option value="Unc" className="bg-background">Unc</option>
+                                    <option value="Graduate" className="bg-background">Graduate</option>
+                                </select>
+                            </div>
+
+                            <div className={ui.inputGroup}>
+                                <label className={ui.label}>
+                                    Dorm / Residence <span className="text-red-500 ml-0.5">*</span>
+                                </label>
+                                <select
+                                    value={dorm}
+                                    onChange={(e) => setDorm(e.target.value)}
+                                    disabled={!campusId || dorms.length === 0}
+                                    className={`${ui.select} disabled:opacity-40`}
+                                >
+                                    <option value="" className="bg-background">Select a dorm</option>
+                                    {dorms.map((dormName) => (
+                                        <option key={dormName} value={dormName} className="bg-background">
+                                            {dormName}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        {campusId && dorms.length === 0 && (
+                            <p className={ui.footerText}>Residences are only available for designated university campuses.</p>
+                        )}
                     </div>
                 )}
 
                 {/* Actions */}
-                <div className="flex items-center gap-3 pb-6">
-                    <Link
-                        href="/profile"
-                        className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/10 sm:h-auto sm:w-auto sm:flex-1 sm:px-6 sm:py-3"
-                    >
-                        <XMarkIcon className="h-6 w-6 sm:hidden" />
-                        <span className="hidden text-center font-semibold sm:inline">Cancel</span>
+                <div className="flex items-center gap-4 pt-2">
+                    {/* Desktop Cancel (Symmetric with Save) */}
+                    <Link href="/profile" className="hidden sm:flex flex-1">
+                        <div className={ui.secondaryBtn}>Cancel</div>
                     </Link>
+
+                    {/* Mobile Cancel (X mark) */}
+                    <Link href="/profile" className="flex sm:hidden">
+                        <div className={ui.mobileCancelBtn}>
+                            <XMarkIcon className="h-6 w-6" />
+                        </div>
+                    </Link>
+
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="flex-1 rounded-full px-6 py-3 font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                        style={{ backgroundColor: '#ffb200' }}
+                        className={ui.primaryBtn}
                     >
-                        {saving ? "Saving..." : "Save Profile"}
+                        {saving ? "Updating Profile..." : "Save Profile"}
                     </button>
                 </div>
             </div>

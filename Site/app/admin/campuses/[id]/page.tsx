@@ -7,7 +7,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getCampusOrLegacy, campusDoc, getDormsForCampus } from '@/lib/firestore-paths';
 import { Campus, Dorm } from '@/lib/types/campus';
-import { ChevronLeftIcon, BuildingOffice2Icon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, BuildingOffice2Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Switch } from '@headlessui/react';
 import Link from 'next/link';
 
@@ -15,6 +15,25 @@ function isGlobalAdmin(email?: string | null, admins?: string[] | null) {
     if (!email || !admins) return false;
     return admins.includes(email.toLowerCase());
 }
+
+const ui = {
+    page: "mx-auto w-full max-w-2xl px-4 py-6 pb-32",
+    header: "flex items-center gap-3.5 px-1 pt-2 pb-8",
+    backBtn: "inline-flex h-10 w-10 items-center justify-center rounded-full cc-glass border border-secondary/15 text-foreground transition-all hover:bg-secondary/10",
+    title: "text-2xl font-bold tracking-tight text-foreground",
+    subtitle: "text-secondary text-[13px] font-medium leading-relaxed",
+    section: "space-y-2.5",
+    sectionLabel: "text-[12px] font-bold uppercase tracking-widest text-secondary ml-1.5",
+    card: "cc-glass cc-section rounded-[28px] overflow-hidden shadow-xl border border-secondary/15 divide-y divide-secondary/10",
+    row: "flex items-center justify-between px-5 py-4 min-h-[56px]",
+    label: "text-[14px] font-medium text-secondary shrink-0",
+    input: "bg-transparent text-right text-[15px] font-medium text-foreground placeholder:text-secondary/40 focus:outline-none flex-1 ml-4",
+    // Buttons
+    primaryBtn: "flex-1 rounded-full bg-brand py-3 text-base font-bold text-brand-foreground shadow-lg shadow-brand/20 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50",
+    secondaryBtn: "flex h-12 w-full items-center justify-center rounded-full bg-secondary/10 text-[15px] font-bold text-foreground transition-all hover:bg-secondary/20 active:scale-[0.98]",
+    mobileCancelBtn: "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-foreground transition-all hover:bg-secondary/20 active:scale-[0.98]",
+    footerText: "text-[11px] text-secondary/60 ml-1.5 leading-relaxed",
+};
 
 export default function EditCampusPage(props: { params: Promise<{ id: string }> }) {
     const params = use(props.params);
@@ -117,23 +136,23 @@ export default function EditCampusPage(props: { params: Promise<{ id: string }> 
     // Guards
     if (authLoading || adminConfigLoading || loading) {
         return (
-            <div className="flex h-screen items-center justify-center text-neutral-400">
-                <div className="animate-pulse">Loading...</div>
+            <div className="flex h-screen items-center justify-center">
+                <div className="cc-muted animate-pulse font-medium">Loading details...</div>
             </div>
         );
     }
 
     if (!user) {
         return (
-            <div className="flex h-screen flex-col items-center justify-center gap-4 text-neutral-300">
-                <p>You must sign in to access the admin area.</p>
+            <div className="flex h-screen flex-col items-center justify-center gap-4 text-secondary">
+                <p className="font-medium">You must sign in to access the admin area.</p>
             </div>
         );
     }
 
     if (!userIsGlobalAdmin) {
         return (
-            <div className="flex h-screen items-center justify-center text-neutral-400">
+            <div className="flex h-screen items-center justify-center text-secondary font-medium">
                 You are not authorized to view this admin page.
             </div>
         );
@@ -142,134 +161,142 @@ export default function EditCampusPage(props: { params: Promise<{ id: string }> 
     if (!campus) return null;
 
     return (
-        <div className="mx-auto w-full max-w-2xl px-4 py-8 pb-24">
+        <div className={ui.page}>
             {/* Header */}
-            <header className="mb-8 flex items-center gap-4">
-                <Link
-                    href="/admin/campuses"
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-neutral-400 transition-all hover:bg-white/10 hover:text-white"
-                >
+            <header className={ui.header}>
+                <Link href="/admin/campuses" className={ui.backBtn}>
                     <ChevronLeftIcon className="h-5 w-5" />
                 </Link>
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">Edit Campus</h1>
-                    <p className="text-neutral-400 text-sm">{campus.name}</p>
+                    <h1 className={ui.title}>Edit Campus</h1>
+                    <p className={ui.subtitle}>{campus.name}</p>
                 </div>
             </header>
 
-            <form onSubmit={handleSave} className="space-y-6">
-
+            <form onSubmit={handleSave} className="space-y-8">
                 {/* Basic Info */}
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Basic Info</label>
-                    <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                <div className={ui.section}>
+                    <label className={ui.sectionLabel}>Identity & Details</label>
+                    <div className={ui.card}>
                         {/* Name */}
-                        <div className="flex items-center justify-between px-4 py-3.5">
-                            <span className="text-sm text-neutral-300">Name</span>
+                        <div className={ui.row}>
+                            <span className={ui.label}>Name</span>
                             <input
                                 type="text"
                                 value={campus.name}
                                 onChange={(e) => updateField('name', e.target.value)}
-                                className="bg-transparent text-right text-sm text-white focus:outline-none flex-1 ml-4"
+                                className={ui.input}
                                 placeholder="Campus Name"
                             />
                         </div>
                         {/* Short Name */}
-                        <div className="flex items-center justify-between px-4 py-3.5">
-                            <span className="text-sm text-neutral-300">Short Name</span>
+                        <div className={ui.row}>
+                            <span className={ui.label}>Code <span className="text-red-500">*</span></span>
                             <input
                                 type="text"
                                 value={campus.shortName || ''}
                                 onChange={(e) => updateField('shortName', e.target.value || null)}
-                                className="bg-transparent text-right text-sm text-white focus:outline-none flex-1 ml-4"
+                                className={ui.input}
                                 placeholder="Acronym"
                             />
                         </div>
                         {/* ID (readonly) */}
-                        <div className="flex items-center justify-between px-4 py-3.5">
-                            <span className="text-sm text-neutral-300">ID</span>
-                            <span className="text-xs text-neutral-500 font-mono">{campus.id}</span>
+                        <div className={ui.row}>
+                            <span className={ui.label}>Database ID</span>
+                            <span className="text-[13px] text-secondary/60 font-mono tracking-tighter">{campus.id}</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Locations */}
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Locations</label>
-                    <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                <div className={ui.section}>
+                    <label className={ui.sectionLabel}>Locations <span className="text-red-500">*</span></label>
+                    <div className={ui.card}>
                         {campus.locations.map((loc, i) => (
-                            <div key={i} className="flex items-center gap-4 px-4 py-3.5">
-                                <span className="text-xs text-neutral-500 font-mono bg-white/5 px-2 py-1 rounded">{loc.id}</span>
+                            <div key={i} className={ui.row}>
                                 <input
                                     type="text"
                                     value={loc.name}
                                     onChange={(e) => handleLocationChange(i, e.target.value)}
-                                    className="flex-1 bg-transparent text-sm text-white focus:outline-none"
+                                    className={ui.input}
                                     placeholder="Location Name"
                                 />
                             </div>
                         ))}
                         {campus.locations.length === 0 && (
-                            <div className="px-4 py-3.5 text-sm text-neutral-500">No locations defined.</div>
+                            <div className="px-5 py-6 text-sm text-secondary/50 text-center italic">No locations defined.</div>
                         )}
                     </div>
                 </div>
 
                 {/* University Mode */}
-                <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl px-4 py-3.5 flex items-center justify-between shadow-lg">
-                    <div>
-                        <span className="text-sm font-medium text-white">University Mode</span>
-                        <p className="text-xs text-neutral-500 mt-0.5">Enable dorms and campus life features</p>
+                <div className={ui.section}>
+                    <label className={ui.sectionLabel}>Features</label>
+                    <div className={ui.card}>
+                        <div className={ui.row}>
+                            <div>
+                                <span className="text-[15px] font-bold text-foreground">University Mode</span>
+                                <p className="text-[11px] text-secondary mt-0.5">Enable dorms and campus life features</p>
+                            </div>
+                            <Switch
+                                checked={campus.isUniversity || false}
+                                onChange={(checked) => updateField('isUniversity', checked)}
+                                className={`${campus.isUniversity ? 'bg-brand' : 'bg-secondary/20'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none`}
+                            >
+                                <span className={`${campus.isUniversity ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
+                            </Switch>
+                        </div>
                     </div>
-                    <Switch
-                        checked={campus.isUniversity || false}
-                        onChange={(checked) => updateField('isUniversity', checked)}
-                        className={`${campus.isUniversity ? 'bg-[#ffb200]' : 'bg-neutral-700'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none`}
-                    >
-                        <span className={`${campus.isUniversity ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
-                    </Switch>
                 </div>
 
                 {/* Dorms (if university) */}
                 {campus.isUniversity && (
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Dorms ({dorms.length})</label>
-                        <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                    <div className={ui.section}>
+                        <label className={ui.sectionLabel}>Active Dorms ({dorms.length})</label>
+                        <div className={ui.card}>
                             {dorms.length === 0 ? (
-                                <div className="px-4 py-3.5 text-sm text-neutral-500">No dorms found.</div>
+                                <div className="px-5 py-6 text-sm text-secondary/50 text-center italic">No dorms found for this campus.</div>
                             ) : (
                                 dorms.map((dorm) => (
-                                    <div key={dorm.id} className="flex items-center gap-4 px-4 py-3.5">
-                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-neutral-500">
-                                            <BuildingOffice2Icon className="h-5 w-5" />
+                                    <div key={dorm.id} className={ui.row}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary/5 text-secondary">
+                                                <BuildingOffice2Icon className="h-5 w-5" />
+                                            </div>
+                                            <span className="text-[15px] font-bold text-foreground">{dorm.name}</span>
                                         </div>
-                                        <span className="text-sm text-white">{dorm.name}</span>
                                     </div>
                                 ))
                             )}
                         </div>
-                        <p className="text-xs text-neutral-500 ml-1">Use the Create form to add new dorms.</p>
+                        <p className={ui.footerText}>New dorms must be added through the master registration form.</p>
                     </div>
                 )}
 
-                {/* Action Buttons */}
-                <div className="flex flex-col gap-3 pt-4">
-                    <button
-                        type="submit"
-                        disabled={saving}
-                        className="w-full rounded-full bg-[#ffb200] py-3.5 text-sm font-bold text-black shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
-                    >
-                        {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => router.back()}
-                        className="w-full rounded-full bg-neutral-800/50 py-3 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-white"
-                    >
-                        Cancel
-                    </button>
-                </div>
+                {/* Actions */}
+                <div className="space-y-3 pt-6">
+                    <div className="flex items-center gap-4">
+                        {/* Desktop Cancel */}
+                        <Link href="/admin/campuses" className="hidden sm:flex flex-1">
+                            <div className={ui.secondaryBtn}>Cancel</div>
+                        </Link>
 
+                        {/* Mobile Cancel (X mark) */}
+                        <Link href="/admin/campuses" className="flex sm:hidden">
+                            <div className={ui.mobileCancelBtn}>
+                                <XMarkIcon className="h-6 w-6" />
+                            </div>
+                        </Link>
+
+                        <button
+                            type="submit"
+                            disabled={saving}
+                            className={ui.primaryBtn}
+                        >
+                            {saving ? 'Processing...' : 'Save Changes'}
+                        </button>
+                    </div>
+                </div>
             </form>
         </div>
     );
