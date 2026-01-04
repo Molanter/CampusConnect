@@ -128,7 +128,7 @@ export function Navbar({
 
   // Active State: Just color change (no background) for regular items
   const navItemActive = isDesktop
-    ? "text-brand"
+    ? "bg-brand text-brand-foreground shadow-md shadow-brand/20"
     : "bg-brand text-brand-foreground shadow-md shadow-brand/20 font-semibold";
 
   // Header is always shown on mobile if it's a tabbed page
@@ -184,7 +184,7 @@ export function Navbar({
                     viewBox="0 0 100 100"
                     fill="currentColor"
                     stroke="none"
-                    className={`${isDesktop ? "h-[26px] w-[26px]" : "h-[22px] w-[22px]"} ${pathname === "/" ? "text-brand" : "text-secondary"}`}
+                    className={`${isDesktop ? "h-[26px] w-[26px]" : "h-[22px] w-[22px]"} ${pathname === "/" ? "text-current" : "text-secondary"}`}
                   >
                     <path d="M0 0 C5.05728571 0.12041156 7.88360483 1.93684147 11.453125 5.27734375 C15.95250776 10.28802001 16.35248815 15.63463668 16.49609375 22.05859375 C15.24269438 29.49016642 10.95823599 34.68868348 5.6875 39.8125 C5.14416016 40.37130859 4.60082031 40.93011719 4.04101562 41.50585938 C-1.0205628 46.51963068 -6.09226334 49.42658583 -13.4375 49.4375 C-18.73449827 49.25609595 -22.79726622 48.31263514 -27 45 C-32.58501842 38.93940141 -34.4086537 34.05287686 -34.2578125 25.83203125 C-33.38668867 16.26286799 -25.77348485 10.09053844 -19 4 C-18.67 4 -18.34 4 -18 4 C-16.92551732 13.27807263 -16.92551732 13.27807263 -19.5234375 17.44140625 C-21.27815782 19.38592285 -23.10869791 21.19033685 -25 23 C-26.74920472 26.49840944 -25.83072833 30.27782189 -25 34 C-23.18992689 37.03833701 -21.74623728 38.5439661 -18.75 40.375 C-14.91113683 41.2474689 -11.70288185 41.27543708 -8 40 C-1.97890501 36.02423881 4.75043202 29.49913595 8 23 C8.39201042 18.92309166 8.25344947 16.51703691 6.4375 12.8125 C3.52013512 9.44630975 0.96091436 7.98045718 -3 6 C-1.125 1.125 -1.125 1.125 0 0 Z " transform="translate(49,36)" />
                     <path d="M0 0 C5.19039543 2.97967145 8.81220493 7.87411478 10.6875 13.5 C11.39515137 20.68092125 11.14028672 26.64899523 6.6875 32.5 C3.17818482 36.34694608 -0.44020768 40.01813715 -4.3125 43.5 C-4.6425 43.5 -4.9725 43.5 -5.3125 43.5 C-6.40171425 34.09472138 -6.40171425 34.09472138 -3.7890625 30.26953125 C-2.51888542 28.97083999 -1.23895358 27.6816142 0.05078125 26.40234375 C2.85865203 23.13878033 2.82488888 20.75905519 2.6875 16.5 C1.20578057 12.36678265 -0.33643329 9.48803335 -4.3125 7.5 C-8.69936034 6.34468182 -12.05156438 5.93660323 -16.25 7.8125 C-17.71951953 8.96275181 -17.71951953 8.96275181 -19.3125 10.5 C-20.14394531 11.27730469 -20.97539063 12.05460937 -21.83203125 12.85546875 C-28.8001789 19.25012924 -28.8001789 19.25012924 -31.6875 27.875 C-31.23115772 32.28630873 -30.20908599 34.15778539 -27.3125 37.5 C-25.04026683 39.0715874 -22.79581265 40.25834368 -20.3125 41.5 C-21 43.9375 -21 43.9375 -22.3125 46.5 C-24.5625 47.5625 -24.5625 47.5625 -27.3125 47.5 C-33.43608071 44.25075309 -37.08371614 40.01490668 -39.3125 33.5 C-39.6484375 30.88671875 -39.6484375 30.88671875 -39.6875 28.1875 C-39.71585938 27.30449219 -39.74421875 26.42148437 -39.7734375 25.51171875 C-38.62908206 18.03461666 -34.28070021 12.82100299 -29 7.6875 C-28.45666016 7.12869141 -27.91332031 6.56988281 -27.35351562 5.99414062 C-19.88510277 -1.40373232 -10.04157448 -4.32826486 0 0 Z " transform="translate(74.3125,16.5)" />
@@ -231,58 +231,58 @@ export function Navbar({
               <div className="inline-flex items-center gap-0 p-1 text-[12px] cc-glass-strong rounded-full overflow-hidden">
                 <Link
                   href="/settings"
-                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/settings"
-                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 ${pathname === "/settings"
+                    ? "bg-[#ffb200] text-black shadow-sm"
                     : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
+                  title="Settings"
                 >
-                  <Cog6ToothIcon className="mr-1 h-4 w-4" />
-                  Settings
+                  <Cog6ToothIcon className="h-5 w-5" />
                 </Link>
 
                 <Link
                   href="/admin/moderation"
-                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/admin/moderation"
-                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 ${pathname === "/admin/moderation"
+                    ? "bg-[#ffb200] text-black shadow-sm"
                     : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
+                  title="Moderation"
                 >
-                  <ShieldCheckIcon className="mr-1 h-4 w-4" />
-                  Mod
+                  <ShieldCheckIcon className="h-5 w-5" />
                 </Link>
 
                 <Link
                   href={isGlobalAdminUser ? "/admin/campuses" : "/admin/campuses/manage-my"}
-                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname.startsWith("/admin/campuses")
-                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 ${pathname.startsWith("/admin/campuses")
+                    ? "bg-[#ffb200] text-black shadow-sm"
                     : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
+                  title="Campuses"
                 >
-                  <BuildingLibraryIcon className="mr-1 h-4 w-4" />
-                  Uni
+                  <BuildingLibraryIcon className="h-5 w-5" />
                 </Link>
 
                 <Link
                   href="/admin/support"
-                  className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname.startsWith("/admin/support")
-                    ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 ${pathname.startsWith("/admin/support")
+                    ? "bg-[#ffb200] text-black shadow-sm"
                     : "text-secondary hover:text-foreground hover:bg-secondary/10"
                     }`}
+                  title="Support"
                 >
-                  <ChatBubbleLeftRightIcon className="mr-1 h-4 w-4" />
-                  Support
+                  <ChatBubbleLeftRightIcon className="h-5 w-5" />
                 </Link>
 
                 {isGlobalAdminUser && (
                   <Link
                     href="/admin/config"
-                    className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname.startsWith("/admin/config")
-                      ? "bg-[#ffb200] text-black shadow-sm font-medium"
+                    className={`inline-flex items-center rounded-full px-3 py-1.5 ${pathname.startsWith("/admin/config")
+                      ? "bg-[#ffb200] text-black shadow-sm"
                       : "text-secondary hover:text-foreground hover:bg-secondary/10"
                       }`}
+                    title="Config"
                   >
-                    <WrenchScrewdriverIcon className="mr-1 h-4 w-4" />
-                    Config
+                    <WrenchScrewdriverIcon className="h-5 w-5" />
                   </Link>
                 )}
               </div>

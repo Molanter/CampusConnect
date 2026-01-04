@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, Timestamp, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
-import { MagnifyingGlassIcon, FunnelIcon, ChartBarIcon, ClockIcon, CheckCircleIcon, InboxIcon, ArrowUpRightIcon, PaperAirplaneIcon, ArrowPathIcon, InformationCircleIcon, ChatBubbleLeftRightIcon, ChevronLeftIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, FunnelIcon, ChartBarIcon, ClockIcon, CheckCircleIcon, InboxIcon, ArrowUpRightIcon, PaperAirplaneIcon, ArrowPathIcon, InformationCircleIcon, ChatBubbleLeftRightIcon, ChevronLeftIcon, Squares2X2Icon, TicketIcon } from "@heroicons/react/24/outline";
 import { format, formatDistanceToNow } from "date-fns";
 import Toast, { ToastData } from "@/components/Toast";
 import { useRightSidebar } from "@/components/right-sidebar-context";
@@ -266,8 +266,8 @@ export default function AdminSupportPage() {
         switch (status) {
             case "open": return "bg-green-500/15 text-green-400 border-green-500/30";
             case "in_progress": return "bg-blue-500/15 text-blue-400 border-blue-500/30";
-            case "resolved": return "bg-neutral-500/15 text-neutral-400 border-neutral-500/30";
-            default: return "bg-neutral-500/15 text-neutral-400 border-neutral-500/30";
+            case "resolved": return "bg-secondary/25 text-secondary border-secondary/30";
+            default: return "bg-secondary/25 text-secondary border-secondary/30";
         }
     };
 
@@ -275,8 +275,8 @@ export default function AdminSupportPage() {
         switch (status) {
             case "open": return "bg-green-500";
             case "in_progress": return "bg-blue-500";
-            case "resolved": return "bg-neutral-500";
-            default: return "bg-neutral-500";
+            case "resolved": return "bg-secondary";
+            default: return "bg-secondary";
         }
     };
 
@@ -291,7 +291,7 @@ export default function AdminSupportPage() {
             case "Low": return "bg-blue-500";
             case "Medium": return "bg-orange-500";
             case "High": return "bg-red-500";
-            default: return "bg-neutral-500";
+            default: return "bg-secondary";
         }
     };
 
@@ -302,7 +302,7 @@ export default function AdminSupportPage() {
                 title="All Tickets"
                 value={stats.total}
                 icon={<InboxIcon className="h-5 w-5" />}
-                color="bg-neutral-600"
+                color="bg-secondary"
             />
             <StatCard
                 title="Open Tickets"
@@ -328,10 +328,10 @@ export default function AdminSupportPage() {
     const ChartsSection = () => (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Activity Chart */}
-            <div className="lg:col-span-2 backdrop-blur-2xl bg-white/[0.02] rounded-[40px] p-8 md:p-12 border border-white/[0.08]">
+            <div className="lg:col-span-2 cc-glass cc-section rounded-[40px] p-8 md:p-12">
                 <div className="flex items-center justify-between mb-8">
-                    <h3 className="text-xl font-medium text-white">Ticket Activity</h3>
-                    <select className="bg-white/[0.03] border border-white/5 rounded-full px-4 py-2 text-sm text-neutral-400 outline-none">
+                    <h3 className="text-xl font-medium text-foreground">Ticket Activity</h3>
+                    <select className="bg-secondary/5 border border-secondary/10 rounded-full px-4 py-2 text-sm text-secondary outline-none">
                         <option>Last 14 Days</option>
                         <option>Last Month</option>
                     </select>
@@ -339,7 +339,7 @@ export default function AdminSupportPage() {
                 <div className="flex items-end justify-between gap-3 h-64 w-full">
                     {[45, 60, 35, 78, 52, 65, 48, 55, 67, 80, 50, 45, 62, 75].map((h, i) => (
                         <div key={i} className="flex-1 flex flex-col items-center gap-3">
-                            <div className="w-full bg-white/[0.05] rounded-t-lg hover:bg-blue-500/50 transition-colors h-full relative overflow-hidden group">
+                            <div className="w-full bg-secondary/5 rounded-t-lg hover:bg-blue-500/50 transition-colors h-full relative overflow-hidden group">
                                 <div
                                     className="absolute bottom-0 w-full bg-blue-500 rounded-t-lg transition-all duration-500 group-hover:bg-blue-400"
                                     style={{ height: `${h}%` }}
@@ -348,35 +348,35 @@ export default function AdminSupportPage() {
                         </div>
                     ))}
                 </div>
-                <div className="flex justify-between mt-4 text-xs text-neutral-600 font-medium px-1 uppercase tracking-wider">
+                <div className="flex justify-between mt-4 text-xs text-secondary font-medium px-1 uppercase tracking-wider">
                     <span>Nov 1</span>
                     <span>Nov 14</span>
                 </div>
             </div>
 
             {/* Doughnut Chart */}
-            <div className="backdrop-blur-2xl bg-white/[0.02] rounded-[40px] p-8 md:p-12 border border-white/[0.08] flex flex-col items-center justify-center">
-                <h3 className="text-xl font-medium text-white mb-8 w-full text-left">Priority Split</h3>
+            <div className="cc-glass cc-section rounded-[40px] p-8 md:p-12 flex flex-col items-center justify-center">
+                <h3 className="text-xl font-medium text-foreground mb-8 w-full text-left">Priority Split</h3>
                 <div className="relative h-56 w-56">
                     <svg viewBox="0 0 36 36" className="w-full h-full rotate-[-90deg]">
-                        <path className="text-neutral-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="2" />
+                        <path className="te xt-secondary/20" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="2" />
                         <path className="text-blue-500" strokeDasharray="40, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                         <path className="text-orange-500" strokeDasharray="25, 100" strokeDashoffset="-45" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                         <path className="text-red-500" strokeDasharray="15, 100" strokeDashoffset="-75" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-4xl font-light text-white">{stats.total}</span>
-                        <span className="text-xs text-neutral-500 uppercase tracking-widest mt-1">Total</span>
+                        <span className="text-4xl font-light text-foreground">{stats.total}</span>
+                        <span className="text-xs text-secondary uppercase tracking-widest mt-1">Total</span>
                     </div>
                 </div>
                 <div className="flex gap-6 mt-10">
-                    <div className="flex items-center gap-2 text-xs text-neutral-400 font-medium tracking-wide">
+                    <div className="flex items-center gap-2 text-xs text-secondary font-medium tracking-wide">
                         <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" /> HIGH
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-neutral-400 font-medium tracking-wide">
+                    <div className="flex items-center gap-2 text-xs text-secondary font-medium tracking-wide">
                         <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" /> MED
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-neutral-400 font-medium tracking-wide">
+                    <div className="flex items-center gap-2 text-xs text-secondary font-medium tracking-wide">
                         <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" /> LOW
                     </div>
                 </div>
@@ -388,17 +388,17 @@ export default function AdminSupportPage() {
     const TicketsChatView = () => (
         <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-200px)]">
             {/* Left Sidebar - Ticket List */}
-            <div className={`w-full lg:w-80 pt-4 px-3 bg-white/[0.02] border border-white/5 rounded-[1.8rem] flex-shrink-0 flex flex-col ${selectedTicketId ? 'hidden lg:flex' : 'flex'}`}>
+            <div className={`w-full lg:w-80 pt-4 px-3 cc-glass border border-secondary/10 rounded-[1.8rem] flex-shrink-0 flex flex-col ${selectedTicketId ? 'hidden lg:flex' : 'flex'}`}>
                 {/* Search */}
                 <div className="px-2 mb-4">
                     <div className="relative">
-                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-secondary" />
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search tickets..."
-                            className="w-full pl-9 pr-4 py-2.5 rounded-full bg-white/5 border border-white/10 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-white/20 transition-colors"
+                            className="w-full pl-9 pr-4 py-2.5 rounded-full bg-secondary/15 border border-secondary/20 text-sm text-foreground placeholder-secondary focus:outline-none focus:border-secondary/30 transition-colors"
                         />
                     </div>
                 </div>
@@ -410,8 +410,8 @@ export default function AdminSupportPage() {
                             key={status}
                             onClick={() => setFilterStatus(status)}
                             className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${filterStatus === status
-                                ? "bg-white/10 text-white"
-                                : "text-neutral-500 hover:text-neutral-300 hover:bg-white/5"
+                                ? "bg-secondary/20 text-foreground"
+                                : "text-secondary hover:text-foreground hover:bg-secondary/10"
                                 }`}
                         >
                             {status === "all" ? "All" : status === "in_progress" ? "Active" : status.charAt(0).toUpperCase() + status.slice(1)}
@@ -423,10 +423,10 @@ export default function AdminSupportPage() {
                 <div className="flex-1 overflow-y-auto space-y-1 pb-4 custom-scrollbar">
                     {loading ? (
                         <div className="px-4 py-8 text-center">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-700 border-t-[#ffb200] mx-auto" />
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-secondary border-t-brand mx-auto" />
                         </div>
                     ) : filteredTickets.length === 0 ? (
-                        <div className="px-4 py-8 text-center text-sm text-neutral-500">
+                        <div className="px-4 py-8 text-center text-sm text-secondary">
                             No tickets found
                         </div>
                     ) : (
@@ -435,8 +435,8 @@ export default function AdminSupportPage() {
                                 key={ticket.id}
                                 onClick={() => setSelectedTicketId(ticket.id)}
                                 className={`w-full text-left px-3 py-3 rounded-[1.2rem] transition-all ${selectedTicketId === ticket.id
-                                    ? "bg-white/10 shadow-sm"
-                                    : "hover:bg-white/5"
+                                    ? "bg-secondary/20 shadow-sm"
+                                    : "hover:bg-secondary/10"
                                     }`}
                             >
                                 <div className="flex items-start gap-3">
@@ -444,14 +444,14 @@ export default function AdminSupportPage() {
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                <p className={`text-sm font-medium truncate ${selectedTicketId === ticket.id ? "text-white" : "text-neutral-300"}`}>
+                                                <p className={`text-sm font-medium truncate ${selectedTicketId === ticket.id ? "text-foreground" : "text-foreground/80"}`}>
                                                     {getUserName(ticket)}
                                                 </p>
-                                                <span className="text-[10px] text-neutral-500 flex-shrink-0">
+                                                <span className="text-[10px] text-secondary flex-shrink-0">
                                                     {ticket.category}
                                                 </span>
                                             </div>
-                                            <span className="text-[10px] text-neutral-600 flex-shrink-0">
+                                            <span className="text-[10px] text-secondary flex-shrink-0">
                                                 {(ticket.lastMessageAt?.toDate || ticket.createdAt?.toDate)
                                                     ? formatDistanceToNow(
                                                         ticket.lastMessageAt?.toDate?.() || ticket.createdAt.toDate(),
@@ -460,7 +460,7 @@ export default function AdminSupportPage() {
                                                     : ""}
                                             </span>
                                         </div>
-                                        <p className="text-[11px] text-neutral-600 line-clamp-1 mt-1">
+                                        <p className="text-[11px] text-secondary line-clamp-1 mt-1">
                                             {ticket.message}
                                         </p>
                                     </div>
@@ -478,17 +478,17 @@ export default function AdminSupportPage() {
                         {/* Chat Header */}
                         <div className="flex items-center justify-between mb-4">
                             {/* Left Info */}
-                            <div className="flex items-center gap-3 bg-white/[0.05] backdrop-blur-xl rounded-full px-4 py-2 border border-white/[0.08]">
+                            <div className="flex items-center gap-3 cc-glass backdrop-blur-xl rounded-full px-4 py-2 border border-secondary/10">
                                 <button
                                     onClick={() => setSelectedTicketId(null)}
-                                    className="lg:hidden p-1 -ml-2 mr-1 rounded-full hover:bg-white/10 text-neutral-400"
+                                    className="lg:hidden p-1 -ml-2 mr-1 rounded-full hover:bg-secondary/10 text-secondary"
                                 >
                                     <ChevronLeftIcon className="h-4 w-4" />
                                 </button>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <h2 className="text-sm font-semibold text-white">{selectedTicket.category}</h2>
-                                        <span className="text-xs text-neutral-500 font-mono">#{selectedTicket.id.slice(0, 6)}</span>
+                                        <h2 className="text-sm font-semibold text-foreground">{selectedTicket.category}</h2>
+                                        <span className="text-xs text-secondary font-mono">#{selectedTicket.id.slice(0, 6)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -502,7 +502,7 @@ export default function AdminSupportPage() {
                                 {selectedTicket.status !== 'resolved' ? (
                                     <button
                                         onClick={() => handleUpdateStatus('resolved')}
-                                        className="hidden lg:flex items-center gap-2 rounded-full bg-white/[0.08] hover:bg-white/[0.12] px-4 py-1.5 text-xs font-medium transition-colors"
+                                        className="hidden lg:flex items-center gap-2 rounded-full bg-secondary/10 hover:bg-secondary/15 px-4 py-1.5 text-xs font-medium transition-colors"
                                     >
                                         <CheckCircleIcon className="h-4 w-4 text-green-400" />
                                         <span>Resolve</span>
@@ -510,7 +510,7 @@ export default function AdminSupportPage() {
                                 ) : (
                                     <button
                                         onClick={() => handleUpdateStatus('in_progress')}
-                                        className="hidden lg:flex items-center gap-2 rounded-full bg-white/[0.08] hover:bg-white/[0.12] px-4 py-1.5 text-xs font-medium transition-colors"
+                                        className="hidden lg:flex items-center gap-2 rounded-full bg-secondary/10 hover:bg-secondary/15 px-4 py-1.5 text-xs font-medium transition-colors"
                                     >
                                         <ArrowPathIcon className="h-4 w-4 text-blue-400" />
                                         <span>Reopen</span>
@@ -527,8 +527,8 @@ export default function AdminSupportPage() {
                                         }
                                     }}
                                     className={`flex items-center justify-center w-10 h-10 rounded-full border transition-colors ${isVisible
-                                        ? "bg-white text-black border-white"
-                                        : "bg-white/[0.05] border-white/[0.08] hover:bg-white/[0.08] text-neutral-400"
+                                        ? "bg-foreground text-background border-foreground"
+                                        : "bg-secondary/10 border-secondary/10 hover:bg-secondary/15 text-secondary"
                                         }`}
                                     title={isVisible ? "Hide ticket info" : "Show ticket info"}
                                 >
@@ -542,13 +542,13 @@ export default function AdminSupportPage() {
                             {/* Original Ticket Message */}
                             <div className="flex items-end gap-3">
                                 <div className="flex-1">
-                                    <div className="inline-block max-w-[85%] rounded-2xl rounded-bl-md bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] px-4 py-3">
-                                        <p className="whitespace-pre-wrap text-sm text-neutral-200 leading-relaxed">
+                                    <div className="inline-block max-w-[85%] rounded-2xl rounded-bl-md cc-glass backdrop-blur-sm border border-secondary/10 px-4 py-3">
+                                        <p className="whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed">
                                             {selectedTicket.message}
                                         </p>
                                         {/* Attachments */}
                                         {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+                                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-secondary/10">
                                                 {selectedTicket.attachments.map((url, idx) => (
                                                     <button
                                                         key={idx}
@@ -556,15 +556,15 @@ export default function AdminSupportPage() {
                                                             setOverlayIndex(idx);
                                                             setOverlayImage(url);
                                                         }}
-                                                        className="relative group rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-all"
+                                                        className="relative group rounded-lg overflow-hidden border border-secondary/20 hover:border-secondary/40 transition-all"
                                                     >
                                                         <img
                                                             src={url}
                                                             alt={`Attachment ${idx + 1}`}
                                                             className="h-20 w-20 object-cover"
                                                         />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                            <span className="text-white text-xs">View</span>
+                                                        <div className="absolute inset-0 bg-background/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <span className="text-foreground text-xs">View</span>
                                                         </div>
                                                     </button>
                                                 ))}
@@ -572,7 +572,7 @@ export default function AdminSupportPage() {
                                         )}
                                     </div>
                                 </div>
-                                <span className="text-[10px] text-neutral-600 pb-1 flex-shrink-0">
+                                <span className="text-[10px] text-secondary pb-1 flex-shrink-0">
                                     {selectedTicket.createdAt?.toDate ? format(selectedTicket.createdAt.toDate(), "h:mm a") : ""}
                                 </span>
                             </div>
@@ -583,14 +583,14 @@ export default function AdminSupportPage() {
                                     <div className={`flex-1 ${msg.isStaff ? 'flex justify-end' : ''}`}>
                                         <div className={`inline-block max-w-[85%] rounded-2xl px-4 py-3 ${msg.isStaff
                                             ? 'bg-blue-600/20 backdrop-blur-sm border border-blue-500/20 rounded-br-md'
-                                            : 'bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] rounded-bl-md'
+                                            : 'cc-glass backdrop-blur-sm border border-secondary/10 rounded-bl-md'
                                             }`}>
-                                            <p className={`whitespace-pre-wrap text-sm leading-relaxed ${msg.isStaff ? 'text-blue-100' : 'text-neutral-200'}`}>
+                                            <p className={`whitespace-pre-wrap text-sm leading-relaxed ${msg.isStaff ? 'text-blue-100' : 'text-foreground/90'}`}>
                                                 {msg.text}
                                             </p>
                                         </div>
                                     </div>
-                                    <span className="text-[10px] text-neutral-600 pb-1 flex-shrink-0">
+                                    <span className="text-[10px] text-secondary pb-1 flex-shrink-0">
                                         {msg.createdAt?.toDate ? format(msg.createdAt.toDate(), "h:mm a") : "now"}
                                     </span>
                                 </div>
@@ -608,12 +608,12 @@ export default function AdminSupportPage() {
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     placeholder={selectedTicket.status === 'resolved' ? "Reopen ticket to reply..." : "Type a reply..."}
                                     disabled={selectedTicket.status === 'resolved'}
-                                    className="w-full rounded-full bg-white/[0.05] border border-white/[0.08] pl-5 pr-14 py-3.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-white/20 focus:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                    className="w-full rounded-full cc-glass border border-secondary/10 pl-5 pr-14 py-3.5 text-sm text-foreground placeholder-secondary focus:outline-none focus:border-secondary/20 focus:bg-secondary/5 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                                 />
                                 <button
                                     type="submit"
                                     disabled={!newMessage.trim() || sending || selectedTicket.status === 'resolved'}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#ffb200] text-black hover:bg-[#e6a000] disabled:bg-white/[0.05] disabled:text-neutral-600 transition-all"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-brand text-brand-foreground hover:bg-brand/90 disabled:bg-secondary/10 disabled:text-secondary transition-all"
                                 >
                                     <PaperAirplaneIcon className="h-4 w-4" />
                                 </button>
@@ -621,7 +621,7 @@ export default function AdminSupportPage() {
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-neutral-500">
+                    <div className="flex-1 flex flex-col items-center justify-center text-secondary">
                         <ChatBubbleLeftRightIcon className="h-16 w-16 mb-4 opacity-20" />
                         <p className="text-lg font-medium">Select a ticket to view conversation</p>
                     </div>
@@ -632,30 +632,39 @@ export default function AdminSupportPage() {
 
     return (
         <>
-            <div className="text-white p-3 md:p-10 font-sans">
+            <div className="text-foreground p-3 md:p-10 font-sans">
                 <Toast toast={toast} onClear={() => setToast(null)} />
                 <div className="max-w-7xl mx-auto space-y-6 md:space-y-10">
 
                     {/* Global Header */}
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4 pb-3 md:pb-4 border-b border-white/[0.05]">
-                        <div className="w-full md:w-auto">
-                            <h1 className="text-4xl font-semibold text-white tracking-tight">Support</h1>
+                    <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 pb-3 md:pb-4 border-b border-secondary/10">
+                        <div className="w-full lg:w-auto">
+                            <h1 className="text-4xl font-semibold text-foreground tracking-tight">Support</h1>
                         </div>
 
                         {/* Tabs */}
-                        <div className="w-full md:w-auto grid grid-cols-3 md:flex bg-white/[0.05] p-1 rounded-full text-center">
-                            {(['overview', 'tickets', 'stats'] as const).map((tab) => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`px-4 py-2 rounded-full text-[14px] font-medium transition-all ${activeTab === tab
-                                        ? "bg-[#636366] text-white shadow-lg shadow-black/20"
-                                        : "text-neutral-400 hover:text-white"
-                                        } capitalize`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
+                        <div className="w-full lg:w-auto grid grid-cols-3 lg:flex cc-glass p-1 rounded-full text-center">
+                            {(['overview', 'tickets', 'stats'] as const).map((tab) => {
+                                const icons = {
+                                    overview: Squares2X2Icon,
+                                    tickets: TicketIcon,
+                                    stats: ChartBarIcon
+                                };
+                                const Icon = icons[tab];
+                                return (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`px-6 py-2.5 rounded-full transition-all flex items-center justify-center ${activeTab === tab
+                                            ? "bg-brand text-brand-foreground shadow-lg shadow-brand/20"
+                                            : "text-secondary hover:text-foreground hover:bg-secondary/5"
+                                            }`}
+                                        title={tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                    >
+                                        <Icon className="h-5 w-5" />
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -696,12 +705,12 @@ export default function AdminSupportPage() {
             {/* Image Overlay Modal */}
             {overlayImage && (
                 <div
-                    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+                    className="fixed inset-0 z-[100] bg-background/90 flex items-center justify-center p-4"
                     onClick={() => setOverlayImage(null)}
                 >
                     <button
                         onClick={() => setOverlayImage(null)}
-                        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+                        className="absolute top-4 right-4 p-2 rounded-full bg-secondary/20 hover:bg-secondary/30 text-foreground transition-colors z-10"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -726,7 +735,7 @@ const getIndicatorColor = (ticket: SupportTicket) => {
         case 'High': return 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]';
         case 'Medium': return 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.3)]';
         case 'Low': return 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]';
-        default: return 'bg-neutral-500';
+        default: return 'bg-secondary';
     }
 };
 
@@ -735,20 +744,20 @@ const getStatusStyle = (status: string) => {
         case "open": return "bg-blue-500/10 text-blue-400";
         case "in_progress": return "bg-orange-500/10 text-orange-400";
         case "resolved": return "bg-green-500/10 text-green-400";
-        case "closed": return "bg-neutral-500/10 text-neutral-400";
-        default: return "bg-neutral-500/10 text-neutral-400";
+        case "closed": return "bg-secondary/20 text-secondary";
+        default: return "bg-secondary/20 text-secondary";
     }
 };
 
 function StatCard({ title, value, icon, color }: { title: string, value: number, icon: React.ReactNode, color: string }) {
     return (
-        <div className="flex flex-col items-start justify-between gap-4 h-full rounded-[24px] border border-white/5 bg-[#1C1C1E] p-4 transition-all hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98] group cursor-default">
+        <div className="flex flex-col items-start justify-between gap-4 h-full rounded-[24px] border border-secondary/10 cc-glass p-4 transition-all hover:bg-secondary/5 hover:scale-[1.02] active:scale-[0.98] group cursor-default">
             <div className={`h-9 w-9 flex items-center justify-center rounded-full ${color} text-white shadow-lg shadow-black/20`}>
                 {icon}
             </div>
             <div className="w-full flex items-end justify-between gap-2">
-                <p className="text-neutral-500 text-[11px] font-bold tracking-widest uppercase group-hover:text-neutral-400 transition-colors">{title}</p>
-                <div className="text-2xl font-light text-white tracking-tight leading-none">{value.toLocaleString()}</div>
+                <p className="text-secondary text-[11px] font-bold tracking-widest uppercase group-hover:text-secondary/80 transition-colors">{title}</p>
+                <div className="text-2xl font-light text-foreground tracking-tight leading-none">{value.toLocaleString()}</div>
             </div>
         </div>
     );
@@ -785,55 +794,55 @@ const TicketList = ({
         {/* List Header (Separated) */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6 px-2">
             <div>
-                <h2 className="text-2xl font-medium text-white tracking-tight">{title}</h2>
-                <p className="text-neutral-500 text-sm mt-1 font-light">Manage and track your support request queue</p>
+                <h2 className="text-2xl font-medium text-foreground tracking-tight">{title}</h2>
+                <p className="text-secondary text-sm mt-1 font-light">Manage and track your support request queue</p>
             </div>
 
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto">
                 <div className="relative group">
-                    <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500 group-focus-within:text-white transition-colors" />
+                    <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-secondary group-focus-within:text-foreground transition-colors" />
                     <input
                         type="text"
                         placeholder="Search tickets..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        className="bg-white/[0.05] hover:bg-white/[0.08] focus:bg-white/[0.1] border border-transparent focus:border-white/10 rounded-full pl-10 pr-5 py-2.5 text-sm text-white focus:ring-0 transition-all w-full md:w-56 md:focus:w-72 outline-none placeholder:text-neutral-600 font-light"
+                        className="bg-secondary/15 hover:bg-secondary/20 focus:bg-secondary/25 border border-secondary/20 focus:border-secondary/30 rounded-full pl-10 pr-5 py-2.5 text-sm text-foreground focus:ring-0 transition-all w-full md:w-56 md:focus:w-72 outline-none placeholder:text-secondary font-light"
                     />
                 </div>
                 <div className="relative">
-                    <FunnelIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500 pointer-events-none" />
+                    <FunnelIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-secondary pointer-events-none" />
                     <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
-                        className="bg-white/[0.05] hover:bg-white/[0.08] border border-transparent focus:border-white/10 rounded-full pl-10 pr-5 py-2.5 text-sm text-white focus:ring-0 cursor-pointer appearance-none outline-none transition-all font-medium w-full md:w-auto"
+                        className="bg-secondary/15 hover:bg-secondary/20 border border-secondary/20 focus:border-secondary/30 rounded-full pl-10 pr-5 py-2.5 text-sm text-foreground focus:ring-0 cursor-pointer appearance-none outline-none transition-all font-medium w-full md:w-auto"
                     >
-                        <option value="all" className="bg-[#1C1C1E]">All Status</option>
-                        <option value="open" className="bg-[#1C1C1E]">Open</option>
-                        <option value="in_progress" className="bg-[#1C1C1E]">In Progress</option>
-                        <option value="resolved" className="bg-[#1C1C1E]">Resolved</option>
+                        <option value="all" className="bg-surface-2">All Status</option>
+                        <option value="open" className="bg-surface-2">Open</option>
+                        <option value="in_progress" className="bg-surface-2">In Progress</option>
+                        <option value="resolved" className="bg-surface-2">Resolved</option>
                     </select>
                 </div>
             </div>
         </div>
 
-        {/* List Items Container (Dark Theme) */}
-        <div className="bg-[#1C1C1E] border border-white/5 rounded-[24px] overflow-hidden shadow-xl shadow-black/20">
-            <div className="divide-y divide-white/10">
-                {loading && <div className="text-center py-20 text-neutral-500 font-light text-lg">Loading tickets...</div>}
-                {!loading && filteredTickets.length === 0 && <div className="text-center py-20 text-neutral-500 font-light text-lg">No tickets found</div>}
+        {/* List Items Container */}
+        <div className="cc-glass border border-secondary/10 rounded-[24px] overflow-hidden shadow-xl">
+            <div className="divide-y divide-secondary/10">
+                {loading && <div className="text-center py-20 text-secondary font-light text-lg">Loading tickets...</div>}
+                {!loading && filteredTickets.length === 0 && <div className="text-center py-20 text-secondary font-light text-lg">No tickets found</div>}
 
                 {filteredTickets.map((ticket) => (
                     <button
                         onClick={() => onTicketClick?.(ticket.id)}
                         key={ticket.id}
-                        className="group flex items-center gap-2 md:gap-4 px-2 py-3 md:px-6 md:py-4 w-full text-left hover:bg-white/[0.02] transition-colors"
+                        className="group flex items-center gap-2 md:gap-4 px-2 py-3 md:px-6 md:py-4 w-full text-left hover:bg-secondary/5 transition-colors"
                     >
                         {/* Date (Desktop) */}
                         <div className="hidden md:block w-24 flex-shrink-0 text-right pr-2">
-                            <div className="text-[13px] font-medium text-neutral-400 group-hover:text-neutral-300 transition-colors">
+                            <div className="text-[13px] font-medium text-secondary/80 group-hover:text-secondary transition-colors">
                                 {ticket.createdAt?.toDate ? format(ticket.createdAt.toDate(), "MMM dd") : "Date"}
                             </div>
-                            <div className="text-[11px] text-neutral-600 font-medium">
+                            <div className="text-[11px] text-secondary font-medium">
                                 {ticket.createdAt?.toDate ? format(ticket.createdAt.toDate(), "h:mm a") : ""}
                             </div>
                         </div>
@@ -847,25 +856,25 @@ const TicketList = ({
                                 {/* Mobile Urgency Dot */}
                                 <div className={`md:hidden w-1.5 h-1.5 rounded-full ${getIndicatorColor(ticket)} flex-shrink-0`} />
 
-                                <h3 className="text-[13px] md:text-[15px] font-medium text-white truncate group-hover:text-[#ffb200] transition-colors tracking-tight">
+                                <h3 className="text-[13px] md:text-[15px] font-medium text-foreground truncate group-hover:text-brand transition-colors tracking-tight">
                                     {ticket.category}
                                 </h3>
 
                                 {/* Mobile Message Preview (Row 1) */}
-                                <span className="md:hidden truncate text-[12px] text-neutral-500 font-normal flex-1 ml-1">
+                                <span className="md:hidden truncate text-[12px] text-secondary font-normal flex-1 ml-1">
                                     {ticket.message}
                                 </span>
                             </div>
 
-                            <div className="flex items-center gap-1.5 md:gap-2 text-[12px] md:text-[13px] text-neutral-500 flex-wrap">
-                                <span className="text-neutral-300 font-medium text-[11px] md:text-[13px]">{getUserName(ticket)}</span>
-                                <span className="w-0.5 h-0.5 rounded-full bg-neutral-700" />
+                            <div className="flex items-center gap-1.5 md:gap-2 text-[12px] md:text-[13px] text-secondary flex-wrap">
+                                <span className="text-foreground/80 font-medium text-[11px] md:text-[13px]">{getUserName(ticket)}</span>
+                                <span className="w-0.5 h-0.5 rounded-full bg-secondary/50" />
 
                                 {/* Desktop Message (Row 2) */}
                                 <span className="hidden md:block truncate max-w-[300px] opacity-60 font-light">{ticket.message}</span>
 
                                 {/* Mobile Time (Row 2) */}
-                                <span className="md:hidden text-[10px] text-neutral-600">
+                                <span className="md:hidden text-[10px] text-secondary">
                                     {ticket.lastMessageAt?.toDate
                                         ? formatDistanceToNow(ticket.lastMessageAt.toDate(), { addSuffix: true })
                                         : (ticket.createdAt?.toDate ? formatDistanceToNow(ticket.createdAt.toDate(), { addSuffix: true }) : "")}
@@ -875,13 +884,13 @@ const TicketList = ({
 
                         {/* Badge (Desktop) */}
                         <div className="hidden md:block flex-shrink-0">
-                            <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${getStatusStyle(ticket.status)} border border-white/5`}>
+                            <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${getStatusStyle(ticket.status)} border border-secondary/10`}>
                                 {ticket.status.replace("_", " ")}
                             </div>
                         </div>
 
                         {/* Arrow (Desktop) */}
-                        <div className="hidden md:flex items-center justify-center w-8 h-8 rounded-full border border-white/5 text-neutral-500 bg-white/[0.02] opacity-0 group-hover:opacity-100 group-hover:scale-100 scale-90 transition-all duration-300 group-hover:bg-white/10 group-hover:text-white ml-2">
+                        <div className="hidden md:flex items-center justify-center w-8 h-8 rounded-full border border-secondary/10 text-secondary bg-secondary/5 opacity-0 group-hover:opacity-100 group-hover:scale-100 scale-90 transition-all duration-300 group-hover:bg-secondary/15 group-hover:text-foreground ml-2">
                             <ArrowUpRightIcon className="h-4 w-4" />
                         </div>
                     </button>
@@ -890,8 +899,8 @@ const TicketList = ({
 
             {/* Footer */}
             {showViewAll && filteredTickets.length > 5 && (
-                <div className="mt-8 pt-6 border-t border-white/[0.05] flex justify-center">
-                    <button onClick={() => setActiveTab("tickets")} className="text-[13px] font-medium text-neutral-500 hover:text-white transition-colors flex items-center gap-2 px-6 py-2 rounded-full hover:bg-white/[0.05]">
+                <div className="mt-8 pt-6 border-t border-secondary/10 flex justify-center">
+                    <button onClick={() => setActiveTab("tickets")} className="text-[13px] font-medium text-secondary hover:text-foreground transition-colors flex items-center gap-2 px-6 py-2 rounded-full hover:bg-secondary/10">
                         View all tickets <ArrowUpRightIcon className="h-3 w-3" />
                     </button>
                 </div>

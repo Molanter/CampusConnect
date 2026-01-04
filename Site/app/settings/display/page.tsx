@@ -66,7 +66,7 @@ export default function DisplayPage() {
         title: "text-2xl font-bold tracking-tight text-foreground",
         subtitle: "text-secondary text-[13px] font-medium leading-relaxed mt-1",
         section: "space-y-2.5",
-        card: "cc-glass cc-section rounded-[28px] overflow-hidden shadow-xl border border-secondary/15"
+        card: "cc-section overflow-hidden shadow-sm"
     };
 
     const themeOptions = [
@@ -139,8 +139,8 @@ export default function DisplayPage() {
                                             key={option.value}
                                             onClick={() => handleThemeChange(option.value)}
                                             className={`flex items-center justify-center h-10 w-10 rounded-xl transition-all ${isActive
-                                                    ? 'bg-brand text-brand-foreground shadow-md shadow-brand/20'
-                                                    : 'bg-secondary/10 hover:bg-secondary/15 text-secondary hover:text-foreground'
+                                                ? 'bg-brand text-brand-foreground shadow-md shadow-brand/20'
+                                                : 'bg-secondary/10 hover:bg-secondary/15 text-secondary hover:text-foreground'
                                                 }`}
                                             title={option.title}
                                         >

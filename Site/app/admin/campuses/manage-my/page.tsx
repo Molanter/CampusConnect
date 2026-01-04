@@ -89,7 +89,7 @@ const ui = {
     itemTitleInput: "w-full bg-transparent text-[15px] font-bold text-foreground placeholder:text-secondary/40 focus:outline-none",
     itemSubInput: "w-full bg-transparent text-[12px] font-medium text-secondary placeholder:text-secondary/30 focus:outline-none",
     // Selection Dropdown
-    dropdownBtn: "w-full flex items-center justify-between gap-3 px-5 py-3 rounded-2xl cc-glass border border-secondary/15 transition-all hover:bg-secondary/10 active:scale-[0.99]",
+    dropdownBtn: "w-full flex items-center justify-between gap-3 px-5 py-3 rounded-full cc-glass border border-secondary/15 transition-all hover:bg-secondary/10 active:scale-[0.99]",
     dropdownMenu: "absolute top-full mt-2 w-full z-50 overflow-hidden rounded-[24px] cc-glass border border-secondary/15 shadow-2xl animate-in fade-in zoom-in-95 duration-200",
     dropdownItem: "w-full text-left px-4 py-3 rounded-[16px] flex items-center justify-between transition-all",
     // Buttons
@@ -588,8 +588,12 @@ export default function ManageMyCampusPage() {
                                 className={ui.dropdownBtn}
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="h-6 w-6 rounded-lg bg-brand/20 flex items-center justify-center">
-                                        <BuildingOfficeIcon className="h-3.5 w-3.5 text-brand" />
+                                    <div className="h-6 w-6 rounded-full border border-brand/20 flex items-center justify-center overflow-hidden shrink-0">
+                                        {selectedCampus?.logoUrl ? (
+                                            <img src={selectedCampus.logoUrl} className="h-full w-full object-contain" alt="" />
+                                        ) : (
+                                            <BuildingOfficeIcon className="h-3.5 w-3.5 text-brand" />
+                                        )}
                                     </div>
                                     <span className="font-bold text-[13px] text-foreground">
                                         {selectedCampus?.name || "Select Campus"}
@@ -612,10 +616,19 @@ export default function ManageMyCampusPage() {
                                                     }}
                                                     className={`${ui.dropdownItem} ${selectedCampusId === c.id ? 'bg-secondary/10' : 'hover:bg-secondary/5'}`}
                                                 >
-                                                    <span className={`text-[13px] font-bold ${selectedCampusId === c.id ? 'text-foreground' : 'text-secondary'}`}>
-                                                        {c.name}
-                                                    </span>
-                                                    {selectedCampusId === c.id && <CheckIcon className="h-4 w-4 text-brand" />}
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <div className="h-5 w-5 rounded-full flex items-center justify-center overflow-hidden shrink-0">
+                                                            {c.logoUrl ? (
+                                                                <img src={c.logoUrl} className="h-full w-full object-contain" alt="" />
+                                                            ) : (
+                                                                <BuildingOfficeIcon className="h-3 w-3 text-secondary/50" />
+                                                            )}
+                                                        </div>
+                                                        <span className={`text-[13px] font-bold truncate ${selectedCampusId === c.id ? 'text-foreground' : 'text-secondary'}`}>
+                                                            {c.name}
+                                                        </span>
+                                                    </div>
+                                                    {selectedCampusId === c.id && <CheckIcon className="h-4 w-4 text-brand shrink-0" />}
                                                 </button>
                                             ))}
                                         </div>
@@ -642,7 +655,7 @@ export default function ManageMyCampusPage() {
                                 <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-secondary/10">
                                     <div className="p-5 flex flex-col items-center justify-center shrink-0">
                                         <div
-                                            className="relative h-28 w-28 rounded-[24px] overflow-hidden cc-glass cc-section border border-secondary/15 flex items-center justify-center cursor-pointer group hover:ring-2 hover:ring-brand/30 transition-all shadow-md"
+                                            className="relative h-28 w-28 rounded-[24px] overflow-hidden border border-secondary/15 flex items-center justify-center cursor-pointer group hover:ring-2 hover:ring-brand/30 transition-all shadow-md"
                                             onClick={() => document.getElementById(`campus-logo-input`)?.click()}
                                         >
                                             {campus.logoUrl ? (
@@ -725,7 +738,7 @@ export default function ManageMyCampusPage() {
                                             <div className={`${ui.card} flex-1`}>
                                                 <div className="flex items-center gap-4 p-4">
                                                     <div
-                                                        className="relative h-14 w-14 rounded-xl cc-glass cc-section border border-secondary/15 flex items-center justify-center cursor-pointer hover:ring-1 hover:ring-brand/30 transition-all overflow-hidden"
+                                                        className="relative h-14 w-14 rounded-xl border border-secondary/15 flex items-center justify-center cursor-pointer hover:ring-1 hover:ring-brand/30 transition-all overflow-hidden"
                                                         onClick={() => document.getElementById(`dorm-img-${i}`)?.click()}
                                                     >
                                                         {dorm.logoUrl ? (
@@ -788,7 +801,7 @@ export default function ManageMyCampusPage() {
                                         <div className={`${ui.card} flex-1`}>
                                             <div className="flex items-center gap-4 p-4">
                                                 <div
-                                                    className="relative h-14 w-14 rounded-xl cc-glass cc-section border border-secondary/15 flex items-center justify-center cursor-pointer hover:ring-1 hover:ring-brand/30 transition-all overflow-hidden"
+                                                    className="relative h-14 w-14 rounded-xl border border-secondary/15 flex items-center justify-center cursor-pointer hover:ring-1 hover:ring-brand/30 transition-all overflow-hidden"
                                                     onClick={() => document.getElementById(`club-img-${i}`)?.click()}
                                                 >
                                                     {club.logoUrl ? (

@@ -25,6 +25,9 @@ export interface Dorm {
     id?: string;
     name: string;
     locationId: string;
+    campusId?: string;
+    logoUrl?: string;
+    adminEmail?: string;
 }
 
 // Backward compatibility alias

@@ -13,11 +13,11 @@ import type { Post } from "@/lib/posts";
 import type { Club } from "@/lib/clubs";
 import { useAdminMode } from "@/components/admin-mode-context";
 import { useRightSidebar } from "@/components/right-sidebar-context";
-import { UserRow } from "@/components/user-row";
 import { ClubProfileView } from "@/components/clubs/club-profile-view";
 import { ClubTab } from "@/components/clubs/club-tabs";
 import { getCampusOrLegacy } from "@/lib/firestore-paths";
 import { Campus } from "@/lib/types/campus";
+
 
 type ViewMode = "requests" | "reports";
 type ReportTab = "posts" | "profiles" | "clubs";
@@ -66,7 +66,6 @@ export default function ModerationPage() {
     const [pendingClubs, setPendingClubs] = useState<Club[]>([]);
     const [clubsLoading, setClubsLoading] = useState(true);
     const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
-    const [activeClubTab, setActiveClubTab] = useState<ClubTab>("about");
 
     // Admin Context
     const [userCampusId, setUserCampusId] = useState<string | null>(null);
@@ -353,12 +352,12 @@ export default function ModerationPage() {
 
     if (!isAdmin || !adminModeOn) {
         return (
-            <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-background flex items-center justify-center p-4">
                 <div className="text-center">
                     <div className="mb-6">
-                        <h1 className="text-6xl font-bold text-white/20 mb-2">404</h1>
-                        <h2 className="text-2xl font-semibold text-white mb-2">No Access</h2>
-                        <p className="text-neutral-400">You do not have the right to access this page.</p>
+                        <h1 className="text-6xl font-bold text-secondary/20 mb-2">404</h1>
+                        <h2 className="text-2xl font-semibold text-foreground mb-2">No Access</h2>
+                        <p className="text-secondary">You do not have the right to access this page.</p>
                     </div>
                 </div>
             </div>
@@ -366,23 +365,23 @@ export default function ModerationPage() {
     }
 
     return (
-        <div className="min-h-[calc(100vh-64px)] text-white flex flex-col">
+        <div className="min-h-[calc(100vh-64px)] text-foreground flex flex-col">
             {/* Modal */}
             {confirmModal.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+                        className="fixed inset-0 bg-background/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
                         onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
                     ></div>
-                    <div className="relative w-full max-w-md bg-[#121212]/80 backdrop-blur-[50px] border border-white/10 rounded-[24px] shadow-2xl p-6 overflow-hidden animate-in fade-in zoom-in-95 duration-200 ring-1 ring-white/5">
+                    <div className="relative w-full max-w-md bg-popover/95 backdrop-blur-xl border border-secondary/20 rounded-[24px] shadow-2xl p-6 overflow-hidden animate-in fade-in zoom-in-95 duration-200 ring-1 ring-secondary/10">
                         <div className="flex flex-col gap-4">
                             <div>
-                                <h3 className="text-lg font-bold text-white mb-1">
+                                <h3 className="text-lg font-bold text-foreground mb-1">
                                     {confirmModal.type === "restore" && "Restore Post"}
                                     {confirmModal.type === "hide" && "Hide Post"}
                                     {confirmModal.type === "dismiss" && "Dismiss Reports"}
                                 </h3>
-                                <p className="text-neutral-400 text-[13px] leading-relaxed">
+                                <p className="text-secondary text-[13px] leading-relaxed">
                                     {confirmModal.type === "restore" && "Are you sure you want to restore this post? This will remove all reports and place it back in the feed."}
                                     {confirmModal.type === "hide" && "This post will be hidden from everyone except the author. A reason is required."}
                                     {confirmModal.type === "dismiss" && "This will clear all reports on the post without taking further action."}
@@ -391,7 +390,7 @@ export default function ModerationPage() {
 
                             {(confirmModal.type === "restore" || confirmModal.type === "hide") && (
                                 <div className="space-y-2">
-                                    <label className="block text-xs font-medium text-neutral-500 ml-1">
+                                    <label className="block text-xs font-medium text-secondary/80 ml-1">
                                         Reason (Required)
                                     </label>
                                     <textarea
@@ -399,7 +398,7 @@ export default function ModerationPage() {
                                         value={confirmModal.note}
                                         onChange={(e) => setConfirmModal(prev => ({ ...prev, note: e.target.value }))}
                                         placeholder={confirmModal.type === "hide" ? "Why is this post being hidden?" : "Why is this post being restored?"}
-                                        className="w-full bg-white/5 border border-white/10 rounded-[16px] p-3 text-white text-sm placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 min-h-[100px] resize-none transition-all"
+                                        className="w-full bg-secondary/10 border border-secondary/20 rounded-[16px] p-3 text-foreground text-sm placeholder:text-secondary/60 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand/50 min-h-[100px] resize-none transition-all"
                                     />
                                 </div>
                             )}
@@ -407,16 +406,16 @@ export default function ModerationPage() {
                             <div className="flex gap-3 justify-end mt-2">
                                 <button
                                     onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                                    className="px-5 py-2.5 rounded-full text-xs font-medium text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
+                                    className="px-5 py-2.5 rounded-full text-xs font-medium text-secondary hover:text-foreground hover:bg-secondary/10 transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={executeModerationAction}
                                     disabled={(confirmModal.type === "restore" || confirmModal.type === "hide") && !confirmModal.note.trim()}
-                                    className={`px-6 py-2.5 rounded-full text-xs font-bold text-black transition-all shadow-lg ${(confirmModal.type === "restore" || confirmModal.type === "hide") && !confirmModal.note.trim()
-                                        ? "bg-white/20 cursor-not-allowed opacity-50"
-                                        : "bg-white hover:bg-neutral-200 hover:scale-[1.02] active:scale-[0.98]"
+                                    className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all shadow-lg text-brand-foreground ${(confirmModal.type === "restore" || confirmModal.type === "hide") && !confirmModal.note.trim()
+                                        ? "bg-secondary/20 cursor-not-allowed opacity-50 text-secondary"
+                                        : "bg-brand hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
                                         }`}
                                 >
                                     Confirm {confirmModal.type === "hide" ? "Hide" : confirmModal.type === "restore" ? "Restore" : "Dismiss"}
@@ -430,27 +429,27 @@ export default function ModerationPage() {
             {/* Header / Nav */}
             <div className={`pt-8 md:pt-4 px-8 pb-0 shrink-0 transition-all duration-300`}>
                 <div className="mb-6">
-                    <h1 className="text-3xl font-bold mb-2">Moderation</h1>
-                    <p className="text-neutral-400">Manage reported content and requests.</p>
+                    <h1 className="text-3xl font-bold mb-2 text-foreground">Moderation</h1>
+                    <p className="text-secondary">Manage reported content and requests.</p>
                 </div>
 
-                <div className="flex gap-8 border-b border-white/10">
+                <div className="flex gap-8 border-b border-secondary/20">
                     <button
                         onClick={() => setViewMode("requests")}
-                        className={`pb-4 text-sm font-semibold transition-colors relative ${viewMode === "requests" ? "text-white" : "text-neutral-500 hover:text-neutral-300"}`}
+                        className={`pb-4 text-sm font-semibold transition-colors relative ${viewMode === "requests" ? "text-foreground" : "text-secondary hover:text-secondary/80"}`}
                     >
                         Club Requests
                         {viewMode === "requests" && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#ffb200]" />
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
                         )}
                     </button>
                     <button
                         onClick={() => setViewMode("reports")}
-                        className={`pb-4 text-sm font-semibold transition-colors relative ${viewMode === "reports" ? "text-white" : "text-neutral-500 hover:text-neutral-300"}`}
+                        className={`pb-4 text-sm font-semibold transition-colors relative ${viewMode === "reports" ? "text-foreground" : "text-secondary hover:text-secondary/80"}`}
                     >
                         Reports
                         {viewMode === "reports" && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#ffb200]" />
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
                         )}
                     </button>
                 </div>
@@ -461,17 +460,17 @@ export default function ModerationPage() {
                 {viewMode === "requests" && (
                     <div className="w-full h-full flex gap-8 relative">
                         {/* Requests Sidebar */}
-                        <div className="hidden md:flex flex-col sticky top-0 w-64 pt-4 px-2 bg-white/[0.02] border border-white/5 rounded-[1.8rem] h-fit max-h-[calc(100vh-120px)] z-10 overflow-hidden">
+                        <div className="hidden md:flex flex-col sticky top-0 w-64 pt-4 px-2 bg-card border border-secondary/15 rounded-[1.8rem] h-fit max-h-[calc(100vh-120px)] z-10 overflow-hidden">
                             <div className="px-4 py-2 mb-2">
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Pending Requests</h3>
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-secondary">Pending Requests</h3>
                             </div>
                             <div className="overflow-y-auto custom-scrollbar flex-1 space-y-1 pb-2">
                                 {clubsLoading ? (
                                     <div className="px-4 py-4 text-center">
-                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-700 border-t-[#ffb200] mx-auto" />
+                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-secondary/30 border-t-brand mx-auto" />
                                     </div>
                                 ) : pendingClubs.length === 0 ? (
-                                    <div className="px-4 py-8 text-center text-sm text-neutral-500">
+                                    <div className="px-4 py-8 text-center text-sm text-secondary">
                                         No pending requests
                                     </div>
                                 ) : (
@@ -480,24 +479,24 @@ export default function ModerationPage() {
                                             key={club.id}
                                             onClick={() => setSelectedClubId(club.id)}
                                             className={`w-full text-left px-3 py-2 rounded-[1.2rem] flex items-center gap-3 transition-all ${selectedClub?.id === club.id
-                                                ? "bg-white/10 shadow-sm"
-                                                : "hover:bg-white/5"
+                                                ? "bg-secondary/15 shadow-sm"
+                                                : "hover:bg-secondary/10"
                                                 }`}
                                         >
-                                            <div className="h-8 w-8 rounded-full overflow-hidden shrink-0 bg-neutral-800 border border-white/5">
+                                            <div className="h-8 w-8 rounded-full overflow-hidden shrink-0 bg-secondary/10 border border-secondary/20">
                                                 {club.profileImageUrl ? (
                                                     <img src={club.profileImageUrl} alt={club.name} className="h-full w-full object-cover object-center" />
                                                 ) : (
-                                                    <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-neutral-500">
+                                                    <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-secondary">
                                                         {club.name.charAt(0)}
                                                     </div>
                                                 )}
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className={`text-sm font-medium truncate ${selectedClub?.id === club.id ? "text-white" : "text-neutral-300"}`}>
+                                                <p className={`text-sm font-medium truncate ${selectedClub?.id === club.id ? "text-foreground" : "text-secondary"}`}>
                                                     {club.name}
                                                 </p>
-                                                <p className="text-[10px] text-neutral-500 truncate">
+                                                <p className="text-[10px] text-secondary/70 truncate">
                                                     {formatDistanceToNow(club.createdAt?.toDate?.() || new Date(), { addSuffix: true })}
                                                 </p>
                                             </div>
@@ -513,14 +512,14 @@ export default function ModerationPage() {
                                 {selectedClub ? (
                                     <div className="space-y-6 animate-in fade-in duration-300">
                                         {/* Moderation Actions Banner */}
-                                        <div className="flex items-center justify-between p-4 rounded-[24px] bg-[#ffb200]/10 border border-[#ffb200]/20 mb-6">
+                                        <div className="flex items-center justify-between p-4 rounded-[24px] bg-brand/10 border border-brand/20 mb-6">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-10 w-10 rounded-full bg-[#ffb200]/20 flex items-center justify-center">
-                                                    <CheckBadgeIcon className="h-6 w-6 text-[#ffb200]" />
+                                                <div className="h-10 w-10 rounded-full bg-brand/20 flex items-center justify-center">
+                                                    <CheckBadgeIcon className="h-6 w-6 text-brand" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-white text-sm">Pending Verification</p>
-                                                    <p className="text-neutral-400 text-xs text-wrap max-w-sm">Review this club's details and decide whether to approve it for the campus.</p>
+                                                    <p className="font-bold text-foreground text-sm">Pending Verification</p>
+                                                    <p className="text-secondary text-xs text-wrap max-w-sm">Review this club's details and decide whether to approve it for the campus.</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
@@ -533,7 +532,7 @@ export default function ModerationPage() {
                                                 </button>
                                                 <button
                                                     onClick={() => handleClubAction(selectedClub.id, 'approve')}
-                                                    className="px-5 py-2.5 rounded-full bg-[#ffb200] text-black hover:bg-[#ffb200]/80 font-bold text-sm transition-all shadow-lg hover:shadow-[#ffb200]/20 hover:scale-105 active:scale-95 flex items-center gap-2"
+                                                    className="px-5 py-2.5 rounded-full bg-brand text-brand-foreground hover:brightness-110 font-bold text-sm transition-all shadow-lg hover:shadow-brand/20 hover:scale-105 active:scale-95 flex items-center gap-2"
                                                 >
                                                     <CheckBadgeIcon className="h-5 w-5" />
                                                     Approve Club
@@ -545,7 +544,7 @@ export default function ModerationPage() {
                                             <ClubProfileView clubId={selectedClub.id} isModerationMode={true} />
                                         </div>
                                     </div>
-                                ) : (<div className="flex flex-col items-center justify-center py-20 text-neutral-500">
+                                ) : (<div className="flex flex-col items-center justify-center py-20 text-secondary">
                                     <UserGroupIcon className="h-16 w-16 mb-4 opacity-20" />
                                     <p className="text-lg font-medium">Select a club to view details</p>
                                 </div>
@@ -558,30 +557,30 @@ export default function ModerationPage() {
                 {viewMode === "reports" && (
                     <div className="w-full h-full flex gap-8 relative">
                         {/* Reports Sidebar - Sticky Inline */}
-                        <div className="hidden md:flex flex-col sticky top-0 w-64 pt-4 px-2 bg-white/[0.02] border border-white/5 rounded-[1.8rem] h-fit z-10">
+                        <div className="hidden md:flex flex-col sticky top-0 w-64 pt-4 px-2 bg-card border border-secondary/15 rounded-[1.8rem] h-fit z-10">
                             <div className="space-y-1 mb-2">
                                 <button
                                     onClick={() => setActiveReportTab("posts")}
                                     className={`w-full text-left px-4 py-3 rounded-[1.2rem] text-sm font-medium transition-all ${activeReportTab === "posts"
-                                        ? "bg-white/10 text-white shadow-sm"
-                                        : "text-neutral-400 hover:text-white hover:bg-white/5"
+                                        ? "bg-secondary/15 text-foreground shadow-sm"
+                                        : "text-secondary hover:text-foreground hover:bg-secondary/10"
                                         }`}
                                 >
                                     Posts
                                 </button>
                                 <button
                                     disabled
-                                    className="w-full text-left px-4 py-3 rounded-[1.2rem] text-sm font-medium transition-all text-neutral-600 cursor-not-allowed flex justify-between items-center"
+                                    className="w-full text-left px-4 py-3 rounded-[1.2rem] text-sm font-medium transition-all text-secondary/50 cursor-not-allowed flex justify-between items-center"
                                 >
                                     Profiles
-                                    <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-neutral-500">Soon</span>
+                                    <span className="text-[10px] bg-secondary/10 px-1.5 py-0.5 rounded text-secondary">Soon</span>
                                 </button>
                                 <button
                                     disabled
-                                    className="w-full text-left px-4 py-3 rounded-[1.2rem] text-sm font-medium transition-all text-neutral-600 cursor-not-allowed flex justify-between items-center"
+                                    className="w-full text-left px-4 py-3 rounded-[1.2rem] text-sm font-medium transition-all text-secondary/50 cursor-not-allowed flex justify-between items-center"
                                 >
                                     Clubs
-                                    <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-neutral-500">Soon</span>
+                                    <span className="text-[10px] bg-secondary/10 px-1.5 py-0.5 rounded text-secondary">Soon</span>
                                 </button>
                             </div>
                         </div>
@@ -592,10 +591,10 @@ export default function ModerationPage() {
                                 {/* Campus Filter for Reports */}
                                 {availableCampuses.length > 0 && (
                                     <div className="mb-6 flex gap-3 items-center">
-                                        <label className="text-sm font-medium text-neutral-400">Filter:</label>
+                                        <label className="text-sm font-medium text-secondary">Filter:</label>
                                         {isCampusAdmin ? (
-                                            <div className="px-4 py-2.5 rounded-[14px] bg-white/5 border border-white/10 text-white backdrop-blur-xl shadow-lg cursor-default flex items-center gap-2">
-                                                <span className="font-semibold text-[#ffb200]">
+                                            <div className="px-4 py-2.5 rounded-[14px] bg-card border border-secondary/20 text-foreground backdrop-blur-xl shadow-lg cursor-default flex items-center gap-2">
+                                                <span className="font-semibold text-brand">
                                                     {availableCampuses.find(u => u.id === userCampusId)?.shortName || "Your Campus"}
                                                 </span>
                                             </div>
@@ -603,37 +602,37 @@ export default function ModerationPage() {
                                             <div className="relative z-20">
                                                 <button
                                                     onClick={() => setIsCampusDropdownOpen(!isCampusDropdownOpen)}
-                                                    className={`appearance-none pl-3 pr-8 py-2 rounded-full bg-white/5 border border-white/10 text-white text-xs font-medium backdrop-blur-[12px] hover:bg-white/10 transition-all focus:outline-none focus:ring-2 focus:ring-[#ffb200]/50 cursor-pointer min-w-[180px] text-left relative overflow-hidden group ${isCampusDropdownOpen ? 'bg-white/10' : ''}`}
+                                                    className={`appearance-none pl-3 pr-8 py-2 rounded-full bg-card border border-secondary/20 text-foreground text-xs font-medium backdrop-blur-xl hover:bg-secondary/10 transition-all focus:outline-none focus:ring-2 focus:ring-brand/50 cursor-pointer min-w-[180px] text-left relative overflow-hidden group ${isCampusDropdownOpen ? 'bg-secondary/20' : ''}`}
                                                 >
                                                     <span className="block truncate flex items-center gap-2 relative z-10">
                                                         {selectedCampus === "all"
                                                             ? "All Campuses"
                                                             : availableCampuses.find(u => u.id === selectedCampus)?.name || "Select Campus"
                                                         }
-                                                    </span>
-                                                    <span className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-white/50 group-hover:text-white transition-colors duration-300">
-                                                        <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform duration-500 ${isCampusDropdownOpen ? 'rotate-180' : ''}`} />
+                                                        <span className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-secondary group-hover:text-foreground transition-colors duration-300">
+                                                            <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform duration-500 ${isCampusDropdownOpen ? 'rotate-180' : ''}`} />
+                                                        </span>
                                                     </span>
                                                 </button>
 
                                                 {isCampusDropdownOpen && (
                                                     <>
                                                         <div className="fixed inset-0 z-10 cursor-default" onClick={() => setIsCampusDropdownOpen(false)} />
-                                                        <div className="absolute left-0 mt-2 w-full min-w-[220px] max-h-[260px] overflow-y-auto rounded-[20px] bg-[#121212]/95 backdrop-blur-xl border border-white/10 shadow-2xl z-30 p-1.5 custom-scrollbar">
+                                                        <div className="absolute left-0 mt-2 w-full min-w-[220px] max-h-[260px] overflow-y-auto rounded-[20px] bg-popover/95 backdrop-blur-xl border border-secondary/15 shadow-2xl z-30 p-1.5 custom-scrollbar">
                                                             <button
                                                                 onClick={() => { setSelectedCampus("all"); setIsCampusDropdownOpen(false); }}
-                                                                className="w-full px-3 py-2.5 text-left text-[13px] font-medium rounded-full hover:bg-white/10 text-neutral-300 hover:text-white transition-all"
+                                                                className="w-full px-3 py-2.5 text-left text-[13px] font-medium rounded-full hover:bg-secondary/10 text-secondary hover:text-foreground transition-all"
                                                             >
                                                                 All Campuses
                                                             </button>
-                                                            <div className="h-px bg-white/10 my-1.5 mx-3" />
+                                                            <div className="h-px bg-secondary/10 my-1.5 mx-3" />
                                                             {availableCampuses.map(camp => (
                                                                 <button
                                                                     key={camp.id}
                                                                     onClick={() => { setSelectedCampus(camp.id); setIsCampusDropdownOpen(false); }}
-                                                                    className="w-full px-3 py-2.5 text-left text-[13px] rounded-full hover:bg-white/10 text-neutral-300 hover:text-white transition-all flex items-center gap-2"
+                                                                    className="w-full px-3 py-2.5 text-left text-[13px] rounded-full hover:bg-secondary/10 text-secondary hover:text-foreground transition-all flex items-center gap-2"
                                                                 >
-                                                                    {camp.logo ? <img src={camp.logo} className="w-5 h-5 object-contain" /> : <span className="text-[#ffb200] font-bold text-xs">{camp.shortName}</span>}
+                                                                    {camp.logo ? <img src={camp.logo} className="w-5 h-5 object-contain" /> : <span className="text-brand font-bold text-xs">{camp.shortName}</span>}
                                                                     <span className="truncate">{camp.name}</span>
                                                                 </button>
                                                             ))}
@@ -649,7 +648,7 @@ export default function ModerationPage() {
                                     <div className="space-y-4">
                                         {[1, 2, 3].map(i => (
                                             <div key={i} className="animate-pulse">
-                                                <div className="rounded-2xl bg-neutral-900/50 p-6 h-32" />
+                                                <div className="rounded-2xl bg-secondary/5 p-6 h-32" />
                                             </div>
                                         ))}
                                     </div>
@@ -659,8 +658,8 @@ export default function ModerationPage() {
                                     </div>
                                 ) : sortedQueueItems.length === 0 ? (
                                     <div className="text-center py-16">
-                                        <CheckCircleIcon className="h-16 w-16 text-green-400 mx-auto mb-4" />
-                                        <p className="text-xl text-neutral-300">No content reports found.</p>
+                                        <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                                        <p className="text-xl text-secondary">No content reports found.</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
@@ -684,7 +683,7 @@ export default function ModerationPage() {
     );
 }
 
-// Subcomponent: ModerationQueueItem (Kept as is, simplified logic slightly for brevity where possible, largely identical)
+// Subcomponent: ModerationQueueItem
 interface ModerationQueueItemProps {
     item: QueueItemWithPost;
     onAction: (item: QueueItemWithPost, action: "restore" | "hide" | "dismiss") => void;
@@ -700,20 +699,20 @@ function ModerationQueueItem({ item, onAction, isProcessing, onReportClick }: Mo
     const INITIAL_REPORTERS_SHOWN = 3;
 
     return (
-        <div className="rounded-2xl bg-neutral-900/50 border border-white/10 p-6 hover:border-white/20 transition-colors">
+        <div className="rounded-2xl bg-card border border-secondary/15 p-6 hover:border-secondary/30 transition-colors">
             <div className="flex items-start gap-4">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-3 flex-wrap">
-                        <span className="text-sm font-bold text-red-400">
+                        <span className="text-sm font-bold text-red-500">
                             {item.reportsData?.length || 0} {(item.reportsData?.length || 0) === 1 ? "report" : "reports"}
                         </span>
                         {post?.visibility && (
-                            <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${post.visibility === "under_review" ? "bg-yellow-500/20 text-yellow-400" : "bg-neutral-500/20 text-neutral-400"}`}>
+                            <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${post.visibility === "under_review" ? "bg-yellow-500/15 text-yellow-500" : "bg-secondary/15 text-secondary"}`}>
                                 {post.visibility === "under_review" ? "Under Review" : post.visibility}
                             </span>
                         )}
                         {item.createdAt && (
-                            <span className="text-xs text-neutral-500">
+                            <span className="text-xs text-secondary">
                                 {formatDistanceToNow(item.createdAt.toDate(), { addSuffix: true })}
                             </span>
                         )}
@@ -727,7 +726,7 @@ function ModerationQueueItem({ item, onAction, isProcessing, onReportClick }: Mo
                                 />
                             ) : (
                                 item.campus.shortName && (
-                                    <span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-400 text-xs font-medium">
+                                    <span className="px-2 py-0.5 rounded-md bg-brand/10 text-brand text-xs font-medium">
                                         {item.campus.shortName}
                                     </span>
                                 )
@@ -738,23 +737,23 @@ function ModerationQueueItem({ item, onAction, isProcessing, onReportClick }: Mo
                     {post ? (
                         <button
                             onClick={() => router.push(`/posts/${post.id}`)}
-                            className="inline-flex items-center gap-1 text-sm text-[#ffb200] hover:text-[#ffa000] transition-colors font-medium"
+                            className="inline-flex items-center gap-1 text-sm text-brand hover:brightness-110 transition-colors font-medium"
                         >
                             View full post →
                         </button>
                     ) : (
-                        <p className="text-sm text-neutral-500 italic">Post not found or deleted</p>
+                        <p className="text-sm text-secondary italic">Post not found or deleted</p>
                     )}
 
                     {item.reportsData && item.reportsData.length > 0 && (
                         <div className="mt-3">
-                            <p className="text-xs text-neutral-500 mb-1">Reported by:</p>
+                            <p className="text-xs text-secondary mb-1">Reported by:</p>
                             <div className="flex flex-wrap gap-2">
                                 {(showAllReporters ? item.reportsData : item.reportsData.slice(0, INITIAL_REPORTERS_SHOWN)).map((report, idx) => (
                                     <button
                                         key={idx}
                                         onClick={() => onReportClick(report)}
-                                        className="px-2 py-1 rounded-full bg-neutral-800 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors cursor-pointer"
+                                        className="px-2 py-1 rounded-full bg-secondary/10 text-xs text-secondary hover:text-foreground hover:bg-secondary/20 transition-colors cursor-pointer"
                                     >
                                         @{report.username}
                                     </button>
@@ -762,7 +761,7 @@ function ModerationQueueItem({ item, onAction, isProcessing, onReportClick }: Mo
                                 {item.reportsData.length > INITIAL_REPORTERS_SHOWN && (
                                     <button
                                         onClick={() => setShowAllReporters(!showAllReporters)}
-                                        className="px-2 py-1 rounded-full bg-neutral-700/50 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-300 transition-colors"
+                                        className="px-2 py-1 rounded-full bg-secondary/5 text-xs text-secondary hover:bg-secondary/15 hover:text-foreground transition-colors"
                                     >
                                         {showAllReporters ? 'Show less' : `+ ${item.reportsData.length - INITIAL_REPORTERS_SHOWN} more`}
                                     </button>
@@ -773,10 +772,10 @@ function ModerationQueueItem({ item, onAction, isProcessing, onReportClick }: Mo
 
                     {item.reasonsBreakdown && Object.keys(item.reasonsBreakdown).length > 0 && (
                         <div className="mt-3">
-                            <p className="text-xs text-neutral-500 mb-1">Reasons:</p>
+                            <p className="text-xs text-secondary mb-1">Reasons:</p>
                             <div className="flex flex-wrap gap-2">
                                 {Object.entries(item.reasonsBreakdown).map(([reason, count]) => (
-                                    <span key={reason} className="px-2 py-1 rounded-md bg-red-500/10 text-xs text-red-400">
+                                    <span key={reason} className="px-2 py-1 rounded-md bg-red-500/10 text-xs text-red-500">
                                         {reason}: {count}
                                     </span>
                                 ))}
@@ -788,26 +787,26 @@ function ModerationQueueItem({ item, onAction, isProcessing, onReportClick }: Mo
                 <div className="relative">
                     <button
                         onClick={() => setShowMenu(!showMenu)}
-                        className={`p-2.5 rounded-full transition-all duration-300 ${showMenu ? "bg-white/20 text-white" : "bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"}`}
+                        className={`p-2.5 rounded-full transition-all duration-300 ${showMenu ? "bg-secondary/20 text-foreground" : "bg-secondary/5 text-secondary hover:bg-secondary/10 hover:text-foreground"}`}
                     >
                         <EllipsisVerticalIcon className="h-6 w-6" />
                     </button>
                     {showMenu && (
                         <>
                             <div className="fixed inset-0 z-40 cursor-default" onClick={() => setShowMenu(false)} />
-                            <div className="absolute right-0 mt-3 w-[220px] rounded-[20px] bg-[#121212]/95 backdrop-blur-xl border border-white/10 shadow-2xl z-50 overflow-hidden p-1.5 flex flex-col gap-1">
+                            <div className="absolute right-0 mt-3 w-[220px] rounded-[20px] bg-popover/95 backdrop-blur-xl border border-secondary/15 shadow-2xl z-50 overflow-hidden p-1.5 flex flex-col gap-1">
                                 <button
                                     onClick={() => { setShowMenu(false); onAction(item, "restore"); }}
                                     disabled={isProcessing || !post}
-                                    className="w-full px-3 py-2.5 text-left flex items-center gap-2.5 text-neutral-200 hover:bg-white/10 rounded-full disabled:opacity-40"
+                                    className="w-full px-3 py-2.5 text-left flex items-center gap-2.5 text-foreground hover:bg-secondary/10 rounded-full disabled:opacity-40"
                                 >
-                                    <CheckCircleIcon className="h-5 w-5 text-green-400" />
+                                    <CheckCircleIcon className="h-5 w-5 text-green-500" />
                                     Restore
                                 </button>
                                 <button
                                     onClick={() => { setShowMenu(false); onAction(item, "hide"); }}
                                     disabled={isProcessing || !post}
-                                    className="w-full px-3 py-2.5 text-left flex items-center gap-2.5 text-neutral-200 hover:bg-white/10 rounded-full disabled:opacity-40"
+                                    className="w-full px-3 py-2.5 text-left flex items-center gap-2.5 text-foreground hover:bg-secondary/10 rounded-full disabled:opacity-40"
                                 >
                                     <EyeSlashIcon className="h-5 w-5 text-yellow-500" />
                                     Hide from Feed
@@ -815,9 +814,9 @@ function ModerationQueueItem({ item, onAction, isProcessing, onReportClick }: Mo
                                 <button
                                     onClick={() => { setShowMenu(false); onAction(item, "dismiss"); }}
                                     disabled={isProcessing}
-                                    className="w-full px-3 py-2.5 text-left flex items-center gap-2.5 text-neutral-200 hover:bg-white/10 rounded-full disabled:opacity-40"
+                                    className="w-full px-3 py-2.5 text-left flex items-center gap-2.5 text-foreground hover:bg-secondary/10 rounded-full disabled:opacity-40"
                                 >
-                                    <XMarkIcon className="h-5 w-5 text-neutral-400" />
+                                    <XMarkIcon className="h-5 w-5 text-secondary" />
                                     Dismiss Reports
                                 </button>
                             </div>

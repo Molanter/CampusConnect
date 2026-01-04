@@ -155,10 +155,10 @@ export default function UserTicketsPage() {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case "open": return "bg-green-500/15 text-green-400 border-green-500/30";
-            case "in_progress": return "bg-blue-500/15 text-blue-400 border-blue-500/30";
-            case "resolved": return "bg-neutral-500/15 text-neutral-400 border-neutral-500/30";
-            default: return "bg-neutral-500/15 text-neutral-500 border-neutral-500/30";
+            case "open": return "bg-green-500/15 text-green-500 border-green-500/30";
+            case "in_progress": return "bg-blue-500/15 text-blue-500 border-blue-500/30";
+            case "resolved": return "bg-secondary/15 text-secondary border-secondary/30";
+            default: return "bg-secondary/15 text-secondary border-secondary/30";
         }
     };
 
@@ -166,28 +166,28 @@ export default function UserTicketsPage() {
         switch (status) {
             case "open": return "bg-green-500";
             case "in_progress": return "bg-blue-500";
-            case "resolved": return "bg-neutral-500";
-            default: return "bg-neutral-500";
+            case "resolved": return "bg-secondary";
+            default: return "bg-secondary";
         }
     };
 
     return (
         <>
-            <div className="text-white p-4 md:p-6 font-sans min-h-screen">
+            <div className="bg-background text-foreground p-4 md:p-6 font-sans min-h-screen">
                 <Toast toast={toast} onClear={() => setToast(null)} />
 
                 <div className="max-w-6xl mx-auto">
                     {/* Header */}
                     <header className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-4">
-                            <Link href="/settings" className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/[0.05] border border-white/[0.08] hover:bg-white/10 transition-colors">
-                                <ChevronLeftIcon className="h-4 w-4 text-neutral-400" />
+                            <Link href="/settings" className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-card border border-secondary/20 hover:bg-secondary/10 transition-colors">
+                                <ChevronLeftIcon className="h-4 w-4 text-secondary" />
                             </Link>
                             <h1 className="text-xl font-bold">My Support Tickets</h1>
                         </div>
                         <Link
                             href="/settings/help-support"
-                            className="flex items-center gap-2 bg-[#ffb200] text-black px-4 py-2.5 rounded-full font-semibold hover:bg-[#e6a000] transition-colors text-sm"
+                            className="flex items-center gap-2 bg-brand text-brand-foreground px-4 py-2.5 rounded-full font-semibold hover:bg-brand/90 transition-colors text-sm"
                         >
                             <PlusIcon className="h-4 w-4" />
                             <span className="hidden sm:inline">New Ticket</span>
@@ -197,31 +197,31 @@ export default function UserTicketsPage() {
                     {/* Split Panel Layout */}
                     <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
                         {/* Left Sidebar - Ticket List */}
-                        <div className={`w-full lg:w-80 flex-shrink-0 flex flex-col bg-white/[0.02] border border-white/[0.05] rounded-[1.5rem] overflow-hidden ${selectedTicketId ? 'hidden lg:flex' : 'flex'}`}>
+                        <div className={`w-full lg:w-80 flex-shrink-0 flex flex-col bg-card border border-secondary/15 rounded-[1.5rem] overflow-hidden ${selectedTicketId ? 'hidden lg:flex' : 'flex'}`}>
                             {/* Search */}
-                            <div className="p-3 border-b border-white/[0.05]">
+                            <div className="p-3 border-b border-secondary/15">
                                 <div className="relative">
-                                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-secondary" />
                                     <input
                                         type="text"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         placeholder="Search tickets..."
-                                        className="w-full pl-9 pr-4 py-2.5 rounded-full bg-white/5 border border-white/10 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-white/20 transition-colors"
+                                        className="w-full pl-9 pr-4 py-2.5 rounded-full bg-secondary/10 border border-secondary/20 text-sm text-foreground placeholder:text-secondary focus:outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/20 transition-colors"
                                     />
                                 </div>
                             </div>
                             <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
                                 {loading ? (
                                     <div className="flex items-center justify-center py-12">
-                                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-700 border-t-[#ffb200]" />
+                                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-secondary/30 border-t-brand" />
                                     </div>
                                 ) : !user ? (
-                                    <div className="text-center py-12 text-neutral-500 text-sm">Please log in</div>
+                                    <div className="text-center py-12 text-secondary text-sm">Please log in</div>
                                 ) : tickets.length === 0 ? (
                                     <div className="text-center py-12 px-4">
-                                        <p className="text-neutral-500 text-sm mb-3">No tickets yet</p>
-                                        <Link href="/settings/help-support" className="text-[#ffb200] text-sm hover:underline">
+                                        <p className="text-secondary text-sm mb-3">No tickets yet</p>
+                                        <Link href="/settings/help-support" className="text-brand text-sm hover:underline">
                                             Create one
                                         </Link>
                                     </div>
@@ -236,18 +236,18 @@ export default function UserTicketsPage() {
                                                 key={ticket.id}
                                                 onClick={() => setSelectedTicketId(ticket.id)}
                                                 className={`w-full text-left px-3 py-3 rounded-[1rem] transition-all ${selectedTicketId === ticket.id
-                                                    ? "bg-white/10 shadow-sm"
-                                                    : "hover:bg-white/5"
+                                                    ? "bg-secondary/15 shadow-sm"
+                                                    : "hover:bg-secondary/10"
                                                     }`}
                                             >
                                                 <div className="flex items-start gap-3">
                                                     <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${getPriorityDot(ticket.status)}`} />
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex items-center justify-between gap-2">
-                                                            <p className={`text-sm font-medium truncate ${selectedTicketId === ticket.id ? "text-white" : "text-neutral-300"}`}>
+                                                            <p className={`text-sm font-medium truncate ${selectedTicketId === ticket.id ? "text-foreground" : "text-secondary"}`}>
                                                                 {ticket.category}
                                                             </p>
-                                                            <span className="text-[10px] text-neutral-600 flex-shrink-0">
+                                                            <span className="text-[10px] text-secondary flex-shrink-0">
                                                                 {ticket.lastMessageAt?.toDate
                                                                     ? formatDistanceToNow(ticket.lastMessageAt.toDate(), { addSuffix: false }).replace("about ", "")
                                                                     : ticket.createdAt?.toDate
@@ -255,7 +255,7 @@ export default function UserTicketsPage() {
                                                                         : ""}
                                                             </span>
                                                         </div>
-                                                        <p className="text-[11px] text-neutral-600 line-clamp-1 mt-1">
+                                                        <p className="text-[11px] text-secondary/70 line-clamp-1 mt-1">
                                                             {ticket.message}
                                                         </p>
                                                     </div>
@@ -273,18 +273,18 @@ export default function UserTicketsPage() {
                                     {/* Chat Header */}
                                     <div className="flex items-center justify-between py-4 pl-1">
                                         {/* Left Capsule */}
-                                        <div className="flex items-center gap-3 bg-white/[0.05] border border-white/[0.08] rounded-full pl-2 pr-5 py-1.5">
+                                        <div className="flex items-center gap-3 bg-card border border-secondary/15 rounded-full pl-2 pr-5 py-1.5 backdrop-blur-3xl">
                                             {/* Back button for mobile */}
                                             <button
                                                 onClick={() => setSelectedTicketId(null)}
-                                                className="lg:hidden p-1.5 rounded-full hover:bg-white/10 text-neutral-400"
+                                                className="lg:hidden p-1.5 rounded-full hover:bg-secondary/10 text-secondary"
                                             >
                                                 <ChevronLeftIcon className="h-4 w-4" />
                                             </button>
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <h2 className="text-sm font-semibold text-white">{selectedTicket.category}</h2>
-                                                    <span className="text-[10px] text-neutral-500 font-mono">#{selectedTicket.id.slice(0, 6)}</span>
+                                                    <h2 className="text-sm font-semibold text-foreground">{selectedTicket.category}</h2>
+                                                    <span className="text-[10px] text-secondary font-mono">#{selectedTicket.id.slice(0, 6)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -299,13 +299,13 @@ export default function UserTicketsPage() {
                                         {/* Original Ticket Message */}
                                         <div className="flex items-end gap-3 flex-row-reverse">
                                             <div className="flex-1 flex justify-end">
-                                                <div className="inline-block max-w-[85%] rounded-2xl rounded-br-md bg-[#ffb200]/20 border border-[#ffb200]/20 px-4 py-3">
-                                                    <p className="whitespace-pre-wrap text-sm text-neutral-200 leading-relaxed">
+                                                <div className="inline-block max-w-[85%] rounded-2xl rounded-br-md bg-brand/15 border border-brand/20 px-4 py-3">
+                                                    <p className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
                                                         {selectedTicket.message}
                                                     </p>
                                                     {/* Attachments */}
                                                     {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
-                                                        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+                                                        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-brand/10">
                                                             {selectedTicket.attachments.map((url, idx) => (
                                                                 <button
                                                                     key={idx}
@@ -313,7 +313,7 @@ export default function UserTicketsPage() {
                                                                         setOverlayIndex(idx);
                                                                         setOverlayImage(url);
                                                                     }}
-                                                                    className="relative group rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-all"
+                                                                    className="relative group rounded-lg overflow-hidden border border-brand/20 hover:border-brand/40 transition-all"
                                                                 >
                                                                     <img src={url} alt={`Attachment ${idx + 1}`} className="h-20 w-20 object-cover" />
                                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -325,7 +325,7 @@ export default function UserTicketsPage() {
                                                     )}
                                                 </div>
                                             </div>
-                                            <span className="text-[10px] text-neutral-600 pb-1 flex-shrink-0">
+                                            <span className="text-[10px] text-secondary pb-1 flex-shrink-0">
                                                 {selectedTicket.createdAt?.toDate ? format(selectedTicket.createdAt.toDate(), "h:mm a") : ""}
                                             </span>
                                         </div>
@@ -335,15 +335,15 @@ export default function UserTicketsPage() {
                                             <div key={msg.id} className={`flex items-end gap-3 ${!msg.isStaff ? 'flex-row-reverse' : ''}`}>
                                                 <div className={`flex-1 ${!msg.isStaff ? 'flex justify-end' : ''}`}>
                                                     <div className={`inline-block max-w-[85%] rounded-2xl px-4 py-3 ${!msg.isStaff
-                                                        ? 'bg-[#ffb200]/20 border border-[#ffb200]/20 rounded-br-md'
-                                                        : 'bg-white/[0.06] border border-white/[0.08] rounded-bl-md'
+                                                        ? 'bg-brand/15 border border-brand/20 rounded-br-md'
+                                                        : 'bg-secondary/10 border border-secondary/10 rounded-bl-md'
                                                         }`}>
-                                                        <p className={`whitespace-pre-wrap text-sm leading-relaxed ${!msg.isStaff ? 'text-neutral-100' : 'text-neutral-200'}`}>
+                                                        <p className={`whitespace-pre-wrap text-sm leading-relaxed ${!msg.isStaff ? 'text-foreground' : 'text-foreground'}`}>
                                                             {msg.text}
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <span className="text-[10px] text-neutral-600 pb-1 flex-shrink-0">
+                                                <span className="text-[10px] text-secondary pb-1 flex-shrink-0">
                                                     {msg.createdAt?.toDate ? format(msg.createdAt.toDate(), "h:mm a") : "now"}
                                                 </span>
                                             </div>
@@ -351,7 +351,7 @@ export default function UserTicketsPage() {
 
                                         {selectedTicket.status === 'resolved' && (
                                             <div className="flex justify-center py-4">
-                                                <span className="text-xs text-neutral-500 bg-white/5 px-4 py-2 rounded-full border border-white/[0.08]">
+                                                <span className="text-xs text-secondary bg-secondary/10 px-4 py-2 rounded-full border border-secondary/20">
                                                     This ticket has been resolved
                                                 </span>
                                             </div>
@@ -368,12 +368,12 @@ export default function UserTicketsPage() {
                                                 value={newMessage}
                                                 onChange={(e) => setNewMessage(e.target.value)}
                                                 placeholder={selectedTicket.status === 'resolved' ? "Reply to reopen ticket..." : "Type a message..."}
-                                                className="w-full rounded-full bg-white/[0.05] border border-white/[0.08] pl-5 pr-14 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-white/20 transition-all"
+                                                className="w-full rounded-full bg-secondary/10 border border-secondary/20 pl-5 pr-14 py-3 text-sm text-foreground placeholder:text-secondary focus:outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/20 transition-all"
                                             />
                                             <button
                                                 type="submit"
                                                 disabled={!newMessage.trim() || sending}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#ffb200] text-black hover:bg-[#e6a000] disabled:bg-white/[0.05] disabled:text-neutral-600 transition-all"
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-brand text-brand-foreground hover:bg-brand/90 disabled:bg-secondary/20 disabled:text-secondary transition-all"
                                             >
                                                 <PaperAirplaneIcon className="h-4 w-4" />
                                             </button>
@@ -381,7 +381,7 @@ export default function UserTicketsPage() {
                                     </div>
                                 </>
                             ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-neutral-500">
+                                <div className="flex-1 flex flex-col items-center justify-center text-secondary">
                                     <ChatBubbleLeftRightIcon className="h-16 w-16 mb-4 opacity-20" />
                                     <p className="text-lg font-medium">Select a ticket to view</p>
                                 </div>
@@ -394,12 +394,12 @@ export default function UserTicketsPage() {
             {/* Image Overlay Modal */}
             {overlayImage && (
                 <div
-                    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+                    className="fixed inset-0 z-[100] bg-background/90 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-200"
                     onClick={() => setOverlayImage(null)}
                 >
                     <button
                         onClick={() => setOverlayImage(null)}
-                        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+                        className="absolute top-4 right-4 p-2 rounded-full bg-secondary/10 hover:bg-secondary/20 text-foreground transition-colors z-10"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
