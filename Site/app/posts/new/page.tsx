@@ -23,7 +23,9 @@ import Toast, { ToastData } from "@/components/Toast";
 import { PostCard } from "@/components/post-card";
 import { useRightSidebar } from "@/components/right-sidebar-context";
 import { useMainLayoutMetrics } from "@/components/main-layout-metrics-context";
-import { CalendarIcon, ClockIcon, QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
+import { CalendarIcon, ClockIcon, QuestionMarkCircleIcon, MegaphoneIcon, ChatBubbleBottomCenterTextIcon, BuildingLibraryIcon } from "@heroicons/react/24/outline";
+import { CheckBadgeIcon } from "@heroicons/react/24/solid";
+import { PostType } from "../../../lib/posts";
 
 type UserProfile = {
   preferredName?: string;
@@ -74,9 +76,11 @@ export default function CreateEventPage() {
   const [campusesLoading, setCampusesLoading] = useState(false);
 
   const [toast, setToast] = useState<ToastData | null>(null);
+  const [isCampusAdmin, setIsCampusAdmin] = useState(false);
 
   // Event form fields
-  const [isEvent, setIsEvent] = useState(false);
+  const [type, setType] = useState<PostType>("post");
+  const isEvent = type === "event";
 
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -98,14 +102,26 @@ export default function CreateEventPage() {
   const [showMapPreview, setShowMapPreview] = useState(true); // Toggle for map preview
 
   // Club posting state
-  const [userClubs, setUserClubs] = useState<{ id: string; name: string; role: string }[]>([]);
+  const [userClubs, setUserClubs] = useState<{
+    id: string;
+    name: string;
+    role: string;
+    allowMemberPosts?: boolean;
+    imageUrl?: string;
+    status?: string;
+    type?: string;
+    isVerified?: boolean;
+    category?: string;
+  }[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(initialClubId);
   const [loadingClubs, setLoadingClubs] = useState(false);
   const [selectedClubName, setSelectedClubName] = useState<string | null>(null);
+  const [isPostAsMenuOpen, setIsPostAsMenuOpen] = useState(false);
+  const [campusImageUrl, setCampusImageUrl] = useState<string | null>(null);
 
   // Active section state for visual feedback
   const [activeSection, setActiveSection] = useState<
-    "postAs" | "details" | "isEvent" | "eventDetails" | "extraInfo" | null
+    "postAs" | "details" | "type" | "eventDetails" | "extraInfo" | null
   >(null);
 
   // Right sidebar
@@ -273,6 +289,45 @@ export default function CreateEventPage() {
     void loadCampuses();
   }, []);
 
+  // ---- Check if User is Campus Admin ----
+  useEffect(() => {
+    const checkCampusAdmin = async () => {
+      if (!user || !profile?.campusId) {
+        setIsCampusAdmin(false);
+        return;
+      }
+
+      try {
+        // Fetch the campus/university document
+        const campusRef = doc(db, "universities", profile.campusId);
+        const campusSnap = await getDoc(campusRef);
+
+        if (campusSnap.exists()) {
+          const campusData = campusSnap.data();
+          const adminEmails = campusData.adminEmails || [];
+          const userEmail = user.email?.toLowerCase();
+
+          // Store campus image URL
+          setCampusImageUrl(campusData.logoUrl || campusData.imageUrl || null);
+
+          // Check if user's email is in the campus adminEmails array
+          if (userEmail && adminEmails.map((e: string) => e.toLowerCase()).includes(userEmail)) {
+            setIsCampusAdmin(true);
+          } else {
+            setIsCampusAdmin(false);
+          }
+        } else {
+          setIsCampusAdmin(false);
+        }
+      } catch (err) {
+        console.error("Error checking campus admin status:", err);
+        setIsCampusAdmin(false);
+      }
+    };
+
+    void checkCampusAdmin();
+  }, [user, profile?.campusId]);
+
   // ---- Load User's Clubs ----
   useEffect(() => {
     const loadUserClubs = async () => {
@@ -281,7 +336,17 @@ export default function CreateEventPage() {
       try {
         const { getUserClubs } = await import("../../../lib/clubs");
         const userClubsList = await getUserClubs(user.uid);
-        const availableClubs: { id: string; name: string; role: string }[] = [];
+        const availableClubs: {
+          id: string;
+          name: string;
+          role: string;
+          allowMemberPosts?: boolean;
+          imageUrl?: string;
+          status?: string;
+          type?: string;
+          isVerified?: boolean;
+          category?: string;
+        }[] = [];
 
         for (const club of userClubsList) {
           // Check membership for role and club settings
@@ -297,10 +362,17 @@ export default function CreateEventPage() {
               club.allowMemberPosts === true;
 
             if (canPost && memberData.status === "approved") {
+              const clubData = club as any;
               availableClubs.push({
                 id: club.id,
                 name: club.name,
                 role: memberData.role,
+                allowMemberPosts: club.allowMemberPosts,
+                imageUrl: clubData.logoUrl || clubData.coverImageUrl,
+                status: memberData.status,
+                type: clubData.type, // To differentiate dorms from clubs
+                isVerified: clubData.isVerified, // For verification badge
+                category: clubData.category, // For dorm detection
               });
             }
           }
@@ -332,6 +404,40 @@ export default function CreateEventPage() {
       setSelectedClubName(null);
     }
   }, [selectedClubId, userClubs]);
+
+  // Reset announcement type if user switches to context where announcements aren't allowed
+  useEffect(() => {
+    if (type !== "announcement") return;
+
+    let canPostAnnouncement = false;
+
+    // Announcements are ONLY for campus or club posts, NOT personal
+    if (selectedClubId === "campus") {
+      // Posting as campus - campus admins can post announcements
+      canPostAnnouncement = isCampusAdmin;
+    } else if (selectedClubId) {
+      // Posting as a club - check if user is owner/admin
+      const selectedClub = userClubs.find(c => c.id === selectedClubId);
+      if (selectedClub) {
+        canPostAnnouncement =
+          (selectedClub.role === "owner" || selectedClub.role === "admin") &&
+          selectedClub.allowMemberPosts !== true;
+      }
+    }
+    // If posting as personal (!selectedClubId), canPostAnnouncement stays false
+
+    // If announcements not allowed and currently selected, reset to "post"
+    if (!canPostAnnouncement) {
+      setType("post");
+    }
+  }, [selectedClubId, userClubs, isCampusAdmin, type]);
+
+  // Helper function to determine if a club is a dorm
+  const isDorm = (club: { type?: string; category?: string; name: string }) => {
+    return club.type === "dorm" ||
+      club.category?.toLowerCase() === "dorm" ||
+      club.name.toLowerCase().includes("dorm");
+  };
 
   // Determine university colors for this user (if any)
   const trimmedCampusName = (profile?.campus || "").trim();
@@ -448,6 +554,8 @@ export default function CreateEventPage() {
         // authorAvatarUrl removed
         createdAt: serverTimestamp(),
         likes: [],
+        seenCount: 0,
+        type,
         isEvent: isEvent,
         // Moderation fields
         visibility: "visible",
@@ -459,7 +567,19 @@ export default function CreateEventPage() {
       }
 
       if (selectedClubId) {
-        baseData.clubId = selectedClubId;
+        if (selectedClubId === "campus") {
+          // Posting as campus
+          baseData.ownerType = "campus";
+          baseData.campusId = profile?.campusId;
+          baseData.campusName = profile?.campus;
+          if (campusImageUrl) baseData.campusAvatarUrl = campusImageUrl;
+        } else {
+          // Posting as club
+          baseData.ownerType = "club";
+          baseData.clubId = selectedClubId;
+        }
+      } else {
+        baseData.ownerType = "personal";
       }
 
       if (isEvent) {
@@ -478,7 +598,7 @@ export default function CreateEventPage() {
       await addDoc(collection(db, "posts"), baseData);
 
       // 3. Redirect back
-      if (selectedClubId) {
+      if (selectedClubId && selectedClubId !== "campus") {
         router.push(`/clubs/${selectedClubId}`);
       } else {
         router.push("/");
@@ -556,31 +676,170 @@ export default function CreateEventPage() {
                 {/* Post As */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-secondary ml-1">Post As</label>
-                  <div
-                    className={clsx(
-                      "relative cc-section cc-radius-24 overflow-hidden transition-shadow",
-                      activeSection === "postAs" && "cc-shadow-soft"
-                    )}
-                    onFocusCapture={() => setActiveSection("postAs")}
-                    onClick={() => setActiveSection("postAs")}
-                  >
-                    <select
-                      value={selectedClubId || ""}
-                      onChange={(e) => setSelectedClubId(e.target.value || null)}
-                      className="w-full appearance-none bg-transparent px-4 py-3.5 text-sm text-foreground focus:outline-none"
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsPostAsMenuOpen(!isPostAsMenuOpen)}
+                      className={clsx(
+                        "w-full cc-section rounded-full transition-shadow flex items-center gap-3 px-4 py-3.5",
+                        activeSection === "postAs" && "cc-shadow-soft"
+                      )}
                     >
-                      <option value="" className="bg-surface-2 text-foreground">Personal (Your Account)</option>
-                      {userClubs.map((club) => (
-                        <option key={club.id} value={club.id} className="bg-surface-2 text-foreground">
-                          Club: {club.name} ({club.role})
-                        </option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-secondary">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                      {/* Display selected option */}
+                      {!selectedClubId && (
+                        <>
+                          <div className="h-10 w-10 rounded-full bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0">
+                            {profile?.photoURL || user?.photoURL ? (
+                              <img src={profile?.photoURL || user?.photoURL || ""} alt="Your avatar" className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-secondary">
+                                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          <span className="flex-1 text-left text-sm text-foreground">Personal (Your Account)</span>
+                        </>
+                      )}
+                      {selectedClubId === "campus" && (
+                        <>
+                          <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
+                            {campusImageUrl ? (
+                              <img src={campusImageUrl} alt="Campus logo" className="h-10 w-10 object-contain" />
+                            ) : (
+                              <BuildingLibraryIcon className="h-8 w-8 text-secondary" />
+                            )}
+                          </div>
+                          <span className="flex-1 text-left text-sm text-foreground">Campus: {profile?.campus}</span>
+                        </>
+                      )}
+                      {selectedClubId && selectedClubId !== "campus" && (() => {
+                        const selectedClub = userClubs.find(c => c.id === selectedClubId);
+                        return selectedClub ? (
+                          <>
+                            <div className="h-10 w-10 rounded-lg bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0">
+                              {selectedClub.imageUrl ? (
+                                <img src={selectedClub.imageUrl} alt={selectedClub.name} className="h-full w-full object-cover" />
+                              ) : isDorm(selectedClub) ? (
+                                <div className="h-full w-full flex items-center justify-center text-secondary">
+                                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                                  </svg>
+                                </div>
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center text-secondary">
+                                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-foreground">{selectedClub.name}</span>
+                                {selectedClub.isVerified && (
+                                  <CheckBadgeIcon className="h-4 w-4 text-brand" />
+                                )}
+                              </div>
+                              <span className="text-xs text-secondary capitalize">{selectedClub.role}</span>
+                            </div>
+                          </>
+                        ) : null;
+                      })()}
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={clsx("w-4 h-4 text-secondary transition-transform", isPostAsMenuOpen && "rotate-180")}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                       </svg>
-                    </div>
+                    </button>
+
+                    {/* Dropdown menu */}
+                    {isPostAsMenuOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 cc-section rounded-3xl overflow-hidden z-50 max-h-96 overflow-y-auto">
+                        {/* Personal account */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedClubId(null);
+                            setIsPostAsMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors"
+                        >
+                          <div className="h-10 w-10 rounded-full bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0">
+                            {profile?.photoURL || user?.photoURL ? (
+                              <img src={profile?.photoURL || user?.photoURL || ""} alt="Your avatar" className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-secondary">
+                                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          <span className="flex-1 text-left text-sm text-foreground">Personal (Your Account)</span>
+                        </button>
+
+                        {/* Campus option */}
+                        {isCampusAdmin && profile?.campus && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedClubId("campus");
+                              setIsPostAsMenuOpen(false);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors border-t border-secondary/10"
+                          >
+                            <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
+                              {campusImageUrl ? (
+                                <img src={campusImageUrl} alt="Campus logo" className="h-10 w-10 object-contain" />
+                              ) : (
+                                <BuildingLibraryIcon className="h-8 w-8 text-secondary" />
+                              )}
+                            </div>
+                            <span className="flex-1 text-left text-sm text-foreground">Campus: {profile.campus}</span>
+                          </button>
+                        )}
+
+                        {/* Clubs */}
+                        {userClubs.map((club) => (
+                          <button
+                            key={club.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedClubId(club.id);
+                              setIsPostAsMenuOpen(false);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors border-t border-secondary/10"
+                          >
+                            <div className="h-10 w-10 rounded-lg bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0">
+                              {club.imageUrl ? (
+                                <img src={club.imageUrl} alt={club.name} className="h-full w-full object-cover" />
+                              ) : isDorm(club) ? (
+                                <div className="h-full w-full flex items-center justify-center text-secondary">
+                                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                                  </svg>
+                                </div>
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center text-secondary">
+                                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-foreground">{club.name}</span>
+                                {club.isVerified && (
+                                  <CheckBadgeIcon className="h-4 w-4 text-brand" />
+                                )}
+                              </div>
+                              <span className="text-xs text-secondary capitalize">{club.role}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {loadingClubs && <p className="text-xs text-secondary animate-pulse ml-1">Loading clubs...</p>}
                 </div>
@@ -634,24 +893,65 @@ export default function CreateEventPage() {
                   </div>
                 </div>
 
-                {/* Is Event Toggle */}
-                <div
-                  className={clsx(
-                    "cc-section cc-radius-24 px-4 py-3 flex items-center justify-between transition-shadow",
-                    activeSection === "isEvent" && "cc-shadow-soft"
-                  )}
-                  onClick={() => setActiveSection("isEvent")}
-                >
-                  <span className="text-sm font-medium text-foreground">Is this an event?</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={isEvent}
-                    onClick={() => setIsEvent(!isEvent)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isEvent ? 'bg-brand' : 'bg-secondary/40'}`}
+                {/* Post Type Selector */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-secondary ml-1">Post Type</label>
+                  <div
+                    className={clsx(
+                      "cc-section cc-radius-24 p-1.5 flex transition-shadow",
+                      activeSection === "type" && "cc-shadow-soft"
+                    )}
+                    onClick={() => setActiveSection("type")}
                   >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEvent ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
+                    {(() => {
+                      // Determine if announcements should be available
+                      let canPostAnnouncement = false;
+
+                      // Announcements are ONLY for campus or club posts, NOT personal
+                      if (selectedClubId === "campus") {
+                        // Posting as campus - campus admins can post announcements
+                        canPostAnnouncement = isCampusAdmin;
+                      } else if (selectedClubId) {
+                        // Posting as a club - check if user is owner/admin
+                        const selectedClub = userClubs.find(c => c.id === selectedClubId);
+                        if (selectedClub) {
+                          // Only allow announcements if user is owner/admin
+                          // AND club doesn't allow all members to post (indicating official club posts)
+                          canPostAnnouncement =
+                            (selectedClub.role === "owner" || selectedClub.role === "admin") &&
+                            selectedClub.allowMemberPosts !== true;
+                        }
+                      }
+                      // If posting as personal (!selectedClubId), canPostAnnouncement stays false
+
+                      const postTypes = [
+                        { id: "post", label: "Post", icon: ChatBubbleBottomCenterTextIcon },
+                        { id: "event", label: "Event", icon: CalendarIcon },
+                      ];
+
+                      // Only add announcement if user can post announcements
+                      if (canPostAnnouncement) {
+                        postTypes.push({ id: "announcement", label: "Announcement", icon: MegaphoneIcon });
+                      }
+
+                      return postTypes.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setType(t.id as PostType)}
+                          className={clsx(
+                            "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-full transition-all",
+                            type === t.id
+                              ? "bg-brand text-brand-foreground shadow-sm"
+                              : "text-secondary hover:text-foreground hover:bg-secondary/5"
+                          )}
+                        >
+                          <t.icon className="h-4 w-4" />
+                          {t.label}
+                        </button>
+                      ));
+                    })()}
+                  </div>
                 </div>
 
                 {/* Event Logistics */}
@@ -848,12 +1148,19 @@ export default function CreateEventPage() {
                       endTime: endTime,
                       locationLabel: locationLabel,
 
-                      authorName: (selectedClubId ? userClubs.find(c => c.id === selectedClubId)?.name : profile?.preferredName) || user?.displayName || "You",
+                      authorName: (
+                        selectedClubId === "campus"
+                          ? profile?.campus
+                          : selectedClubId
+                            ? userClubs.find(c => c.id === selectedClubId)?.name
+                            : profile?.preferredName
+                      ) || user?.displayName || "You",
                       authorUsername: selectedClubId ? undefined : profile?.username,
                       authorAvatarUrl: selectedClubId ? undefined : (profile?.photoURL || user?.photoURL),
 
                       authorId: user?.uid || "user", // Dummy ID
                       coordinates: isEvent && showMapPreview && coordinates ? coordinates : undefined,
+                      type: type,
                       isEvent: isEvent,
                       likes: [],
                       goingUids: [],
@@ -861,8 +1168,14 @@ export default function CreateEventPage() {
                       notGoingUids: [],
                       commentsCount: 0,
                       repliesCommentsCount: 0,
-                      clubId: selectedClubId || undefined,
+                      clubId: (selectedClubId && selectedClubId !== "campus") ? selectedClubId : undefined,
                       createdAt: new Date() as any, // Mock timestamp
+                      isVerified: selectedClubId && selectedClubId !== "campus"
+                        ? userClubs.find(c => c.id === selectedClubId)?.isVerified
+                        : undefined,
+                      ownerType: selectedClubId === "campus" ? "campus" : selectedClubId ? "club" : "personal",
+                      campusName: selectedClubId === "campus" ? profile?.campus : undefined,
+                      campusAvatarUrl: selectedClubId === "campus" ? campusImageUrl || undefined : undefined,
                     }}
                     previewMode={true}
                     variant="threads"
@@ -877,8 +1190,8 @@ export default function CreateEventPage() {
             </div>
 
           </div>
-        </div>
-      </div>
+        </div >
+      </div >
     </>
   );
 }

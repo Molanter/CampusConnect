@@ -40,13 +40,15 @@ export function CompactPostCard({
         description: postDescription,
         content: postContent,
         imageUrls,
-        isEvent,
+        type,
         date,
         startTime,
         coordinates,
         likes = [],
         editCount = 0,
     } = post;
+
+    const isEvent = type === "event";
 
     const content = postDescription || postContent || "";
 

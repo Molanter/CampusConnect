@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { doc, onSnapshot, collection, query, orderBy, addDoc, serverTimestamp, updateDoc, Timestamp } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, onSnapshot, collection, query, orderBy, addDoc, serverTimestamp, updateDoc, Timestamp, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { format } from "date-fns";
-import { ChevronLeftIcon, PaperAirplaneIcon, CheckCircleIcon, ArrowPathIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
+import { ChevronLeftIcon, PaperAirplaneIcon, CheckCircleIcon, ArrowPathIcon, InformationCircleIcon, InboxIcon } from "@heroicons/react/24/outline";
 import Toast, { ToastData } from "@/components/Toast";
 import { useRightSidebar } from "@/components/right-sidebar-context";
 
@@ -48,8 +50,40 @@ export default function AdminTicketChatPage() {
     const [toast, setToast] = useState<ToastData | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    const [authLoading, setAuthLoading] = useState(true);
+    const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+    // Auth & Admin Check
     useEffect(() => {
-        if (!ticketId || typeof ticketId !== 'string') return;
+        const unsub = onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                setAuthLoading(false);
+                setIsAdmin(false);
+                return;
+            }
+
+            try {
+                const adminDoc = await getDoc(doc(db, "config", "admin"));
+                if (adminDoc.exists()) {
+                    const emails = adminDoc.data().globalAdminEmails || [];
+                    const emailList = emails.map((e: string) => e.toLowerCase());
+                    setIsAdmin(emailList.includes(user.email?.toLowerCase() || ""));
+                } else {
+                    setIsAdmin(false);
+                }
+            } catch (err) {
+                console.error("Admin check failed:", err);
+                setIsAdmin(false);
+            } finally {
+                setAuthLoading(false);
+            }
+        });
+        return () => unsub();
+    }, []);
+
+    // Real-time listener for ticket & messages
+    useEffect(() => {
+        if (!ticketId || typeof ticketId !== 'string' || isAdmin !== true) return;
 
         const ticketRef = doc(db, "supportTickets", ticketId);
         const unsubTicket = onSnapshot(ticketRef, (docSnap) => {
@@ -61,6 +95,8 @@ export default function AdminTicketChatPage() {
             } else {
                 setToast({ type: "error", message: "Ticket not found" });
             }
+        }, (err) => {
+            console.error("Ticket listener fail:", err);
         });
 
         const messagesRef = collection(db, "supportTickets", ticketId, "messages");
@@ -68,6 +104,8 @@ export default function AdminTicketChatPage() {
         const unsubMessages = onSnapshot(q, (snapshot) => {
             const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Message));
             setMessages(msgs);
+        }, (err) => {
+            console.error("Messages listener fail:", err);
         });
 
         return () => {
@@ -75,7 +113,7 @@ export default function AdminTicketChatPage() {
             unsubMessages();
             close(); // Close sidebar when leaving the page
         };
-    }, [ticketId, openView, close]);
+    }, [ticketId, openView, close, isAdmin]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -137,6 +175,39 @@ export default function AdminTicketChatPage() {
             default: return "bg-neutral-500/15 text-neutral-400 border-neutral-500/30";
         }
     };
+
+    if (authLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center text-neutral-400">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-blue-500" />
+                    <p className="text-sm font-medium animate-pulse">Verifying access...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (isAdmin !== true) {
+        return (
+            <div className="flex h-screen flex-col items-center justify-center gap-6 text-center px-6">
+                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center">
+                    <InboxIcon className="h-10 w-10 text-red-500/60" />
+                </div>
+                <div className="space-y-2">
+                    <h1 className="text-2xl font-bold text-white">Access Denied</h1>
+                    <p className="text-neutral-400 max-w-sm">
+                        You do not have permission to view this support ticket.
+                    </p>
+                </div>
+                <Link
+                    href="/admin/support"
+                    className="mt-4 px-6 py-2.5 rounded-full bg-white/[0.08] hover:bg-white/[0.12] text-white transition-all font-medium text-sm border border-white/[0.08]"
+                >
+                    Back to Support
+                </Link>
+            </div>
+        );
+    }
 
     if (!ticket) return <div className="flex items-center justify-center h-screen text-neutral-400">Loading ticket...</div>;
 

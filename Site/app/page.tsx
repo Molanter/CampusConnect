@@ -9,6 +9,9 @@ import { PostCard } from "@/components/post-card";
 import { PostComposer } from "@/components/post-composer";
 import { useRightSidebar } from "@/components/right-sidebar-context";
 import { useFeed } from "@/lib/hooks/use-feed";
+import { useSeenPosts } from "@/lib/hooks/useSeenPosts";
+import { useUserProfile } from "@/components/user-profiles-context";
+import { CheckCircleIcon } from "@heroicons/react/24/outline";
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -16,6 +19,9 @@ export default function HomePage() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const { posts, loading: postsLoading, error: postsError, hasMore, fetchMore, refresh } = useFeed(user);
+
+  const profile = useUserProfile(user?.uid);
+  const { seenPostIds } = useSeenPosts(user?.uid || null, profile?.campus || undefined);
 
   const { openView } = useRightSidebar();
   const observerTarget = useRef<HTMLDivElement | null>(null);
@@ -107,7 +113,33 @@ export default function HomePage() {
 
         {posts.length > 0 && (
           <section>
-            {posts.map((post) => (
+            {/* Unseen Posts */}
+            {posts.filter(p => !seenPostIds.has(p.id || "")).map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                variant="threads"
+                onCommentsClick={() => openView("comments", post)}
+                onLikesClick={() => openView("likes", post)}
+                onAttendanceClick={() => openView("attendance", post)}
+                onDetailsClick={() => openView("details", post)}
+                onDeleted={refresh}
+              />
+            ))}
+
+            {/* Spacer */}
+            {posts.some(p => seenPostIds.has(p.id || "")) && (
+              <div className="flex flex-col items-center justify-center py-8 text-center animate-fade-slide-in">
+                <div className="rounded-full bg-secondary/10 p-3 mb-3">
+                  <CheckCircleIcon className="h-8 w-8 text-secondary" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground">You're all caught up</h3>
+                <p className="text-sm text-muted">Previously seen posts</p>
+              </div>
+            )}
+
+            {/* Seen Posts */}
+            {posts.filter(p => seenPostIds.has(p.id || "")).map((post) => (
               <PostCard
                 key={post.id}
                 post={post}

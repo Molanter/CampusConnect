@@ -1,0 +1,65 @@
+// FIRESTORE SECURITY RULES - UPDATED FOR SEEN POSTS
+// Add these rules to your existing firestore.rules file
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==============================================
+    // USER SEEN POSTS SUBCOLLECTION (NEW)
+    // ==============================================
+    match /users/{uid}/seenPosts/{postId} {
+      // Users can only read their own seen posts
+      allow read: if request.auth != null && request.auth.uid == uid;
+      
+      // Users can create their own seen post records
+      // Must include seenAt timestamp and campusId
+      allow create: if request.auth != null 
+                    && request.auth.uid == uid
+                    && request.resource.data.keys().hasAll(['seenAt', 'campusId'])
+                    && request.resource.data.seenAt is timestamp
+                    && request.resource.data.campusId is string;
+      
+      // Prevent updates (once seen, always seen)
+      allow update: if false;
+      
+      // Allow delete if user wants to "unsee" (optional - set to false if not needed)
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    
+    // ==============================================
+    // POSTS COLLECTION - seenCount RESTRICTIONS
+    // ==============================================
+    match /posts/{postId} {
+      // Anyone can read posts
+      allow read: if true;
+      
+      // Users can create posts
+      allow create: if request.auth != null
+                    && request.resource.data.authorId == request.auth.uid
+                    && request.resource.data.seenCount == 0; // Must initialize to 0
+      
+      // Updates to posts
+      allow update: if request.auth != null && (
+        // Owner can update their post EXCEPT seenCount
+        (request.auth.uid == resource.data.authorId
+         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['seenCount']))
+        ||
+        // Admin can moderate (add your admin check here)
+        // isAdmin()
+        false
+      );
+      // NOTE: seenCount updates are ONLY allowed from Cloud Function (server-side)
+      // Client CANNOT increment seenCount
+      
+      // Owner can delete their post
+      allow delete: if request.auth != null 
+                    && request.auth.uid == resource.data.authorId;
+    }
+  }
+}
+
+// CHANGES SUMMARY:
+// 1. Added users/{uid}/seenPosts/{postId} rules (create/read only, no updates)
+// 2. posts/{postId} update rule now DENIES any seenCount changes from client
+// 3. seenCount can ONLY be incremented by Cloud Function (server-side)

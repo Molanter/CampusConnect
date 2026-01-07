@@ -20,6 +20,8 @@ import {
 import { auth, db } from "../../../../lib/firebase";
 import Toast, { ToastData } from "@/components/Toast";
 import { ClubMember } from "@/lib/clubs";
+import { PostType } from "@/lib/posts";
+import { CalendarIcon, MegaphoneIcon, ChatBubbleBottomCenterTextIcon } from "@heroicons/react/24/outline";
 
 type UserProfile = {
     preferredName?: string;
@@ -91,7 +93,8 @@ export default function EditPostPage() {
     const [toast, setToast] = useState<ToastData | null>(null);
 
     // Form fields
-    const [isEvent, setIsEvent] = useState(false);
+    const [type, setType] = useState<PostType>("post");
+    const isEvent = type === "event";
     const [description, setDescription] = useState("");
     const [imageUrl, setImageUrl] = useState(""); // Kept for logic compatibility, effectively unused in multi-image flow
     const [eventDate, setEventDate] = useState("");
@@ -163,7 +166,7 @@ export default function EditPostPage() {
                         }
 
                         setDescription(data.description ?? data.content ?? "");
-                        setIsEvent(Boolean(data.isEvent));
+                        setType(data.type ?? (data.isEvent ? "event" : "post"));
                         setClubName(data.clubName ?? null);
 
                         // Images
@@ -305,6 +308,7 @@ export default function EditPostPage() {
 
             const updateData: any = {
                 description: description.trim(),
+                type: type,
                 isEvent: isEvent,
                 imageUrls: finalImageUrls,
                 editCount: increment(1),
@@ -424,18 +428,29 @@ export default function EditPostPage() {
                         </div>
                     </div>
 
-                    {/* Is Event Toggle */}
-                    <div className="cc-section cc-shadow-soft px-4 py-3 flex items-center justify-between">
-                        <span className="text-sm font-medium text-foreground">Is this an event?</span>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={isEvent}
-                            onClick={() => setIsEvent(!isEvent)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isEvent ? 'bg-brand' : 'bg-secondary/40'}`}
-                        >
-                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEvent ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
+                    {/* Post Type Selector */}
+                    <div className="space-y-2">
+                        <label className="ml-1 text-xs font-bold uppercase tracking-wider text-secondary">Post Type</label>
+                        <div className="cc-section cc-shadow-soft p-1.5 flex transition-shadow">
+                            {[
+                                { id: "post", label: "Post", icon: ChatBubbleBottomCenterTextIcon },
+                                { id: "event", label: "Event", icon: CalendarIcon },
+                                { id: "announcement", label: "Announcement", icon: MegaphoneIcon },
+                            ].map((t) => (
+                                <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => setType(t.id as PostType)}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-full transition-all ${type === t.id
+                                        ? "bg-brand text-brand-foreground shadow-sm"
+                                        : "text-secondary hover:text-foreground hover:bg-secondary/5"
+                                        }`}
+                                >
+                                    <t.icon className="h-4 w-4" />
+                                    {t.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Event Logistics */}

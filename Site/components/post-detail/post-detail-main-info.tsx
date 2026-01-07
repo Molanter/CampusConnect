@@ -55,7 +55,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
         authorAvatarUrl: hostAvatarUrl,
         authorId,
         likes = [],
-        isEvent,
+        type,
         createdAt,
         date,
         startTime: time = "",
@@ -66,6 +66,8 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
         clubId,
         editCount = 0
     } = post;
+
+    const isEvent = type === "event";
 
     const description = postDescription || postContent || "";
 

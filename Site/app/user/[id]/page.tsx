@@ -121,12 +121,16 @@ export default function UserProfilePage() {
 
         const items: Post[] = docs.map((doc) => {
           const data = doc.data();
+          const isEventLegacy = data.isEvent ?? true;
           return {
             id: doc.id,
             title: data.title,
             description: data.description,
             content: data.content ?? data.description ?? "",
-            isEvent: data.isEvent ?? true,
+
+            type: data.type ?? (isEventLegacy ? "event" : "post"),
+            isEvent: isEventLegacy,
+
             date: data.date,
             startTime: data.startTime,
             endTime: data.endTime,
@@ -341,6 +345,12 @@ export default function UserProfilePage() {
                       onDetailsClick={() => openView("details", post)}
                     />
                   ))}
+
+                  <div className="py-16 text-center">
+                    <p className="text-[13px] font-medium text-secondary/50">
+                      You&apos;ve reached the end of the feed
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

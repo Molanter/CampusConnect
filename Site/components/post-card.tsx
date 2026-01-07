@@ -9,13 +9,14 @@ import {
     HandThumbUpIcon,
     HeartIcon,
     QuestionMarkCircleIcon,
+    CheckBadgeIcon,
 } from "@heroicons/react/24/solid";
 import {
-    EllipsisVerticalIcon,
-    FlagIcon,
+    BuildingLibraryIcon,
+    EyeIcon,
     HeartIcon as HeartIconOutline,
     PencilIcon,
-    TrashIcon,
+    EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
 
 import { onAuthStateChanged } from "firebase/auth";
@@ -26,6 +27,7 @@ import { Post } from "../lib/posts";
 import { useRightSidebar } from "./right-sidebar-context";
 import { useUserProfile } from "./user-profiles-context";
 import { useClubProfile } from "./club-profiles-context";
+import { useSeenTracker } from "../lib/hooks/useSeenTracker";
 import { formatDistanceToNow } from "date-fns";
 
 type AttendanceStatus = "going" | "maybe" | "not_going" | null;
@@ -45,6 +47,7 @@ interface PostCardProps {
     hideCommentPreview?: boolean;
     variant?: "default" | "threads";
     onDeleted?: () => void;
+    isSeen?: boolean;
 }
 
 export function PostCard({
@@ -59,6 +62,7 @@ export function PostCard({
     hideCommentPreview = true, // keep off here; your original had preview complexity
     variant = "threads",
     onDeleted,
+    isSeen = false,
 }: PostCardProps) {
     const router = useRouter();
 
@@ -71,11 +75,17 @@ export function PostCard({
         startTime: time = "",
         authorId,
         likes = [],
-        isEvent,
+        type,
         createdAt,
         clubId,
         editCount = 0,
+        isVerified,
+        campusName,
+        campusAvatarUrl,
+        ownerType,
     } = post;
+
+    const isEvent = type === "event";
 
     const description = postDescription || postContent || "";
 
@@ -102,7 +112,11 @@ export function PostCard({
 
     const profile = useUserProfile(authorId);
     const clubProfile = useClubProfile(clubId && clubId !== "" ? clubId : undefined);
-    const isClubPost = !!(clubId && clubId !== "");
+
+    // Refactored ownership logic
+    const effectiveOwnerType = ownerType || (clubId ? "club" : campusName ? "campus" : "personal");
+    const isClubPost = effectiveOwnerType === "club";
+    const isCampusPost = effectiveOwnerType === "campus";
 
     const displayedName = profile?.displayName || "User";
     const displayedPhotoUrl = profile?.photoURL || null;
@@ -241,6 +255,17 @@ export function PostCard({
         return () => ro.disconnect();
     }, [description, lineLimit]);
 
+    // Seen / View tracking using new subcollection approach
+    const containerRef = useSeenTracker({
+        postId: id || "",
+        uid: currentUser?.uid || null,
+        campusId: profile?.campus || null,
+        isPreview: previewMode,
+        threshold: 0.5,
+        debounceMs: 600,
+    });
+
+
     const timeLabel = (() => {
         if (isEvent) {
             if (!date) return null;
@@ -279,9 +304,8 @@ export function PostCard({
     })();
 
     const handleToggleLike = async () => {
-        if (previewMode) return;
-
-        if (!id || !currentUser) return;
+        // In preview mode, allow animation but don't require currentUser or id
+        if (!previewMode && (!id || !currentUser)) return;
 
         setLikeAnimating(true);
         setTimeout(() => setLikeAnimating(false), 140);
@@ -291,6 +315,8 @@ export function PostCard({
 
         setIsLiked(!isLiked);
         setLikesCount((p) => (isLiked ? p - 1 : p + 1));
+
+        if (previewMode) return;
 
         try {
             await updateDoc(doc(db, "posts", id), {
@@ -346,11 +372,19 @@ export function PostCard({
     // ===== Threads variant (your feed uses this) =====
     if (variant === "threads") {
         return (
-            <div className={`relative border-b border-secondary/30 ${isNarrow ? "py-2.5" : "py-3"}`}>
+            <div ref={containerRef} className={`relative border-b border-secondary/30 ${isNarrow ? "py-2.5" : "py-3"}`}>
                 <div className="flex items-start gap-2.5">
                     {/* Avatar */}
                     <div className="shrink-0 self-start">
-                        {isClubPost ? (
+                        {isCampusPost ? (
+                            <div className="h-10 w-10 flex items-center justify-center">
+                                {campusAvatarUrl ? (
+                                    <img src={campusAvatarUrl} alt={campusName} className="h-full w-full object-contain" />
+                                ) : (
+                                    <BuildingLibraryIcon className="h-8 w-8 text-secondary" />
+                                )}
+                            </div>
+                        ) : isClubPost ? (
                             <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()}>
                                 <div className="h-10 w-10 overflow-hidden rounded-[12px] bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm">
                                     {clubProfile?.avatarUrl ? (
@@ -364,7 +398,7 @@ export function PostCard({
                             </Link>
                         ) : (
                             <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
-                                <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square">
+                                <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm">
                                     {displayedPhotoUrl ? (
                                         <img src={displayedPhotoUrl} alt={displayedName} className="!h-full !w-full object-cover object-center" />
                                     ) : (
@@ -382,11 +416,28 @@ export function PostCard({
                         <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                                 <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-                                    {isClubPost ? (
+                                    {isCampusPost ? (
                                         <>
-                                            <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-semibold text-foreground hover:underline">
-                                                {clubProfile?.name || "Club"}
-                                            </Link>
+                                            <div className="flex items-center gap-1 min-w-0">
+                                                <span className="truncate text-sm font-semibold text-foreground">
+                                                    {campusName || "Campus"}
+                                                </span>
+                                                <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
+                                            </div>
+                                            <span className="text-xs text-muted truncate">
+                                                by @{currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, "") : "user")}
+                                            </span>
+                                        </>
+                                    ) : isClubPost ? (
+                                        <>
+                                            <div className="flex items-center gap-1 min-w-0">
+                                                <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-semibold text-foreground hover:underline">
+                                                    {clubProfile?.name || "Club"}
+                                                </Link>
+                                                {isVerified && (
+                                                    <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
+                                                )}
+                                            </div>
                                             <span className="text-xs text-muted truncate">
                                                 by @{currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, "") : "user")}
                                             </span>
@@ -489,9 +540,9 @@ export function PostCard({
                                     className="group flex h-full items-center justify-center"
                                 >
                                     {isLiked ? (
-                                        <HeartIcon className={`${ACTION_ICON} text-brand transition-colors`} />
+                                        <HeartIcon className={`${ACTION_ICON} text-brand transition-colors ${likeAnimating ? "animate-like-pop" : ""}`} />
                                     ) : (
-                                        <HeartIconOutline className={`${ACTION_ICON} text-secondary group-hover:text-foreground transition-colors`} />
+                                        <HeartIconOutline className={`${ACTION_ICON} text-secondary group-hover:text-foreground transition-colors ${likeAnimating ? "animate-like-pop" : ""}`} />
                                     )}
                                 </button>
 
@@ -673,7 +724,7 @@ export function PostCard({
                                                         type="button"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            openView("report", { id, type: isEvent ? "event" : "post" });
+                                                            openView("report", { id, type });
                                                             setOptionsMenuOpen(false);
                                                         }}
                                                         className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-secondary hover:bg-secondary/20 hover:text-foreground transition-colors"

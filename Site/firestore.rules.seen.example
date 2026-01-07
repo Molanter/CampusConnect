@@ -1,0 +1,77 @@
+// Firestore Security Rules for Seen Posts Subcollection Approach
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns a document
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    
+    // ==============================================
+    // User Seen Posts Subcollection
+    // ==============================================
+    match /users/{uid}/seenPosts/{postId} {
+      // Allow users to read their own seen posts
+      allow read: if isOwner(uid);
+      
+      // Allow users to create their own seen post records
+      // Ensures seenAt and campusId are present
+      allow create: if isOwner(uid) 
+                    && request.resource.data.keys().hasAll(['seenAt', 'campusId'])
+                    && request.resource.data.seenAt is timestamp
+                    && request.resource.data.campusId is string;
+      
+      // Prevent updates and deletes (once seen, always seen)
+      allow update, delete: if false;
+    }
+    
+    // ==============================================
+    // Posts Collection
+    // ==============================================
+    match /posts/{postId} {
+      // Anyone can read visible posts
+      allow read: if true;
+      
+      // Users can create posts
+      allow create: if isSignedIn()
+                    && request.resource.data.authorId == request.auth.uid
+                    && request.resource.data.seenCount == 0; // Must start at 0
+      
+      // seenCount can only be incremented (not decremented or set arbitrarily)
+      // This rule allows increment operations via transactions
+      allow update: if isSignedIn()
+                    && (
+                      // Allow owner to update their own post content
+                      (request.auth.uid == resource.data.authorId
+                       && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['seenCount']))
+                      ||
+                      // Allow seenCount increment ONLY (via transaction from client)
+                      // This ensures seenCount only increases and matches the seen record creation
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenCount'])
+                       && request.resource.data.seenCount == resource.data.seenCount + 1)
+                    );
+      
+      // Allow post deletion by owner
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
+    }
+    
+    // ==============================================
+    // Other collections (unchanged from your existing rules)
+    // ==============================================
+    // Add your other collection rules here...
+  }
+}
+
+// NOTES:
+// 1. The seenCount increment rule allows +1 increments only, preventing abuse
+// 2. For maximum security, consider moving seenCount increment to a Cloud Function
+//    triggered onCreate of users/{uid}/seenPosts/{postId}
+// 3. Once a post is marked seen (seenPosts doc created), it cannot be un-seen
+// 4. The campusId requirement helps with analytics and potential campus-based filtering

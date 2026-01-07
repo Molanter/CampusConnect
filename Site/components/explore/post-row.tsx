@@ -9,7 +9,9 @@ interface PostRowProps {
 }
 
 export function PostRow({ post }: PostRowProps) {
-    const { title, content, authorName, authorUsername, imageUrls = [], createdAt, isEvent } = post;
+    const { title, content, authorName, authorUsername, imageUrls = [], createdAt, type } = post;
+    const isEvent = type === "event";
+    const isAnnouncement = type === "announcement";
 
     const photoURL = imageUrls?.[0] || (post as any).coverImageUrl;
     const effectiveContent = post.description || post.content || "";
@@ -43,6 +45,11 @@ export function PostRow({ post }: PostRowProps) {
                     {isEvent && (
                         <span className="rounded-full bg-brand/10 border border-brand/20 px-1.5 py-0.5 text-[8px] font-bold text-brand uppercase tracking-wider">
                             Event
+                        </span>
+                    )}
+                    {isAnnouncement && (
+                        <span className="rounded-full bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-[8px] font-bold text-purple-500 uppercase tracking-wider">
+                            Announcement
                         </span>
                     )}
                 </div>

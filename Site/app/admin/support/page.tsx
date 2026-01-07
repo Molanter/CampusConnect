@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
+import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, Timestamp, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { MagnifyingGlassIcon, FunnelIcon, ChartBarIcon, ClockIcon, CheckCircleIcon, InboxIcon, ArrowUpRightIcon, PaperAirplaneIcon, ArrowPathIcon, InformationCircleIcon, ChatBubbleLeftRightIcon, ChevronLeftIcon, Squares2X2Icon, TicketIcon } from "@heroicons/react/24/outline";
@@ -61,8 +62,47 @@ export default function AdminSupportPage() {
     const [overlayImage, setOverlayImage] = useState<string | null>(null);
     const [overlayIndex, setOverlayIndex] = useState<number>(0);
 
-    // Real-time listener for tickets
+    const [globalAdmins, setGlobalAdmins] = useState<string[]>([]);
+    const [authLoading, setAuthLoading] = useState(true);
+    const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+    // Initial Auth & Admin Check
     useEffect(() => {
+        const unsub = onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                setAuthLoading(false);
+                setIsAdmin(false);
+                return;
+            }
+
+            try {
+                // Fetch global admin list
+                const adminDoc = await getDoc(doc(db, "config", "admin"));
+                if (adminDoc.exists()) {
+                    const emails = adminDoc.data().globalAdminEmails || [];
+                    const emailList = emails.map((e: string) => e.toLowerCase());
+                    setGlobalAdmins(emailList);
+                    setIsAdmin(emailList.includes(user.email?.toLowerCase() || ""));
+                } else {
+                    setIsAdmin(false);
+                }
+            } catch (err) {
+                console.error("Admin check failed:", err);
+                setIsAdmin(false);
+            } finally {
+                setAuthLoading(false);
+            }
+        });
+        return () => unsub();
+    }, []);
+
+    // Real-time listener for tickets - only if admin
+    useEffect(() => {
+        if (isAdmin !== true) {
+            setLoading(false);
+            return;
+        }
+
         const q = query(
             collection(db, "supportTickets"),
             orderBy("createdAt", "desc")
@@ -106,9 +146,12 @@ export default function AdminSupportPage() {
             if (!selectedTicketId && fetched.length > 0 && activeTab === 'tickets') {
                 setSelectedTicketId(fetched[0].id);
             }
+        }, (err) => {
+            console.error("Tickets listener fail:", err);
+            setLoading(false);
         });
         return () => unsubscribe();
-    }, [activeTab]);
+    }, [activeTab, isAdmin]);
 
     // Fetch messages for selected ticket
     useEffect(() => {
@@ -168,7 +211,7 @@ export default function AdminSupportPage() {
         return ticket.email || "";
     };
 
-    // Filter logic
+    // Filter logic - MUST be before early returns to maintain hook order
     const filteredTickets = useMemo(() => tickets.filter(ticket => {
         const matchesStatus = filterStatus === "all" ? true : ticket.status === filterStatus;
         const userName = getUserName(ticket);
@@ -188,7 +231,7 @@ export default function AdminSupportPage() {
     // Current attachments for navigation
     const currentAttachments = selectedTicket?.attachments || [];
 
-    // Keyboard navigation for image overlay
+    // Keyboard navigation for image overlay - MUST be before early returns
     useEffect(() => {
         if (!overlayImage) return;
 
@@ -213,6 +256,42 @@ export default function AdminSupportPage() {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [overlayImage, overlayIndex, currentAttachments]);
+
+    // Authentication guards - MUST come after all hooks
+    if (authLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center text-secondary">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-secondary/20 border-t-brand" />
+                    <p className="text-sm font-medium animate-pulse">Verifying access...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (isAdmin !== true) {
+        return (
+            <div className="flex h-screen flex-col items-center justify-center gap-6 text-center px-6">
+                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center">
+                    <InboxIcon className="h-10 w-10 text-red-500/60" />
+                </div>
+                <div className="space-y-2">
+                    <h1 className="text-2xl font-bold text-foreground">Access Denied</h1>
+                    <p className="text-secondary max-w-sm">
+                        You do not have the necessary permissions to view support tickets.
+                        This area is restricted to global administrators.
+                    </p>
+                </div>
+                <Link
+                    href="/"
+                    className="mt-4 px-6 py-2.5 rounded-full bg-secondary/10 hover:bg-secondary/20 text-foreground transition-all font-medium text-sm"
+                >
+                    Return to Dashboard
+                </Link>
+            </div>
+        );
+    }
+
 
     const handleSendMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();

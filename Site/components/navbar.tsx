@@ -166,9 +166,12 @@ export function Navbar({
             {isAdmin && adminModeOn ? (
               <>
                 <NavItem href="/settings" icon={Cog6ToothIcon} label="Settings" isActive={pathname === "/settings"} />
+                <NavItem href="/posts/new" icon={PlusIcon} label="Create Post" isActive={pathname === "/posts/new"} />
                 <NavItem href="/admin/moderation" icon={ShieldCheckIcon} label="Moderation" isActive={pathname === "/admin/moderation"} />
                 <NavItem href={isGlobalAdminUser ? "/admin/campuses" : "/admin/campuses/manage-my"} icon={BuildingLibraryIcon} label="Manage Campuses" isActive={pathname.startsWith("/admin/campuses")} />
-                <NavItem href="/admin/support" icon={ChatBubbleLeftRightIcon} label="Support" isActive={pathname.startsWith("/admin/support")} />
+                {isGlobalAdminUser && (
+                  <NavItem href="/admin/support" icon={ChatBubbleLeftRightIcon} label="Support" isActive={pathname.startsWith("/admin/support")} />
+                )}
                 {isGlobalAdminUser && (
                   <NavItem href="/admin/config" icon={WrenchScrewdriverIcon} label="Config" isActive={pathname.startsWith("/admin/config")} />
                 )}
@@ -241,6 +244,17 @@ export function Navbar({
                 </Link>
 
                 <Link
+                  href="/posts/new"
+                  className={`inline-flex items-center rounded-full px-3 py-1.5 ${pathname === "/posts/new"
+                    ? "bg-[#ffb200] text-black shadow-sm"
+                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
+                    }`}
+                  title="Create Post"
+                >
+                  <PlusIcon className="h-5 w-5" />
+                </Link>
+
+                <Link
                   href="/admin/moderation"
                   className={`inline-flex items-center rounded-full px-3 py-1.5 ${pathname === "/admin/moderation"
                     ? "bg-[#ffb200] text-black shadow-sm"
@@ -262,16 +276,18 @@ export function Navbar({
                   <BuildingLibraryIcon className="h-5 w-5" />
                 </Link>
 
-                <Link
-                  href="/admin/support"
-                  className={`inline-flex items-center rounded-full px-3 py-1.5 ${pathname.startsWith("/admin/support")
-                    ? "bg-[#ffb200] text-black shadow-sm"
-                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
-                    }`}
-                  title="Support"
-                >
-                  <ChatBubbleLeftRightIcon className="h-5 w-5" />
-                </Link>
+                {isGlobalAdminUser && (
+                  <Link
+                    href="/admin/support"
+                    className={`inline-flex items-center rounded-full px-3 py-1.5 ${pathname.startsWith("/admin/support")
+                      ? "bg-[#ffb200] text-black shadow-sm"
+                      : "text-secondary hover:text-foreground hover:bg-secondary/10"
+                      }`}
+                    title="Support"
+                  >
+                    <ChatBubbleLeftRightIcon className="h-5 w-5" />
+                  </Link>
+                )}
 
                 {isGlobalAdminUser && (
                   <Link

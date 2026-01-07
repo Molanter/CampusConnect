@@ -106,6 +106,7 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                 authorId: user.uid,
                 description: content.trim(),
                 createdAt: serverTimestamp(),
+                type: "post",
                 isEvent: false,
                 likes: [],
                 visibility: "visible",

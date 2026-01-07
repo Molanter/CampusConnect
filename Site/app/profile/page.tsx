@@ -114,7 +114,7 @@ function ProfileContent({ user }: { user: User }) {
   const [clubsCount, setClubsCount] = useState(0);
 
   // Use the same feed as the main page, but filtered to only this user
-  const { posts: myPosts, loading: myPostsLoading } = useFeed(user, user.uid);
+  const { posts: myPosts, loading: myPostsLoading, hasMore: myPostsHasMore } = useFeed(user, user.uid);
 
   // Use collectionGroup for comments
   const {
@@ -266,12 +266,16 @@ function ProfileContent({ user }: { user: User }) {
     const mapDocs = (docs: any[]) => {
       return docs.map((doc) => {
         const data = doc.data();
+        const isEventLegacy = data.isEvent ?? true;
         return {
           id: doc.id,
           title: data.title,
           description: data.description,
           content: data.content ?? data.description ?? "",
-          isEvent: data.isEvent ?? true,
+
+          type: data.type ?? (isEventLegacy ? "event" : "post"),
+          isEvent: isEventLegacy,
+
           date: data.date,
           startTime: data.startTime,
           endTime: data.endTime,
@@ -492,6 +496,14 @@ function ProfileContent({ user }: { user: User }) {
                       onDetailsClick={() => openView("details", post)}
                     />
                   ))}
+
+                  {!myPostsHasMore && (
+                    <div className="py-16 text-center">
+                      <p className="text-[13px] font-medium text-secondary/50">
+                        You&apos;ve reached the end of the feed
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

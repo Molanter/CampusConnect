@@ -1,0 +1,19 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "seenPosts",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "campusId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "seenAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}
