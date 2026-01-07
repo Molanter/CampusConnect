@@ -7,9 +7,14 @@ import {
     TrashIcon,
     FlagIcon,
     EllipsisVerticalIcon,
-    CheckBadgeIcon
+    CheckBadgeIcon,
+    EyeIcon
 } from "@heroicons/react/24/solid";
-import { HeartIcon as HeartIconOutline, TrashIcon as TrashIconOutline } from "@heroicons/react/24/outline";
+import {
+    HeartIcon as HeartIconOutline,
+    TrashIcon as TrashIconOutline,
+    EyeIcon as EyeIconOutline
+} from "@heroicons/react/24/outline";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -26,7 +31,7 @@ import { Post } from "@/lib/posts";
 import { format, formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { getDoc } from "firebase/firestore";
-import { CalendarIcon, MapPinIcon } from "@heroicons/react/24/outline";
+import { CalendarIcon, MapPinIcon, BuildingLibraryIcon, MegaphoneIcon } from "@heroicons/react/24/outline";
 import { useUserProfile } from "@/components/user-profiles-context";
 import { useClubProfile } from "@/components/club-profiles-context";
 import { useRightSidebar } from "@/components/right-sidebar-context";
@@ -61,15 +66,41 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
         startTime: time = "",
         locationLabel: location,
         locationUrl,
+        coordinates,
         mood = [],
         priceLevel,
         clubId,
-        editCount = 0
+        editCount = 0,
+        campusName,
+        campusAvatarUrl,
+        ownerType,
+        isVerified,
+        seenCount = 0,
     } = post;
 
     const isEvent = type === "event";
+    const isAnnouncement = type === "announcement";
 
     const description = postDescription || postContent || "";
+
+    const profile = useUserProfile(authorId);
+    const clubProfile = useClubProfile(clubId && clubId !== "" ? clubId : undefined);
+
+    const effectiveOwnerType = ownerType || (clubId ? "club" : campusName ? "campus" : "personal");
+    const isClubPost = effectiveOwnerType === "club";
+    const isCampusPost = effectiveOwnerType === "campus";
+
+    const displayedName = profile?.displayName || "User";
+    const displayedPhotoUrl = profile?.photoURL || null;
+    const currentUsername = profile?.username;
+
+    // Helper function: full-text announcement highlight (Option A)
+    const getHighlightedText = (text: string, shouldHighlight: boolean) => {
+        if (!shouldHighlight || !text) return text;
+
+        // Wrap ENTIRE announcement text in one highlight span
+        return <span className="mark-announce">{text}</span>;
+    };
 
     const [status, setStatus] = useState<AttendanceStatus>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -82,14 +113,13 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
     const [isLiked, setIsLiked] = useState(false);
     const [likesCount, setLikesCount] = useState(likes.length);
     const [likeAnimating, setLikeAnimating] = useState(false);
+    const [liveSeenCount, setLiveSeenCount] = useState(seenCount);
     const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
+    const [locationMenuOpen, setLocationMenuOpen] = useState(false);
 
-    const profile = useUserProfile(authorId);
-    const clubProfile = useClubProfile(clubId && clubId !== "" ? clubId : undefined);
-
-    // CRITICAL: We enter club branding mode if we have a clubId, 
+    // CRITICAL: We enter club branding mode if we have a clubId,
     // regardless of whether the profile is loaded yet.
-    const isClubPost = !!(clubId && clubId !== "");
+    // const isClubPost = !!(clubId && clubId !== ""); // This line is now redundant due to effectiveOwnerType
 
     useEffect(() => {
         if (clubId && clubId !== "") {
@@ -101,9 +131,9 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
     }, [post.id, clubId, clubProfile, isClubPost, post]);
 
     // Final display values with fallbacks - strict "no-stale" policy
-    const displayedName = profile?.displayName || "User";
-    const displayedPhotoUrl = profile?.photoURL || null;
-    const currentUsername = profile?.username;
+    // const displayedName = profile?.displayName || "User"; // Redundant
+    // const displayedPhotoUrl = profile?.photoURL || null; // Redundant
+    // const currentUsername = profile?.username; // Redundant
 
     // Sync auth state
     useEffect(() => {
@@ -125,6 +155,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                     comments: (data.commentsCount || 0) + (data.repliesCommentsCount || 0)
                 });
                 setLikesCount(data.likes?.length || 0);
+                setLiveSeenCount(data.seenCount || 0);
                 if (currentUser) {
                     setIsLiked(data.likes?.includes(currentUser.uid));
                     if (data.goingUids?.includes(currentUser.uid)) setStatus("going");
@@ -220,26 +251,32 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
 
     return (
         <div className="space-y-4">
-            {/* Header: Chat-style Author row */}
+            {/* Header: Authorship Row (Synchronized with Feed PostCard) */}
             <div className="flex items-center gap-3">
-                {isClubPost ? (
-                    <Link href={`/clubs/${clubId}`}>
-                        <div className="shrink-0">
-                            <div className="h-9 w-9 overflow-hidden rounded-[10px] border border-secondary/30 bg-surface-2 aspect-square shadow-sm">
+                <div className="shrink-0">
+                    {isCampusPost ? (
+                        <div className="h-10 w-10 flex items-center justify-center">
+                            {campusAvatarUrl ? (
+                                <img src={campusAvatarUrl} alt={campusName} className="h-full w-full object-contain" />
+                            ) : (
+                                <BuildingLibraryIcon className="h-8 w-8 text-secondary" />
+                            )}
+                        </div>
+                    ) : isClubPost ? (
+                        <Link href={`/clubs/${clubId}`}>
+                            <div className="h-10 w-10 overflow-hidden rounded-[12px] border border-secondary/30 bg-surface-2 aspect-square shadow-sm">
                                 {clubProfile?.avatarUrl ? (
                                     <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="!h-full !w-full object-cover object-center" />
                                 ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-brand text-sm font-bold text-white">
-                                        {clubProfile?.name ? clubProfile.name.charAt(0).toUpperCase() : (clubId ? "C" : "?")}
+                                    <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
+                                        {clubProfile?.name ? clubProfile.name.charAt(0).toUpperCase() : "C"}
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    </Link>
-                ) : (
-                    <Link href={`/user/${authorId}`}>
-                        <div className="shrink-0">
-                            <div className="h-9 w-9 overflow-hidden rounded-full border border-secondary/30 bg-surface-2 aspect-square">
+                        </Link>
+                    ) : (
+                        <Link href={`/user/${authorId}`}>
+                            <div className="h-10 w-10 overflow-hidden rounded-full border border-secondary/30 bg-surface-2 aspect-square shadow-sm">
                                 {displayedPhotoUrl ? (
                                     <img
                                         src={displayedPhotoUrl}
@@ -252,43 +289,54 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    </Link>
-                )}
+                        </Link>
+                    )}
+                </div>
 
+                {/* Name/Info Column */}
                 <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                        {isClubPost ? (
+                        {isCampusPost ? (
                             <>
-                                <Link href={`/clubs/${clubId}`} className="text-[14px] font-bold text-foreground hover:underline decoration-secondary/30 flex items-center gap-1">
+                                <div className="flex items-center gap-1 min-w-0">
+                                    <span className="text-[14px] font-bold text-foreground truncate">
+                                        {campusName || "Campus"}
+                                    </span>
+                                    <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
+                                </div>
+                                <span className="text-xs text-muted truncate">
+                                    by @{currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, "") : "user")}
+                                </span>
+                            </>
+                        ) : isClubPost ? (
+                            <>
+                                <Link href={`/clubs/${clubId}`} className="text-sm font-bold text-foreground hover:underline decoration-secondary/30 flex items-center gap-1">
                                     {clubProfile?.name || "Club"}
-                                    {clubProfile?.isVerified && (
-                                        <CheckBadgeIcon className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                                    {isVerified && (
+                                        <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
                                     )}
                                 </Link>
-                                <Link href={`/user/${authorId}`} className="text-[13px] text-secondary hover:text-foreground truncate">
-                                    by {currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, '') : "user")}
-                                </Link>
+                                <span className="text-xs text-muted truncate">
+                                    by @{currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, '') : "user")}
+                                </span>
                             </>
                         ) : (
                             <Link
                                 href={`/user/${authorId}`}
                                 className="flex items-center gap-1.5 hover:underline decoration-secondary/30 truncate group"
                             >
-                                <span className="text-[14px] font-bold text-foreground truncate">
+                                <span className="text-sm font-bold text-foreground truncate">
                                     {displayedName}
                                 </span>
                                 {currentUsername && (
-                                    <>
-                                        <span className="text-[13px] text-secondary truncate group-hover:text-foreground">
-                                            @{currentUsername}
-                                        </span>
-                                    </>
+                                    <span className="text-xs text-muted truncate group-hover:text-foreground">
+                                        @{currentUsername}
+                                    </span>
                                 )}
                             </Link>
                         )}
-                        <span className="text-[13px] text-muted shrink-0">
-                            • {createdAt?.toDate ? formatDistanceToNow(createdAt.toDate(), { addSuffix: true }).replace("about ", "") : "just now"}
+                        <span className="text-xs text-muted shrink-0">
+                            • {createdAt?.toDate ? formatDistanceToNow(createdAt.toDate(), { addSuffix: false }).replace("about ", "") : "now"}
                         </span>
                     </div>
                 </div>
@@ -303,13 +351,13 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                 )}
                 {description && (
                     <div className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/90">
-                        {description}
+                        {isAnnouncement ? getHighlightedText(description, true) : description}
                     </div>
                 )}
             </div>
 
             {/* Actions Row (Matched to Feed PostCard) */}
-            <div className="flex items-center gap-0 ml-[-8px] mt-[-2px]">
+            <div className={`flex items-center gap-0 ml-[-8px] ${isAnnouncement ? "mt-2.5" : "mt-[-2px]"}`}>
                 {/* Like Button */}
                 <div className={`flex ${ACTION_BUTTON_HEIGHT} items-center justify-center rounded-full ${HOVER_BG} transition-colors ${likesCount > 0 ? "gap-1 px-2" : "w-8"}`}>
                     <button
@@ -367,6 +415,14 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                         <PencilIcon className={ACTION_ICON} />
                         <span className="text-xs font-medium">{editCount}</span>
                     </button>
+                )}
+
+                {/* View Count (Owner only) */}
+                {isOwner && (
+                    <div className={`flex ${ACTION_BUTTON_HEIGHT} items-center justify-center rounded-full px-2 text-secondary transition-colors gap-1.5 cursor-default`}>
+                        <EyeIconOutline className={ACTION_ICON} />
+                        <span className="text-xs font-medium">{liveSeenCount}</span>
+                    </div>
                 )}
 
                 {/* More Options */}
@@ -455,23 +511,55 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                         </div>
 
                         {/* Location Row */}
-                        <div className="flex items-start gap-2.5 text-sm">
-                            <MapPinIcon className="h-4 w-4 text-muted shrink-0 mt-0.5" />
-                            <div className="flex flex-col min-w-0">
-                                <span className="font-semibold text-foreground/80 truncate">
-                                    {location || "TBA"}
-                                </span>
-                                {locationUrl && (
-                                    <a
-                                        href={locationUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-[12px] text-blue-500 hover:text-blue-600 hover:underline mt-0.5 font-medium"
-                                    >
-                                        Open in Maps
-                                    </a>
-                                )}
-                            </div>
+                        <div className="relative">
+                            <button
+                                onClick={() => setLocationMenuOpen(!locationMenuOpen)}
+                                className={`flex items-start gap-2.5 text-sm w-full text-left rounded-lg transition-colors group ${locationMenuOpen ? "bg-secondary/10" : "hover:bg-secondary/5"}`}
+                            >
+                                <MapPinIcon className={`h-4 w-4 shrink-0 mt-0.5 transition-colors ${locationMenuOpen ? "text-brand" : "text-muted group-hover:text-foreground"}`} />
+                                <div className="flex flex-col min-w-0 py-0.5">
+                                    <span className={`font-semibold truncate transition-colors ${locationMenuOpen ? "text-brand" : "text-foreground/80 group-hover:text-foreground"}`}>
+                                        {location || "TBA"}
+                                    </span>
+                                </div>
+                            </button>
+
+                            {locationMenuOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setLocationMenuOpen(false)} />
+                                    <div className="absolute left-0 bottom-full z-50 mb-2 min-w-[200px] origin-bottom-left overflow-hidden cc-glass-strong cc-radius-menu shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 border border-secondary/10">
+                                        <div className="flex flex-col gap-0.5 p-1.5">
+                                            <a
+                                                href={coordinates ? `https://maps.apple.com/?ll=${coordinates.lat},${coordinates.lng}&q=${encodeURIComponent(location || "Location")}` : (locationUrl?.includes("apple") ? locationUrl : `https://maps.apple.com/?q=${encodeURIComponent(location || "Location")}`)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={() => setLocationMenuOpen(false)}
+                                                className="flex w-full items-center justify-between rounded-full px-4 py-2.5 text-[13px] font-medium text-foreground hover:bg-secondary/15 transition-colors"
+                                            >
+                                                <span>Open in Apple Maps</span>
+                                                <svg className="h-4 w-4 text-secondary/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+                                                    <line x1="8" y1="2" x2="8" y2="18" />
+                                                    <line x1="16" y1="6" x2="16" y2="22" />
+                                                </svg>
+                                            </a>
+                                            <div className="h-px bg-secondary/10 mx-2" />
+                                            <a
+                                                href={coordinates ? `https://www.google.com/maps/search/?api=1&query=${coordinates.lat},${coordinates.lng}` : (locationUrl?.includes("google") || locationUrl?.includes("goo.gl") ? locationUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location || "Location")}`)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={() => setLocationMenuOpen(false)}
+                                                className="flex w-full items-center justify-between rounded-full px-4 py-2.5 text-[13px] font-medium text-foreground hover:bg-secondary/15 transition-colors"
+                                            >
+                                                <span>Open in Google Maps</span>
+                                                <svg className="h-4 w-4 text-secondary/70" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z" />
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 

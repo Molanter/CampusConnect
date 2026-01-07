@@ -134,7 +134,7 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
 
     return (
         // SECTION COLOR CARD (light: white, dark: dark gray) + theme border
-        <div className="mb-6 cc-section cc-shadow-soft px-3 py-5 w-full @3xl:mx-auto @3xl:max-w-[600px]">
+        <div className="mb-6 cc-section cc-shadow-soft px-3 py-5 -mx-3">
             <div className="relative flex gap-3">
                 {/* Avatar with light stroke that adapts to theme */}
                 <div className="shrink-0 w-9 h-9">
@@ -170,7 +170,7 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                             {previewUrls.map((url, index) => (
                                 <div key={url} className="relative flex-shrink-0">
                                     {/* Media background = section color, + light stroke */}
-                                    <div className="h-20 w-20 rounded-xl bg-surface-2 border border-border overflow-hidden">
+                                    <div className="h-20 w-20 rounded-xl bg-surface-2 border-2 border-border overflow-hidden">
                                         <img
                                             src={url}
                                             alt={`Selected ${index + 1}`}

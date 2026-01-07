@@ -150,6 +150,14 @@ export function ClubProfileView({ clubId, isModerationMode = false }: ClubProfil
 
             const snap = await getDocs(q);
             const items = snap.docs.map(d => mapDocToPost(d));
+
+            // Final sort: Newest first
+            items.sort((a, b) => {
+                const timeA = a.createdAt?.seconds ?? a.createdAt?.toMillis?.() ?? 0;
+                const timeB = b.createdAt?.seconds ?? b.createdAt?.toMillis?.() ?? 0;
+                return timeB - timeA;
+            });
+
             setPosts(items);
         }
 
@@ -417,7 +425,7 @@ export function ClubProfileView({ clubId, isModerationMode = false }: ClubProfil
 
     return (
         <div className="w-full cc-page">
-            <div className={`mx-auto w-full ${isNarrow ? 'px-0 py-4' : 'max-w-4xl px-4 py-8'} pb-32 space-y-6`}>
+            <div className={`mx-auto w-full ${isNarrow ? 'px-3 py-4' : 'max-w-4xl px-4 py-8'} pb-32 space-y-6`}>
                 {club.status === 'hidden' && (
                     <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 mb-2">
                         <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />

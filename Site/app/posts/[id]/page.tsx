@@ -42,6 +42,7 @@ export default function PostDetailPage() {
                         title: data.title,
                         description: data.description,
                         content: data.content ?? data.description ?? "",
+                        type: data.type ?? (data.isEvent ? "event" : "post"),
                         isEvent: data.isEvent ?? true,
                         date: data.date,
                         startTime: data.startTime,
@@ -64,6 +65,10 @@ export default function PostDetailPage() {
                         clubId: data.clubId,
                         clubName: data.clubName,
                         clubAvatarUrl: data.clubAvatarUrl,
+                        campusName: data.campusName,
+                        campusAvatarUrl: data.campusAvatarUrl,
+                        ownerType: data.ownerType,
+                        isVerified: data.isVerified,
                     });
                 } else {
                     setError("Post not found");

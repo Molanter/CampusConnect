@@ -21,7 +21,8 @@ import { auth, db } from "../../../../lib/firebase";
 import Toast, { ToastData } from "@/components/Toast";
 import { ClubMember } from "@/lib/clubs";
 import { PostType } from "@/lib/posts";
-import { CalendarIcon, MegaphoneIcon, ChatBubbleBottomCenterTextIcon } from "@heroicons/react/24/outline";
+import { CalendarIcon, ClockIcon, QuestionMarkCircleIcon, MegaphoneIcon, ChatBubbleBottomCenterTextIcon } from "@heroicons/react/24/outline";
+import { useRightSidebar } from "@/components/right-sidebar-context";
 
 type UserProfile = {
     preferredName?: string;
@@ -34,53 +35,7 @@ type UserProfile = {
     photoURL?: string;
 };
 
-// Reusing MapHelpModal from create page for consistency
-function MapHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-md p-4">
-            <div className="relative w-full max-w-md overflow-hidden cc-radius-24 cc-glass-strong cc-glass-highlight">
-                <div className="flex items-center justify-between border-b border-secondary/10 p-4">
-                    <h3 className="text-lg font-bold text-foreground">How to get a Map Link</h3>
-                    <button
-                        onClick={onClose}
-                        className="rounded-full p-2 text-secondary hover:bg-secondary/10 hover:text-foreground transition-colors"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <div className="p-6 space-y-6">
-                    <div className="space-y-2">
-                        <h4 className="font-semibold text-foreground flex items-center gap-2">
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 5.42 7.72 14.73 8.06 15.13.19.23.53.23.72 0 .34-.4 8.06-9.71 8.06-15.13C20.5 3.81 16.69 0 12 0zm0 12.5c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" /></svg>
-                            Google Maps
-                        </h4>
-                        <p className="text-sm text-secondary">
-                            You can copy the URL from your browser's address bar, or use the "Share" button and click "Copy Link".
-                        </p>
-                        <code className="block rounded bg-secondary/10 p-2 text-xs text-secondary">
-                            maps.app.goo.gl/... or google.com/maps/...
-                        </code>
-                    </div>
-                    <div className="space-y-2">
-                        <h4 className="font-semibold text-foreground flex items-center gap-2">
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" /></svg>
-                            Apple Maps
-                        </h4>
-                        <p className="text-sm text-secondary">
-                            Select a location, click the "Share" button, and choose "Copy Link". It usually looks like:
-                        </p>
-                        <code className="block rounded bg-secondary/10 p-2 text-xs text-secondary">
-                            maps.apple.com/?...&ll=lat,lng...
-                        </code>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
+
 
 export default function EditPostPage() {
     const router = useRouter();
@@ -111,8 +66,8 @@ export default function EditPostPage() {
 
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
-    const [isMapHelpOpen, setIsMapHelpOpen] = useState(false);
     const [showMapPreview, setShowMapPreview] = useState(true);
+    const { openView } = useRightSidebar();
 
     // Club context (read-only for edit usually, but good to know)
     const [clubName, setClubName] = useState<string | null>(null);
@@ -178,7 +133,16 @@ export default function EditPostPage() {
                             setStartTime(data.startTime ?? "");
                             setEndTime(data.endTime ?? "");
                             setLocationLabel(data.locationLabel ?? "");
-                            setLocationUrl(data.locationUrl ?? "");
+
+                            // If we have coordinates but no URL, generate an Apple Maps link
+                            if (data.coordinates && !data.locationUrl) {
+                                const { lat, lng } = data.coordinates;
+                                const appleMapsUrl = `https://maps.apple.com/?ll=${lat},${lng}&q=${encodeURIComponent(data.locationLabel || "Location")}`;
+                                setLocationUrl(appleMapsUrl);
+                            } else {
+                                setLocationUrl(data.locationUrl ?? "");
+                            }
+
                             setCoordinates(data.coordinates ?? null);
 
                             // Try to find extra info in description if we don't have dedicated fields
@@ -200,45 +164,158 @@ export default function EditPostPage() {
         return () => unsub();
     }, [postId, router]);
 
-    // Helper to parse coordinates (Same as create page)
+    // Helper to parse coordinates (Enhanced for both Google and Apple Maps)
     const parseCoordinatesFromUrl = async (url: string) => {
         if (!url) return null;
         let targetUrl = url;
 
-        // Reuse parsing logic from create page
-        if (url.includes("goo.gl") || url.includes("maps.app.goo.gl")) {
+        // Expand shortened URLs (Google and Apple Maps)
+        const needsExpansion = url.includes("goo.gl") ||
+            url.includes("maps.app.goo.gl") ||
+            url.includes("maps.apple.com/p/") ||
+            url.includes("maps.apple/p/") ||
+            (url.includes("apple") && url.includes("/p/"));
+
+        if (needsExpansion) {
             try {
+                console.log("Expanding shortened URL:", url);
                 const res = await fetch(`/api/expand-map-url?url=${encodeURIComponent(url)}`);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.expandedUrl) targetUrl = data.expandedUrl;
+                    if (data.expandedUrl) {
+                        targetUrl = data.expandedUrl;
+                        console.log("Expanded to:", targetUrl);
+                    } else {
+                        console.log("API response did not contain expandedUrl:", data);
+                    }
+                } else {
+                    console.log("API returned error status:", res.status, await res.text());
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error("Failed to expand URL:", err);
+            }
         }
 
+        // Helper to extract label from URL
+        const extractLabel = (urlStr: string) => {
+            try {
+                const u = new URL(urlStr);
+                // Apple Maps name param
+                const nameParam = u.searchParams.get("name");
+                if (nameParam) return decodeURIComponent(nameParam.replace(/\+/g, " "));
+
+                // Google/Apple query param (if it's not JUST coordinates)
+                const qParam = u.searchParams.get("q");
+                if (qParam && !qParam.match(/^-?\d+\.\d+,-?\d+\.\d+$/)) {
+                    return decodeURIComponent(qParam.replace(/\+/g, " "));
+                }
+
+                // Google Maps place path
+                const placeMatch = urlStr.match(/\/place\/([^/@?]+)/);
+                if (placeMatch && placeMatch[1]) {
+                    return decodeURIComponent(placeMatch[1].replace(/\+/g, " "));
+                }
+            } catch (e) {
+                // Not a full URL or other error
+            }
+            return null;
+        };
+
+        const foundLabel = extractLabel(targetUrl) || extractLabel(url);
+
+        // Priority 1: Google Maps !3d and !4d params (most specific)
         const data3dRegex = /!3d(-?\d+\.\d+)/;
         const data4dRegex = /!4d(-?\d+\.\d+)/;
         const match3d = targetUrl.match(data3dRegex);
         const match4d = targetUrl.match(data4dRegex);
-        if (match3d && match4d) return { lat: parseFloat(match3d[1]), lng: parseFloat(match4d[1]) };
+        if (match3d && match4d) {
+            console.log("Found Google Maps !3d/!4d coordinates");
+            return {
+                lat: parseFloat(match3d[1]),
+                lng: parseFloat(match4d[1]),
+                label: foundLabel
+            };
+        }
 
+        // Priority 2: Google Maps @ format
         const googleRegex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
-        const matches = targetUrl.match(googleRegex);
-        if (matches) return { lat: parseFloat(matches[1]), lng: parseFloat(matches[2]) };
+        const googleMatch = targetUrl.match(googleRegex);
+        if (googleMatch) {
+            console.log("Found Google Maps @ coordinates");
+            return {
+                lat: parseFloat(googleMatch[1]),
+                lng: parseFloat(googleMatch[2]),
+                label: foundLabel
+            };
+        }
 
-        // ... simplified reuse ...
+        // Priority 3: Apple Maps coordinate= format (full place URLs)
+        const appleCoordinateRegex = /coordinate=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+        const appleCoordinateMatch = targetUrl.match(appleCoordinateRegex);
+        if (appleCoordinateMatch) {
+            console.log("Found Apple Maps coordinate= parameter");
+            return {
+                lat: parseFloat(appleCoordinateMatch[1]),
+                lng: parseFloat(appleCoordinateMatch[2]),
+                label: foundLabel
+            };
+        }
+
+        // Priority 4: Apple Maps ll= format (share URLs)
+        const appleRegex = /ll=(-?\d+\.\d+),(-?\d+\.\d+)/;
+        const appleMatch = targetUrl.match(appleRegex);
+        if (appleMatch) {
+            console.log("Found Apple Maps ll= coordinates");
+            return {
+                lat: parseFloat(appleMatch[1]),
+                lng: parseFloat(appleMatch[2]),
+                label: foundLabel
+            };
+        }
+
+        // Priority 5: Google Maps ?q= format
+        const googleQueryRegex = /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+        const googleQueryMatch = targetUrl.match(googleQueryRegex);
+        if (googleQueryMatch) {
+            console.log("Found Google Maps ?q= coordinates");
+            return {
+                lat: parseFloat(googleQueryMatch[1]),
+                lng: parseFloat(googleQueryMatch[2]),
+                label: foundLabel
+            };
+        }
+
+        console.log("No coordinate patterns matched in URL:", targetUrl);
         return null;
     };
 
     useEffect(() => {
         const parse = async () => {
-            // Only parse if URL changed and differs from what we might have loaded? 
-            // Actually just re-parsing is fine to ensure consistency
-            const coords = await parseCoordinatesFromUrl(locationUrl);
-            if (coords) setCoordinates(coords);
+            if (!locationUrl) {
+                // Clear coordinates if URL is removed
+                setCoordinates(null);
+                return;
+            }
+
+            const result = await parseCoordinatesFromUrl(locationUrl);
+            if (result) {
+                console.log("Parsed result:", result);
+                setCoordinates({ lat: result.lat, lng: result.lng });
+                if (result.label && !locationLabel) {
+                    setLocationLabel(result.label);
+                }
+            } else {
+                console.log("Could not parse coordinates from URL:", locationUrl);
+                // Don't clear coordinates if parsing fails - keep existing ones
+            }
         };
-        if (locationUrl) parse();
+        parse();
     }, [locationUrl]);
+
+    // Active section state for visual feedback
+    const [activeSection, setActiveSection] = useState<
+        "details" | "type" | "eventDetails" | "extraInfo" | null
+    >(null);
 
     // Image handling
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -317,13 +394,12 @@ export default function EditPostPage() {
 
             if (isEvent) {
                 Object.assign(updateData, {
-                    date: eventDate,
-                    startTime: startTime,
-                    endTime: endTime,
+                    date: eventDate.trim(),
+                    startTime: startTime.trim(),
+                    endTime: endTime.trim(),
                     locationLabel: locationLabel.trim(),
                     coordinates: coordinates,
-                    // keep locationUrl if we tracked it, otherwise it might be lost if we don't save it
-                    locationUrl: locationUrl,
+                    locationUrl: locationUrl.trim(),
                 });
             }
 
@@ -367,7 +443,15 @@ export default function EditPostPage() {
                     <p className="text-sm text-secondary">Update your post details.</p>
                 </header>
 
-                <form onSubmit={handleUpdate} className="space-y-6">
+                <form
+                    onSubmit={handleUpdate}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+                            e.preventDefault();
+                        }
+                    }}
+                    className="space-y-6"
+                >
 
                     {/* Context Info */}
                     {clubName && (
@@ -403,7 +487,7 @@ export default function EditPostPage() {
                                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                                     {/* Existing Images */}
                                     {existingImages.map((url, idx) => (
-                                        <div key={`exist-${idx}`} className="relative h-20 w-20 flex-shrink-0 overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary/10 group">
+                                        <div key={`exist-${idx}`} className="relative h-20 w-20 flex-shrink-0 overflow-hidden cc-radius-24 ring-2 ring-inset ring-secondary/25 bg-secondary/10 group">
                                             <img src={url} alt="Existing" className="h-full w-full object-cover" />
                                             <button type="button" onClick={() => removeExistingImage(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 cc-glass-strong text-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80 hover:text-white">
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
@@ -414,7 +498,7 @@ export default function EditPostPage() {
                                     ))}
                                     {/* New Images */}
                                     {previewUrls.map((url, idx) => (
-                                        <div key={`new-${idx}`} className="relative h-20 w-20 flex-shrink-0 overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary/10 group">
+                                        <div key={`new-${idx}`} className="relative h-20 w-20 flex-shrink-0 overflow-hidden cc-radius-24 ring-2 ring-inset ring-secondary/25 bg-secondary/10 group">
                                             <img src={url} alt="New Preview" className="h-full w-full object-cover" />
                                             <button type="button" onClick={() => removeNewImage(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 cc-glass-strong text-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80 hover:text-white">
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
@@ -457,43 +541,57 @@ export default function EditPostPage() {
                     {isEvent && (
                         <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                             <label className="ml-1 text-xs font-bold uppercase tracking-wider text-secondary">Event Details</label>
-                            <div className="cc-section cc-shadow-soft overflow-hidden divide-y divide-secondary/10">
+                            <div
+                                className={`cc-section cc-radius-24 overflow-hidden divide-y divide-secondary/10 transition-shadow ${activeSection === "eventDetails" ? "cc-shadow-soft" : ""
+                                    }`}
+                                onFocusCapture={() => setActiveSection("eventDetails")}
+                                onClick={() => setActiveSection("eventDetails")}
+                            >
                                 {/* Date */}
-                                <div className="flex items-center justify-between px-4 py-3.5 hover:bg-secondary/10 transition-colors">
+                                <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
                                     <span className="text-sm text-secondary">Date</span>
-                                    <input
-                                        type="date"
-                                        value={eventDate}
-                                        onChange={(e) => setEventDate(e.target.value)}
-                                        className="bg-transparent text-right text-sm text-foreground focus:outline-none focus:text-brand"
-                                        required={isEvent}
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            type="date"
+                                            value={eventDate}
+                                            onChange={(e) => setEventDate(e.target.value)}
+                                            className="cc-picker-input cursor-pointer"
+                                            required={isEvent}
+                                        />
+                                        <CalendarIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
+                                    </div>
                                 </div>
                                 {/* Start Time */}
-                                <div className="flex items-center justify-between px-4 py-3.5 hover:bg-secondary/10 transition-colors">
+                                <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
                                     <span className="text-sm text-secondary">Start Time</span>
-                                    <input
-                                        type="time"
-                                        value={startTime}
-                                        onChange={(e) => setStartTime(e.target.value)}
-                                        className="bg-transparent text-right text-sm text-foreground focus:outline-none focus:text-brand"
-                                        required={isEvent}
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            type="time"
+                                            value={startTime}
+                                            onChange={(e) => setStartTime(e.target.value)}
+                                            className="cc-picker-input cursor-pointer"
+                                            required={isEvent}
+                                        />
+                                        <ClockIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
+                                    </div>
                                 </div>
                                 {/* End Time */}
-                                <div className="flex items-center justify-between px-4 py-3.5 hover:bg-secondary/10 transition-colors">
+                                <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
                                     <span className="text-sm text-secondary">End Time</span>
-                                    <input
-                                        type="time"
-                                        value={endTime}
-                                        onChange={(e) => setEndTime(e.target.value)}
-                                        className="bg-transparent text-right text-sm text-foreground focus:outline-none focus:text-brand"
-                                        required={isEvent}
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            type="time"
+                                            value={endTime}
+                                            onChange={(e) => setEndTime(e.target.value)}
+                                            className="cc-picker-input cursor-pointer"
+                                            required={isEvent}
+                                        />
+                                        <ClockIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
+                                    </div>
                                 </div>
 
                                 {/* Location URL */}
-                                <div className="relative flex items-center px-4 py-1 hover:bg-secondary/10 transition-colors">
+                                <div className="relative flex items-center pl-4 pr-2.5 py-1 cc-row-hover focus-within:cc-row-active">
                                     <input
                                         value={locationUrl}
                                         onChange={(e) => setLocationUrl(e.target.value)}
@@ -502,20 +600,26 @@ export default function EditPostPage() {
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => setIsMapHelpOpen(true)}
-                                        className="ml-2 text-secondary hover:text-brand transition-colors"
+                                        onClick={() => openView("mapHelp", {})}
+                                        className="ml-2 flex flex-none items-center justify-center rounded-full p-1.5 text-secondary hover:bg-secondary/10 hover:text-foreground transition-colors"
                                         title="Help"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.06 5.312 5.312 0 017.56 0 .75.75 0 01-1.06 1.06 3.812 3.812 0 00-5.44 0zM8.94 13.06a.75.75 0 11-1.06-1.06 2.31 2.31 0 013.25 0 .75.75 0 01-1.06 1.06 1.5 1.5 0 00-1.13 0z" clipRule="evenodd" />
-                                        </svg>
+                                        <QuestionMarkCircleIcon className="h-5 w-5" />
                                     </button>
                                 </div>
+
+                                {/* Coordinates Display */}
+                                {coordinates && (
+                                    <div className="px-4 py-2 text-xs text-secondary border-t border-secondary/5">
+                                        <span className="font-mono">lat: {coordinates.lat}, lng: {coordinates.lng}</span>
+                                    </div>
+                                )}
+
                                 {/* Location Label */}
                                 <input
                                     value={locationLabel}
                                     onChange={(e) => setLocationLabel(e.target.value)}
-                                    className="w-full bg-transparent px-4 py-3.5 text-sm text-foreground placeholder:text-secondary focus:outline-none hover:bg-secondary/10 transition-colors"
+                                    className="w-full bg-transparent px-4 py-3.5 text-sm text-foreground placeholder:text-secondary focus:outline-none cc-row-hover focus-within:cc-row-active"
                                     placeholder="Location Label (e.g. Library)"
                                 />
                             </div>
@@ -547,7 +651,7 @@ export default function EditPostPage() {
 
                 </form>
 
-                <MapHelpModal isOpen={isMapHelpOpen} onClose={() => setIsMapHelpOpen(false)} />
+
             </div>
         </div>
     );

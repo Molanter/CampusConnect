@@ -220,6 +220,13 @@ export function useFeed(user: any, targetUserId?: string) {
 
             let newPosts = [...todayPosts, ...uniqueFeed.map(x => x.post)];
 
+            // Final sort: Newest Activity first
+            newPosts.sort((a, b) => {
+                const timeA = a.createdAt?.seconds ?? a.createdAt?.toMillis?.() ?? 0;
+                const timeB = b.createdAt?.seconds ?? b.createdAt?.toMillis?.() ?? 0;
+                return timeB - timeA;
+            });
+
             // Final safety filter: remove duplicates already in state if not initial
             if (!isInitial) {
                 setPosts(prev => {

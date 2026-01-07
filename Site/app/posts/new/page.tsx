@@ -139,97 +139,146 @@ export default function CreateEventPage() {
   // Helper to parse coordinates from Google/Apple Maps URL
   const parseCoordinatesFromUrl = async (url: string) => {
     if (!url) return null;
-
     let targetUrl = url;
 
-    // If it's a short Google Maps URL, expand it first
-    if (url.includes("goo.gl") || url.includes("maps.app.goo.gl")) {
+    // Expand shortened URLs (Google and Apple Maps)
+    const needsExpansion = url.includes("goo.gl") ||
+      url.includes("maps.app.goo.gl") ||
+      url.includes("maps.apple.com/p/") ||
+      url.includes("maps.apple/p/") ||
+      (url.includes("apple") && url.includes("/p/"));
+
+    if (needsExpansion) {
       try {
-        console.log("Expanding URL:", url);
+        console.log("Expanding shortened URL:", url);
         const res = await fetch(`/api/expand-map-url?url=${encodeURIComponent(url)}`);
         if (res.ok) {
           const data = await res.json();
-          console.log("Expanded data:", data);
           if (data.expandedUrl) {
             targetUrl = data.expandedUrl;
+            console.log("Expanded to:", targetUrl);
+          } else {
+            console.log("API response did not contain expandedUrl:", data);
           }
         } else {
-          console.error("Expansion failed:", res.status, res.statusText);
+          console.log("API returned error status:", res.status, await res.text());
         }
       } catch (err) {
-        console.error("Failed to expand map URL", err);
+        console.error("Failed to expand URL:", err);
       }
     }
 
-    console.log("Target URL for regex:", targetUrl);
+    // Helper to extract label from URL
+    const extractLabel = (urlStr: string) => {
+      try {
+        const u = new URL(urlStr);
+        // Apple Maps name param
+        const nameParam = u.searchParams.get("name");
+        if (nameParam) return decodeURIComponent(nameParam.replace(/\+/g, " "));
 
-    // Priority 1: Data params (!3d and !4d) - often used for specific pin location
-    // Format: ...!3d38.835848!4d-77.0828711...
+        // Google/Apple query param (if it's not JUST coordinates)
+        const qParam = u.searchParams.get("q");
+        if (qParam && !qParam.match(/^-?\d+\.\d+,-?\d+\.\d+$/)) {
+          return decodeURIComponent(qParam.replace(/\+/g, " "));
+        }
+
+        // Google Maps place path
+        const placeMatch = urlStr.match(/\/place\/([^/@?]+)/);
+        if (placeMatch && placeMatch[1]) {
+          return decodeURIComponent(placeMatch[1].replace(/\+/g, " "));
+        }
+      } catch (e) {
+        // Not a full URL or other error
+      }
+      return null;
+    };
+
+    const foundLabel = extractLabel(targetUrl) || extractLabel(url);
+
+    // Priority 1: Google Maps !3d and !4d params (most specific)
     const data3dRegex = /!3d(-?\d+\.\d+)/;
     const data4dRegex = /!4d(-?\d+\.\d+)/;
     const match3d = targetUrl.match(data3dRegex);
     const match4d = targetUrl.match(data4dRegex);
-
     if (match3d && match4d) {
+      console.log("Found Google Maps !3d/!4d coordinates");
       return {
         lat: parseFloat(match3d[1]),
         lng: parseFloat(match4d[1]),
+        label: foundLabel
       };
     }
 
-    // Google Maps: @lat,lng
+    // Priority 2: Google Maps @ format
     const googleRegex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
     const googleMatch = targetUrl.match(googleRegex);
     if (googleMatch) {
+      console.log("Found Google Maps @ coordinates");
       return {
         lat: parseFloat(googleMatch[1]),
         lng: parseFloat(googleMatch[2]),
+        label: foundLabel
       };
     }
 
-    // Google Maps: /search/lat,lng
-    const googleSearchRegex = /search\/(-?\d+\.\d+)[, ]\+?(-?\d+\.\d+)/;
-    const googleSearchMatch = targetUrl.match(googleSearchRegex);
-    if (googleSearchMatch) {
+    // Priority 3: Apple Maps coordinate= format (full place URLs)
+    const appleCoordinateRegex = /coordinate=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+    const appleCoordinateMatch = targetUrl.match(appleCoordinateRegex);
+    if (appleCoordinateMatch) {
+      console.log("Found Apple Maps coordinate= parameter");
       return {
-        lat: parseFloat(googleSearchMatch[1]),
-        lng: parseFloat(googleSearchMatch[2]),
+        lat: parseFloat(appleCoordinateMatch[1]),
+        lng: parseFloat(appleCoordinateMatch[2]),
+        label: foundLabel
       };
     }
 
-    // Google Maps: ?q=lat,lng
-    const googleQueryRegex = /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/;
-    const googleQueryMatch = targetUrl.match(googleQueryRegex);
-    if (googleQueryMatch) {
-      return {
-        lat: parseFloat(googleQueryMatch[1]),
-        lng: parseFloat(googleQueryMatch[2]),
-      };
-    }
-
-    // Apple Maps: ll=lat,lng
+    // Priority 4: Apple Maps ll= format (share URLs)
     const appleRegex = /ll=(-?\d+\.\d+),(-?\d+\.\d+)/;
     const appleMatch = targetUrl.match(appleRegex);
     if (appleMatch) {
+      console.log("Found Apple Maps ll= coordinates");
       return {
         lat: parseFloat(appleMatch[1]),
         lng: parseFloat(appleMatch[2]),
+        label: foundLabel
       };
     }
 
+    // Priority 5: Google Maps ?q= format
+    const googleQueryRegex = /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+    const googleQueryMatch = targetUrl.match(googleQueryRegex);
+    if (googleQueryMatch) {
+      console.log("Found Google Maps ?q= coordinates");
+      return {
+        lat: parseFloat(googleQueryMatch[1]),
+        lng: parseFloat(googleQueryMatch[2]),
+        label: foundLabel
+      };
+    }
+
+    console.log("No coordinate patterns matched in URL:", targetUrl);
     return null;
   };
 
   // Auto-parse coordinates when URL changes
   useEffect(() => {
     const parse = async () => {
-      const coords = await parseCoordinatesFromUrl(locationUrl);
-      if (coords) {
-        setCoordinates(coords);
+      if (!locationUrl) {
+        setCoordinates(null);
+        return;
+      }
+
+      const result = await parseCoordinatesFromUrl(locationUrl);
+      if (result) {
+        console.log("Parsed result:", result);
+        setCoordinates({ lat: result.lat, lng: result.lng });
+        if (result.label && !locationLabel) {
+          setLocationLabel(result.label);
+        }
       } else {
-        // Only clear if user cleared the URL, otherwise keep previous valid coords?
-        // Or clear if invalid? Let's clear if invalid to avoid mismatch.
-        if (!locationUrl) setCoordinates(null);
+        console.log("Could not parse coordinates from URL:", locationUrl);
+        // Don't clear coordinates if parsing fails - keep existing ones
       }
     };
     parse();
@@ -584,11 +633,14 @@ export default function CreateEventPage() {
 
       if (isEvent) {
         Object.assign(baseData, {
-          date: eventDate, // yyyy-mm-dd
-          startTime: startTime, // hh:mm
-          endTime: endTime, // hh:mm
+          date: eventDate.trim(), // yyyy-mm-dd
+          startTime: startTime.trim(), // hh:mm
+          endTime: endTime.trim(), // hh:mm
           locationLabel: locationLabel.trim(),
+          locationUrl: locationUrl.trim(),
           coordinates: coordinates,
+          dressCode: dressCode.trim(),
+          extraNotes: extraNotes.trim(),
           goingUids: [],
           maybeUids: [],
           notGoingUids: [],
@@ -671,7 +723,15 @@ export default function CreateEventPage() {
                 <p className="text-secondary text-sm">Share what's happening on campus.</p>
               </header>
 
-              <form onSubmit={handleCreateEvent} className="space-y-6">
+              <form
+                onSubmit={handleCreateEvent}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                  }
+                }}
+                className="space-y-6"
+              >
 
                 {/* Post As */}
                 <div className="space-y-2">
@@ -878,7 +938,7 @@ export default function CreateEventPage() {
                       {previewUrls.length > 0 && (
                         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                           {previewUrls.map((url, idx) => (
-                            <div key={url} className="relative h-20 w-20 flex-shrink-0 overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary/10 group">
+                            <div key={url} className="relative h-20 w-20 flex-shrink-0 overflow-hidden cc-radius-24 ring-2 ring-inset ring-secondary/25 bg-secondary/10 group">
                               <img src={url} alt="Preview" className="h-full w-full object-cover" />
                               <button type="button" onClick={() => removeImage(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 cc-glass-strong text-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80 hover:text-white">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
@@ -1027,6 +1087,11 @@ export default function CreateEventPage() {
                         </button>
                       </div>
                       {/* Location Label */}
+                      {coordinates && (
+                        <div className="px-4 py-2 text-xs text-secondary border-t border-secondary/5">
+                          <span className="font-mono">lat: {coordinates.lat}, lng: {coordinates.lng}</span>
+                        </div>
+                      )}
                       <input
                         value={locationLabel}
                         onChange={(e) => setLocationLabel(e.target.value)}

@@ -25,7 +25,7 @@ export function PostMediaStrip({ post }: PostMediaStripProps) {
 
     if (hasMap) {
         return (
-            <div className="mx-auto aspect-square w-full max-w-md overflow-hidden rounded-[32px] border border-white/5 bg-neutral-900 shadow-lg">
+            <div className="mx-auto aspect-square w-full max-w-md overflow-hidden rounded-[32px] border border-secondary/10 bg-neutral-900 shadow-lg">
                 {isLoaded && coordinates ? (
                     <GoogleMap
                         mapContainerStyle={{ width: '100%', height: '100%' }}
@@ -54,7 +54,7 @@ export function PostMediaStrip({ post }: PostMediaStripProps) {
     // Let's go with square image to be consistent with layout changes.
     if (images.length > 0) {
         return (
-            <div className="mx-auto aspect-square w-full max-w-md overflow-hidden rounded-[32px] border border-white/5 bg-neutral-900 shadow-lg">
+            <div className="mx-auto aspect-square w-full max-w-md overflow-hidden rounded-[32px] border border-secondary/10 bg-neutral-900 shadow-lg">
                 <img src={images[0]} alt="Event Media" className="h-full w-full object-cover" />
             </div>
         );

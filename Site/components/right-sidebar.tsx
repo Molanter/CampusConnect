@@ -336,16 +336,8 @@ function PostDetailsSidebarView({ data }: { data: Post | null }) {
                 {/* 2) Post content block (Chat-style) */}
                 <PostDetailMainInfo post={data} />
 
-                {/* Optional Campus Name from sidebar data */}
-                {data.campusName && (
-                    <div className="mt-4 pt-4 border-t border-secondary/15">
-                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">Campus</h4>
-                        <p className="text-sm text-foreground/70 font-medium">{data.campusName}</p>
-                    </div>
-                )}
-
                 {/* 3) Embedded Comments */}
-                <div className="mt-1 pt-2 border-t border-secondary/15 -mx-2">
+                <div className="mt-4 pt-4 border-t border-secondary/15 -mx-2">
                     <CommentsView data={data} />
                 </div>
             </div>

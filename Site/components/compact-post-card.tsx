@@ -152,9 +152,9 @@ export function CompactPostCard({
     return (
         <article
             onClick={handleCardClick}
-            className={`group relative aspect-square w-full cursor-pointer overflow-hidden rounded-[24px] border border-white/10 shadow-sm transition-all active:scale-[0.98] ${hasMedia
-                ? "bg-[#1C1C1E] hover:border-white/20"
-                : "bg-gradient-to-br from-white/[0.08] to-white/[0.03] hover:border-white/30"
+            className={`group relative aspect-square w-full cursor-pointer overflow-hidden rounded-[24px] border border-secondary/10 shadow-sm transition-all active:scale-[0.98] ${hasMedia
+                ? "bg-[#1C1C1E] hover:border-secondary/30"
+                : "bg-gradient-to-br from-white/[0.08] to-white/[0.03] hover:border-secondary/20"
                 }`}
         >
             {/* 1. Media Layer (if exists) */}

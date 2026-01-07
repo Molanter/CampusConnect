@@ -184,7 +184,7 @@ export function ClubPager({
                 style={{ width: "100%" }}
             >
                 {tabs.map((tab) => (
-                    <div key={tab.key} className="w-full shrink-0 snap-start px-1">
+                    <div key={tab.key} className="w-full shrink-0 snap-start px-3">
                         {tab.key === "posts" && (
                             <div className="mx-auto w-full max-w-[680px]">
                                 {isLoading ? (

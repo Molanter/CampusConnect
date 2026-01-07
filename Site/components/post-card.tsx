@@ -17,6 +17,9 @@ import {
     HeartIcon as HeartIconOutline,
     PencilIcon,
     EllipsisVerticalIcon,
+    TrashIcon,
+    FlagIcon,
+    MegaphoneIcon,
 } from "@heroicons/react/24/outline";
 
 import { onAuthStateChanged } from "firebase/auth";
@@ -29,6 +32,7 @@ import { useUserProfile } from "./user-profiles-context";
 import { useClubProfile } from "./club-profiles-context";
 import { useSeenTracker } from "../lib/hooks/useSeenTracker";
 import { formatDistanceToNow } from "date-fns";
+import { MediaHorizontalScroll } from "./post-detail/media-horizontal-scroll";
 
 type AttendanceStatus = "going" | "maybe" | "not_going" | null;
 
@@ -86,8 +90,17 @@ export function PostCard({
     } = post;
 
     const isEvent = type === "event";
+    const isAnnouncement = type === "announcement";
 
     const description = postDescription || postContent || "";
+
+    // Helper function: full-text announcement highlight (Option A)
+    const getHighlightedText = (text: string, shouldHighlight: boolean) => {
+        if (!shouldHighlight || !text) return text;
+
+        // Wrap ENTIRE announcement text in one highlight span
+        return <span className="mark-announce">{text}</span>;
+    };
 
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [status, setStatus] = useState<AttendanceStatus>(null);
@@ -373,7 +386,7 @@ export function PostCard({
     if (variant === "threads") {
         return (
             <div ref={containerRef} className={`relative border-b border-secondary/30 ${isNarrow ? "py-2.5" : "py-3"}`}>
-                <div className="flex items-start gap-2.5">
+                <div className={`flex items-start gap-2.5 ${isAnnouncement && !isSeen ? "cc-section p-3 -mx-3" : ""}`}>
                     {/* Avatar */}
                     <div className="shrink-0 self-start">
                         {isCampusPost ? (
@@ -451,6 +464,17 @@ export function PostCard({
 
                                     <span className="text-xs text-muted shrink-0">•</span>
                                     <span className="text-xs text-muted shrink-0">{timeLabel || (date ? date : "now")}</span>
+
+                                    {/* Announcement label - inline */}
+                                    {isAnnouncement && !isSeen && (
+                                        <>
+                                            <span className="text-xs text-muted shrink-0">•</span>
+                                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-brand/10 text-brand text-[10px] font-bold uppercase tracking-wide shrink-0">
+                                                <MegaphoneIcon className="h-2.5 w-2.5" />
+                                                Announcement
+                                            </span>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -465,7 +489,15 @@ export function PostCard({
                                 >
                                     {isTruncated ? (
                                         <span>
-                                            {displayText}...{" "}
+                                            {isAnnouncement && !isSeen ? (
+                                                <>
+                                                    {getHighlightedText(displayText, true)}...{" "}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {displayText}...{" "}
+                                                </>
+                                            )}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -477,58 +509,29 @@ export function PostCard({
                                             </button>
                                         </span>
                                     ) : (
-                                        description
+                                        isAnnouncement && !isSeen ? (
+                                            getHighlightedText(description, true)
+                                        ) : (
+                                            description
+                                        )
                                     )}
                                 </div>
                             </div>
                         )}
 
-                        {/* Media - shrink-to-content, reduced height */}
-                        {!hideMediaGrid && images.length > 0 && (
+                        {/* Media - uses same component as post detail view */}
+                        {!hideMediaGrid && (post.coordinates || images.length > 0) && (
                             <div className={description ? "mt-2 mb-2" : "mt-2.5 mb-2"}>
-                                {images.length === 1 ? (
-                                    // Single image: inline-block to fit content
-                                    <div className="inline-block max-w-full overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary">
-                                        <img
-                                            src={images[0]}
-                                            alt=""
-                                            className={`block h-auto w-auto max-h-[180px] sm:max-h-[220px] md:max-h-[240px] max-w-full object-contain ${onDetailsClick ? "cursor-pointer" : ""}`}
-                                            onClick={(e) => {
-                                                if (!onDetailsClick) return;
-                                                e.stopPropagation();
-                                                onDetailsClick();
-                                            }}
-                                        />
-                                    </div>
-                                ) : (
-                                    // Multiple images: horizontal scroll of inline-block tiles
-                                    <div className="cc-media-scroll">
-                                        <div className="cc-media-scroll-inner">
-                                            {images.slice(0, 4).map((src, idx) => (
-                                                <div
-                                                    key={src + idx}
-                                                    className="inline-block shrink-0 overflow-hidden cc-radius-24 ring-1 ring-inset ring-secondary/20 bg-secondary"
-                                                >
-                                                    <img
-                                                        src={src}
-                                                        alt=""
-                                                        className={`block h-auto w-auto max-h-[180px] sm:max-h-[220px] md:max-h-[240px] max-w-full object-contain ${onDetailsClick ? "cursor-pointer" : ""}`}
-                                                        onClick={(e) => {
-                                                            if (!onDetailsClick) return;
-                                                            e.stopPropagation();
-                                                            onDetailsClick();
-                                                        }}
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                                <MediaHorizontalScroll
+                                    post={post}
+                                    onClick={onDetailsClick}
+                                    isNarrow={isNarrow}
+                                />
                             </div>
                         )}
 
                         {/* Actions */}
-                        <div className="mt-[-4px] ml-[-8px] flex items-center gap-0.5">
+                        <div className={clsx("ml-[-8px] flex items-center gap-0.5", isAnnouncement ? "mt-1.5" : "mt-[-4px]")}>
                             {/* Like */}
                             <div className={`flex h-8 items-center justify-center rounded-full hover:bg-secondary/20 transition-colors ${likesCount > 0 ? "gap-1 px-2" : "w-8"}`}>
                                 <button

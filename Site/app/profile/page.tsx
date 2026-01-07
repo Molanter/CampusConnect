@@ -291,6 +291,14 @@ function ProfileContent({ user }: { user: User }) {
           maybeUids: data.maybeUids || [],
           notGoingUids: data.notGoingUids || [],
           editCount: data.editCount ?? 0,
+          createdAt: data.createdAt,
+          ownerType: data.ownerType,
+          clubId: data.clubId,
+          clubName: data.clubName,
+          clubAvatarUrl: data.clubAvatarUrl,
+          campusName: data.campusName,
+          campusAvatarUrl: data.campusAvatarUrl,
+          isVerified: data.isVerified,
         } as Post;
       });
     };
@@ -394,7 +402,7 @@ function ProfileContent({ user }: { user: User }) {
 
   return (
     <div className="min-h-screen text-neutral-50 mb-12">
-      <div className="mx-auto w-full max-w-2xl px-1 py-6 pb-32 space-y-6">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-32 space-y-6">
         {/* Profile Incomplete Warning */}
         {!isProfileComplete && (
           <div className="rounded-[24px] border border-amber-500/10 bg-amber-500/5 p-4">
@@ -464,7 +472,7 @@ function ProfileContent({ user }: { user: User }) {
           style={{ width: "100%" }}
         >
           {/* Page: Posts */}
-          <div className="w-full shrink-0 snap-start px-1">
+          <div className="w-full shrink-0 snap-start px-3">
             <div className="space-y-6">
               {myPostsLoading && (
                 <div className={ui.loadingPill}>
@@ -510,7 +518,7 @@ function ProfileContent({ user }: { user: User }) {
           </div>
 
           {/* Page: Events */}
-          <div className="w-full shrink-0 snap-start px-1">
+          <div className="w-full shrink-0 snap-start px-3">
             <div className="space-y-6">
               {attendedLoading && (
                 <div className={ui.loadingPill}>
@@ -542,7 +550,7 @@ function ProfileContent({ user }: { user: User }) {
           </div>
 
           {/* Page: Comments */}
-          <div className="w-full shrink-0 snap-start px-1">
+          <div className="w-full shrink-0 snap-start px-3">
             <div className="space-y-3">
               {commentsLoading && (
                 <div className={ui.loadingPill}>
@@ -601,7 +609,7 @@ function ProfileContent({ user }: { user: User }) {
           </div>
 
           {/* Page: Clubs */}
-          <div className="w-full shrink-0 snap-start px-1">
+          <div className="w-full shrink-0 snap-start px-3">
             <MyClubsView userId={user.uid} />
           </div>
         </div>
