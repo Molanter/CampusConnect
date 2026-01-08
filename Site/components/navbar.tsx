@@ -166,7 +166,6 @@ export function Navbar({
             {isAdmin && adminModeOn ? (
               <>
                 <NavItem href="/settings" icon={Cog6ToothIcon} label="Settings" isActive={pathname === "/settings"} />
-                <NavItem href="/posts/new" icon={PlusIcon} label="Create Post" isActive={pathname === "/posts/new"} />
                 <NavItem href="/admin/moderation" icon={ShieldCheckIcon} label="Moderation" isActive={pathname === "/admin/moderation"} />
                 <NavItem href={isGlobalAdminUser ? "/admin/campuses" : "/admin/campuses/manage-my"} icon={BuildingLibraryIcon} label="Manage Campuses" isActive={pathname.startsWith("/admin/campuses")} />
                 {isGlobalAdminUser && (
@@ -241,17 +240,6 @@ export function Navbar({
                   title="Settings"
                 >
                   <Cog6ToothIcon className="h-5 w-5" />
-                </Link>
-
-                <Link
-                  href="/posts/new"
-                  className={`inline-flex items-center rounded-full px-3 py-1.5 ${pathname === "/posts/new"
-                    ? "bg-[#ffb200] text-black shadow-sm"
-                    : "text-secondary hover:text-foreground hover:bg-secondary/10"
-                    }`}
-                  title="Create Post"
-                >
-                  <PlusIcon className="h-5 w-5" />
                 </Link>
 
                 <Link

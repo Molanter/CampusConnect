@@ -23,19 +23,22 @@ import {
   UserGroupIcon,
   PlusIcon,
   ChatBubbleLeftRightIcon,
-  CommandLineIcon
+  CommandLineIcon,
+  ChartBarIcon,
+  XMarkIcon
 } from "@heroicons/react/24/outline";
 import { useAdminMode } from "../../components/admin-mode-context";
+import { SettingsFooter } from "../../components/settings-footer";
 
 // Shared UI class definitions
 const ui = {
-  page: "mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-8",
+  page: "mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 pt-24 pb-8",
   headerKicker: "text-[11px] font-semibold uppercase tracking-[0.2em] cc-muted",
-  headerTitle: "mt-2 text-3xl font-bold tracking-tight text-foreground",
-  headerSubtitle: "mt-2 text-sm cc-muted",
+  headerTitle: "text-sm font-bold text-foreground",
   section: "space-y-3",
-  sectionLabel: "px-4 text-[13px] font-semibold uppercase tracking-wider cc-muted",
+  sectionLabel: "pl-[60px] pr-4 text-[13px] font-semibold uppercase tracking-wider cc-muted",
   card: "cc-section overflow-hidden shadow-sm",
+  capsuleCard: "cc-section overflow-hidden shadow-sm !rounded-full",
   row: "flex items-center gap-3 px-4 py-3 hover:bg-secondary/10 transition-colors",
   rowBorder: "border-b border-secondary/15",
   iconBox: "flex h-8 w-8 items-center justify-center rounded-lg shrink-0",
@@ -77,20 +80,20 @@ export default function SettingsPage() {
 
   return (
     <div className={ui.page}>
-      <header className="mb-2">
-        <h1 className={ui.headerTitle}>
-          Settings
-        </h1>
-        <p className={ui.headerSubtitle}>
-          Manage your account, preferences, and more
-        </p>
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-40 pt-4 pointer-events-none">
+        <div className="mx-auto flex max-w-3xl items-center px-4 pointer-events-auto">
+          <div className="flex items-center rounded-full cc-glass ml-[44px] pl-4 pr-6 py-2.5 shadow-sm">
+            <h1 className={ui.headerTitle}>Settings</h1>
+          </div>
+        </div>
       </header>
 
       {/* Admin Mode Toggle */}
       {showAdminModeToggle && (
         <section className={ui.section}>
-          <div className={ui.card}>
-            <div className={ui.row} onClick={() => setAdminModeOn(!adminModeOn)}>
+          <div className={ui.capsuleCard}>
+            <div className={`${ui.row} !rounded-full`} onClick={() => setAdminModeOn(!adminModeOn)}>
               <div className={`${ui.iconBox} bg-gradient-to-br from-gray-500 to-gray-600`}>
                 <CommandLineIcon className="h-5 w-5 text-white" />
               </div>
@@ -203,7 +206,7 @@ export default function SettingsPage() {
             {user?.email && (
               <Link
                 href="/admin/campuses/manage-my"
-                className={ui.row}
+                className={`${ui.row} ${ui.rowBorder}`}
               >
                 <div className={`${ui.iconBox} bg-gradient-to-br from-amber-500 to-amber-600`}>
                   <PencilSquareIcon className="h-5 w-5 text-white" />
@@ -214,6 +217,18 @@ export default function SettingsPage() {
                 <ChevronRightIcon className={ui.chevron} />
               </Link>
             )}
+            <Link
+              href="/admin/stats"
+              className={ui.row}
+            >
+              <div className={`${ui.iconBox} bg-gradient-to-br from-blue-500 to-blue-600`}>
+                <ChartBarIcon className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[15px] font-normal text-foreground">Campus Stats</p>
+              </div>
+              <ChevronRightIcon className={ui.chevron} />
+            </Link>
           </div>
         </section>
       )}
@@ -334,7 +349,10 @@ export default function SettingsPage() {
             </div>
             <ChevronRightIcon className={ui.chevron} />
           </button>
-          <div className={`${ui.row} ${ui.rowBorder}`}>
+          <Link
+            href="/settings/terms-policies"
+            className={`${ui.row} ${ui.rowBorder}`}
+          >
             <div className={`${ui.iconBox} bg-gradient-to-br from-lime-500 to-lime-600`}>
               <DocumentTextIcon className="h-5 w-5 text-white" />
             </div>
@@ -342,7 +360,7 @@ export default function SettingsPage() {
               <p className="text-[15px] font-normal text-foreground">Terms & Policies</p>
             </div>
             <ChevronRightIcon className={ui.chevron} />
-          </div>
+          </Link>
           <div className={ui.row}>
             <div className={`${ui.iconBox} bg-gradient-to-br from-sky-500 to-sky-600`}>
               <InformationCircleIcon className="h-5 w-5 text-white" />
@@ -355,12 +373,13 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Sign Out Button */}
-      <div className="pb-8">
+      {/* Danger Zone Section */}
+      <section className={ui.section}>
+        <h2 className={ui.sectionLabel}>Danger Zone</h2>
         <div className={ui.card}>
           <button
             onClick={() => auth.signOut()}
-            className={ui.row}
+            className={`${ui.row} ${ui.rowBorder} w-full`}
           >
             <div className={`${ui.iconBox} bg-gradient-to-br from-red-500 to-red-600`}>
               <ArrowRightOnRectangleIcon className="h-5 w-5 text-white" />
@@ -369,8 +388,25 @@ export default function SettingsPage() {
               <p className="text-[15px] font-normal text-red-400">Sign Out</p>
             </div>
           </button>
+          <Link
+            href="/settings/delete-account"
+            className={`${ui.row} w-full`}
+          >
+            <div className={`${ui.iconBox} bg-gradient-to-br from-red-600 to-red-700`}>
+              <XMarkIcon className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-normal text-red-500">Delete Account</p>
+            </div>
+            <ChevronRightIcon className={ui.chevron} />
+          </Link>
         </div>
-      </div>
+      </section>
+
+      <div className="pb-8" />
+
+      {/* Footer */}
+      <SettingsFooter />
     </div>
   );
 }

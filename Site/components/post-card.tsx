@@ -390,18 +390,18 @@ export function PostCard({
                     {/* Avatar */}
                     <div className="shrink-0 self-start">
                         {isCampusPost ? (
-                            <div className="h-10 w-10 flex items-center justify-center">
+                            <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm flex items-center justify-center relative">
                                 {campusAvatarUrl ? (
-                                    <img src={campusAvatarUrl} alt={campusName} className="h-full w-full object-contain" />
+                                    <img src={campusAvatarUrl} alt={campusName} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                                 ) : (
-                                    <BuildingLibraryIcon className="h-8 w-8 text-secondary" />
+                                    <BuildingLibraryIcon className="h-6 w-6 text-secondary" />
                                 )}
                             </div>
                         ) : isClubPost ? (
                             <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()}>
-                                <div className="h-10 w-10 overflow-hidden rounded-[12px] bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm">
+                                <div className="h-10 w-10 overflow-hidden rounded-[12px] bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm relative">
                                     {clubProfile?.avatarUrl ? (
-                                        <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="!h-full !w-full object-cover object-center" />
+                                        <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
                                             {clubProfile?.name ? clubProfile.name.charAt(0).toUpperCase() : "C"}
@@ -411,9 +411,9 @@ export function PostCard({
                             </Link>
                         ) : (
                             <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()}>
-                                <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm">
+                                <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm relative">
                                     {displayedPhotoUrl ? (
-                                        <img src={displayedPhotoUrl} alt={displayedName} className="!h-full !w-full object-cover object-center" />
+                                        <img src={displayedPhotoUrl} alt={displayedName} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
                                             {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}

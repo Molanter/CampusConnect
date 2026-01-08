@@ -23,6 +23,7 @@ import { ClubMember } from "@/lib/clubs";
 import { PostType } from "@/lib/posts";
 import { CalendarIcon, ClockIcon, QuestionMarkCircleIcon, MegaphoneIcon, ChatBubbleBottomCenterTextIcon } from "@heroicons/react/24/outline";
 import { useRightSidebar } from "@/components/right-sidebar-context";
+import clsx from "clsx";
 
 type UserProfile = {
     preferredName?: string;
@@ -38,6 +39,8 @@ type UserProfile = {
 
 
 export default function EditPostPage() {
+    const MEDIA_LIMIT = 10;
+    const WORD_LIMIT = 300;
     const router = useRouter();
     const params = useParams();
     const postId = params.id as string;
@@ -320,7 +323,19 @@ export default function EditPostPage() {
     // Image handling
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const newFiles = Array.from(e.target.files);
+            const totalImages = existingImages.length + selectedFiles.length;
+            const remainingSlots = MEDIA_LIMIT - totalImages;
+
+            if (remainingSlots <= 0) {
+                setToast({ type: "error", message: `Maximum ${MEDIA_LIMIT} photos allowed.` });
+                return;
+            }
+
+            const newFiles = Array.from(e.target.files).slice(0, remainingSlots);
+            if (Array.from(e.target.files).length > remainingSlots) {
+                setToast({ type: "error", message: `Only ${remainingSlots} more photo(s) could be added.` });
+            }
+
             setSelectedFiles((prev) => [...prev, ...newFiles]);
             const newUrls = newFiles.map((file) => URL.createObjectURL(file));
             setPreviewUrls((prev) => [...prev, ...newUrls]);
@@ -360,6 +375,17 @@ export default function EditPostPage() {
 
         if ((!description || !description.trim()) && selectedFiles.length === 0 && existingImages.length === 0) {
             setFormError("Post must have a description or image.");
+            return;
+        }
+
+        const wordCount = description.trim() ? description.trim().split(/\s+/).length : 0;
+        if (wordCount > WORD_LIMIT) {
+            setFormError(`Description exceeds the ${WORD_LIMIT} word limit.`);
+            return;
+        }
+
+        if (existingImages.length + selectedFiles.length > MEDIA_LIMIT) {
+            setFormError(`Maximum ${MEDIA_LIMIT} photos allowed.`);
             return;
         }
 
@@ -464,19 +490,27 @@ export default function EditPostPage() {
                     <div className="space-y-2">
                         <label className="ml-1 text-xs font-bold uppercase tracking-wider text-secondary">Content</label>
                         <div className="cc-section cc-shadow-soft overflow-hidden">
-                            <textarea
-                                rows={4}
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-foreground placeholder:text-secondary focus:outline-none"
-                                placeholder="What's going on?"
-                            />
+                            <div className="relative">
+                                <textarea
+                                    rows={4}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    className="w-full resize-none bg-transparent px-4 py-3.5 pb-8 text-sm text-foreground placeholder:text-secondary focus:outline-none"
+                                    placeholder="What's going on?"
+                                />
+                                <div className={clsx(
+                                    "absolute bottom-2 right-4 text-[10px] font-bold tracking-wider",
+                                    (description.trim() ? description.trim().split(/\s+/).length : 0) > WORD_LIMIT ? "text-red-500" : "text-secondary"
+                                )}>
+                                    {description.trim() ? description.trim().split(/\s+/).length : 0}/{WORD_LIMIT} WORDS
+                                </div>
+                            </div>
 
                             {/* Image Management */}
                             <div className="flex flex-col gap-3 px-4 py-3 border-t border-secondary/10">
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm text-secondary">
-                                        {existingImages.length + selectedFiles.length} photo(s)
+                                        {existingImages.length + selectedFiles.length}/{MEDIA_LIMIT} photo(s)
                                     </span>
                                     <label className="cursor-pointer rounded-full bg-secondary/15 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/25 transition-colors">
                                         Add Photos

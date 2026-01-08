@@ -60,6 +60,8 @@ const hexToRgba = (hex: string, alpha: number) => {
 
 
 export default function CreateEventPage() {
+  const MEDIA_LIMIT = 10;
+  const WORD_LIMIT = 300;
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialClubId = searchParams.get("clubId");
@@ -530,9 +532,18 @@ export default function CreateEventPage() {
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newFiles = Array.from(e.target.files);
-      setSelectedFiles((prev) => [...prev, ...newFiles]);
+      const remainingSlots = MEDIA_LIMIT - selectedFiles.length;
+      if (remainingSlots <= 0) {
+        setToast({ type: "error", message: `Maximum ${MEDIA_LIMIT} photos allowed.` });
+        return;
+      }
 
+      const newFiles = Array.from(e.target.files).slice(0, remainingSlots);
+      if (Array.from(e.target.files).length > remainingSlots) {
+        setToast({ type: "error", message: `Only ${remainingSlots} more photo(s) could be added.` });
+      }
+
+      setSelectedFiles((prev) => [...prev, ...newFiles]);
       const newUrls = newFiles.map((file) => URL.createObjectURL(file));
       setPreviewUrls((prev) => [...prev, ...newUrls]);
     }
@@ -575,6 +586,17 @@ export default function CreateEventPage() {
       return;
     }
 
+    const wordCount = description.trim() ? description.trim().split(/\s+/).length : 0;
+    if (wordCount > WORD_LIMIT) {
+      setFormError(`Description exceeds the ${WORD_LIMIT} word limit.`);
+      return;
+    }
+
+    if (selectedFiles.length > MEDIA_LIMIT) {
+      setFormError(`Maximum ${MEDIA_LIMIT} photos allowed.`);
+      return;
+    }
+
     try {
       setSaving(true);
       setUploading(true);
@@ -598,14 +620,14 @@ export default function CreateEventPage() {
       const baseData: any = {
         description: description.trim(),
         authorId: user.uid,
-        // authorName removed
-        // authorUsername removed
-        // authorAvatarUrl removed
         createdAt: serverTimestamp(),
         likes: [],
         seenCount: 0,
         type,
         isEvent: isEvent,
+        // Always tag with the user's active campus for analytics
+        campusId: profile?.campusId,
+        campusName: profile?.campus,
         // Moderation fields
         visibility: "visible",
         reportCount: 0,
@@ -619,8 +641,6 @@ export default function CreateEventPage() {
         if (selectedClubId === "campus") {
           // Posting as campus
           baseData.ownerType = "campus";
-          baseData.campusId = profile?.campusId;
-          baseData.campusName = profile?.campus;
           if (campusImageUrl) baseData.campusAvatarUrl = campusImageUrl;
         } else {
           // Posting as club
@@ -748,9 +768,9 @@ export default function CreateEventPage() {
                       {/* Display selected option */}
                       {!selectedClubId && (
                         <>
-                          <div className="h-10 w-10 rounded-full bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
                             {profile?.photoURL || user?.photoURL ? (
-                              <img src={profile?.photoURL || user?.photoURL || ""} alt="Your avatar" className="h-full w-full object-cover" />
+                              <img src={profile?.photoURL || user?.photoURL || ""} alt="Your avatar" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                             ) : (
                               <div className="h-full w-full flex items-center justify-center text-secondary">
                                 <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
@@ -764,11 +784,13 @@ export default function CreateEventPage() {
                       )}
                       {selectedClubId === "campus" && (
                         <>
-                          <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full overflow-hidden bg-secondary/20 ring-1 ring-secondary/30 shadow-sm flex-shrink-0 relative">
                             {campusImageUrl ? (
-                              <img src={campusImageUrl} alt="Campus logo" className="h-10 w-10 object-contain" />
+                              <img src={campusImageUrl} alt="Campus logo" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                             ) : (
-                              <BuildingLibraryIcon className="h-8 w-8 text-secondary" />
+                              <div className="h-full w-full flex items-center justify-center">
+                                <BuildingLibraryIcon className="h-6 w-6 text-secondary" />
+                              </div>
                             )}
                           </div>
                           <span className="flex-1 text-left text-sm text-foreground">Campus: {profile?.campus}</span>
@@ -778,9 +800,9 @@ export default function CreateEventPage() {
                         const selectedClub = userClubs.find(c => c.id === selectedClubId);
                         return selectedClub ? (
                           <>
-                            <div className="h-10 w-10 rounded-lg bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0">
+                            <div className="h-10 w-10 rounded-lg bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
                               {selectedClub.imageUrl ? (
-                                <img src={selectedClub.imageUrl} alt={selectedClub.name} className="h-full w-full object-cover" />
+                                <img src={selectedClub.imageUrl} alt={selectedClub.name} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                               ) : isDorm(selectedClub) ? (
                                 <div className="h-full w-full flex items-center justify-center text-secondary">
                                   <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
@@ -824,9 +846,9 @@ export default function CreateEventPage() {
                           }}
                           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors"
                         >
-                          <div className="h-10 w-10 rounded-full bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
                             {profile?.photoURL || user?.photoURL ? (
-                              <img src={profile?.photoURL || user?.photoURL || ""} alt="Your avatar" className="h-full w-full object-cover" />
+                              <img src={profile?.photoURL || user?.photoURL || ""} alt="Your avatar" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                             ) : (
                               <div className="h-full w-full flex items-center justify-center text-secondary">
                                 <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
@@ -848,11 +870,13 @@ export default function CreateEventPage() {
                             }}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors border-t border-secondary/10"
                           >
-                            <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
+                            <div className="h-10 w-10 rounded-full overflow-hidden bg-secondary/20 ring-1 ring-secondary/30 shadow-sm flex-shrink-0 relative">
                               {campusImageUrl ? (
-                                <img src={campusImageUrl} alt="Campus logo" className="h-10 w-10 object-contain" />
+                                <img src={campusImageUrl} alt="Campus logo" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                               ) : (
-                                <BuildingLibraryIcon className="h-8 w-8 text-secondary" />
+                                <div className="h-full w-full flex items-center justify-center">
+                                  <BuildingLibraryIcon className="h-6 w-6 text-secondary" />
+                                </div>
                               )}
                             </div>
                             <span className="flex-1 text-left text-sm text-foreground">Campus: {profile.campus}</span>
@@ -870,9 +894,9 @@ export default function CreateEventPage() {
                             }}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors border-t border-secondary/10"
                           >
-                            <div className="h-10 w-10 rounded-lg bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0">
+                            <div className="h-10 w-10 rounded-lg bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
                               {club.imageUrl ? (
-                                <img src={club.imageUrl} alt={club.name} className="h-full w-full object-cover" />
+                                <img src={club.imageUrl} alt={club.name} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                               ) : isDorm(club) ? (
                                 <div className="h-full w-full flex items-center justify-center text-secondary">
                                   <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
@@ -916,19 +940,27 @@ export default function CreateEventPage() {
                     onClick={() => setActiveSection("details")}
                   >
                     {/* Description */}
-                    <textarea
-                      rows={4}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-foreground placeholder:text-secondary focus:outline-none transition-colors"
-                      placeholder="What's going on?"
-                    />
+                    <div className="relative">
+                      <textarea
+                        rows={4}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full resize-none bg-transparent px-4 py-3.5 pb-8 text-sm text-foreground placeholder:text-secondary focus:outline-none transition-colors"
+                        placeholder="What's going on?"
+                      />
+                      <div className={clsx(
+                        "absolute bottom-2 right-4 text-[10px] font-bold tracking-wider",
+                        (description.trim() ? description.trim().split(/\s+/).length : 0) > WORD_LIMIT ? "text-red-500" : "text-secondary"
+                      )}>
+                        {description.trim() ? description.trim().split(/\s+/).length : 0}/{WORD_LIMIT} WORDS
+                      </div>
+                    </div>
 
                     {/* Image Upload */}
                     <div className="flex flex-col gap-3 px-4 py-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-secondary">
-                          {selectedFiles.length > 0 ? `${selectedFiles.length} photo(s)` : "Photos"}
+                          {selectedFiles.length > 0 ? `${selectedFiles.length}/${MEDIA_LIMIT} photo(s)` : "Photos"}
                         </span>
                         <label className="cursor-pointer rounded-full bg-secondary/15 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/25 transition-colors cc-hover-shadow">
                           Add Photos

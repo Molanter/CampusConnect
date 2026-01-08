@@ -17,6 +17,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Toast, { ToastData } from "@/components/Toast";
+import { SettingsFooter } from "@/components/settings-footer";
 
 // Simple accordion item component
 function FAQItem({ question, answer }: { question: string; answer: string }) {
@@ -172,7 +173,7 @@ export default function HelpSupportPage() {
                     >
                         <ChevronLeftIcon className="h-5 w-5 text-foreground" />
                     </Link>
-                    <div className="flex items-center rounded-full cc-glass-strong px-6 py-2.5 shadow-sm">
+                    <div className="flex items-center rounded-full cc-glass px-6 py-2.5 shadow-sm">
                         <h1 className="text-sm font-bold text-foreground">Help & Support</h1>
                     </div>
                 </div>
@@ -208,6 +209,9 @@ export default function HelpSupportPage() {
                             {/* Identity Group */}
                             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-secondary/15">
                                 <div className="space-y-1.5">
+                                    <label className="text-[12px] font-bold uppercase tracking-wider text-secondary px-4">
+                                        Name <span className="text-red-500">*</span>
+                                    </label>
                                     <input
                                         type="text"
                                         value={formData.name}
@@ -347,6 +351,9 @@ export default function HelpSupportPage() {
                             </div>
                         </div>
                     </section>
+
+                    {/* Footer */}
+                    <SettingsFooter />
                 </div>
             </main>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronLeftIcon, SunIcon, MoonIcon, ComputerDesktopIcon } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
+import { SettingsFooter } from '@/components/settings-footer';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -157,6 +158,9 @@ export default function DisplayPage() {
                         </p>
                     )}
                 </section>
+
+                {/* Footer */}
+                <SettingsFooter />
             </div>
         </div>
     );

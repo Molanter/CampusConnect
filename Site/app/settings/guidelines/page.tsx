@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { getCommunityGuidelines, CommunityGuidelines } from "@/lib/guidelines";
+import { SettingsFooter } from "@/components/settings-footer";
 
 export default function GuidelinesPage() {
     const [guidelines, setGuidelines] = useState<CommunityGuidelines | null>(null);
@@ -80,7 +81,7 @@ export default function GuidelinesPage() {
                     >
                         <ChevronLeftIcon className="h-5 w-5 text-foreground" />
                     </Link>
-                    <div className="flex items-center rounded-full cc-glass-strong px-6 py-2.5 shadow-sm">
+                    <div className="flex items-center rounded-full cc-glass px-6 py-2.5 shadow-sm">
                         <h1 className="text-sm font-bold text-foreground">Community Guidelines</h1>
                     </div>
                 </div>
@@ -120,6 +121,9 @@ export default function GuidelinesPage() {
                             </p>
                         </div>
                     )}
+
+                    {/* Footer */}
+                    <SettingsFooter />
                 </div>
             </main>
         </div>
