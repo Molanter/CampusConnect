@@ -77,11 +77,36 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
         if (!isResizing) return;
 
         const handleMouseMove = (e: MouseEvent) => {
-            const newWidth = window.innerWidth - e.clientX - 12; // 12px for right margin
-            const minWidth = 320; // Minimum width
-            const maxWidth = 800; // Maximum width
-            const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
-            setSidebarWidth(clampedWidth);
+            const MAIN_MIN_WIDTH = 500;
+            const SIDEBAR_MIN_WIDTH = 320;
+            const SIDEBAR_MAX_WIDTH = 800;
+
+            const proposedWidth = window.innerWidth - e.clientX - 12; // 12px for right margin
+
+            // Calculate max allowed sidebar width to preserve main view
+            // Using Math.max(0, ...) to avoid negative numbers if window is tiny
+            const maxAllowedWidth = Math.max(0, window.innerWidth - MAIN_MIN_WIDTH);
+
+            // Apply constraints:
+            // 1. Sidebar Max (800)
+            // 2. Main View Safety (maxAllowedWidth)
+            // 3. Sidebar Min (320) - Applied last? 
+            // User requested "MAIN NEVEr below 450". If we apply 320 last, we might violate Main Min.
+            // However, preventing sidebar from being < 320 might be necessary for basic usability.
+            // Given tablet breakpoint is 768, 768-450 = 318. 
+            // If we enforce 450 strict, sidebar becomes 318. This is acceptable.
+            // So we apply standard MIN first, then Safe MAX to override it?
+            // No, usually you clamp between Min and Max.
+            // If Min > Max, you have to choose one. User prioritized Main View.
+
+            // Priority: Main Protection > Sidebar Min > Sidebar Max
+
+            let finalWidth = proposedWidth;
+            finalWidth = Math.min(finalWidth, SIDEBAR_MAX_WIDTH);
+            finalWidth = Math.max(finalWidth, SIDEBAR_MIN_WIDTH);
+            finalWidth = Math.min(finalWidth, maxAllowedWidth); // Main protection wins
+
+            setSidebarWidth(finalWidth);
         };
 
         const handleMouseUp = () => {
@@ -117,6 +142,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
             if (view === "my-clubs") return "My Clubs";
             if (view === "club-privacy-info") return "Club Privacy";
             if (view === "support-ticket-info") return "Ticket Info";
+            if (view === "mapHelp") return "How to get a Map Link";
             return "Details";
         };
 
@@ -133,6 +159,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                     {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
                     {view === "post-history" && <PostHistoryView data={data} />}
                     {view === "support-ticket-info" && <SupportTicketInfoView data={data} />}
+                    {view === "mapHelp" && <MapHelpView />}
                 </div>
             </MobileFullScreenModal>
         );
@@ -149,59 +176,63 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
             {isResizing && (
                 <div className="fixed inset-0 z-50 cursor-ew-resize" />
             )}
-            <aside
-                className={`fixed bottom-3 right-3 z-40 flex flex-col rounded-[1.8rem] border border-white/10 bg-[#121212]/40 shadow-[0_30px_80px_rgba(0,0,0,0.9)] backdrop-blur-3xl ${headerVisible ? 'top-[80px]' : 'top-3'}`}
-                style={{ width: `${sidebarWidth}px` }}
-            >
-                {/* Resize Handle */}
+            <div className="h-full w-full flex flex-col py-4 pr-4 pl-0">
+                {/* Floating sidebar card */}
                 <div
-                    className="absolute -left-1 top-0 bottom-0 w-3 cursor-ew-resize group z-10"
-                    onMouseDown={() => setIsResizing(true)}
+                    className="flex-1 flex flex-col rounded-3xl overflow-hidden cc-glass cc-shadow-floating border border-secondary/15 relative"
                 >
-                    <div className="absolute left-1 top-0 bottom-0 w-px bg-white/5 group-hover:bg-white/20 transition-colors" />
-                    <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1 h-16 bg-white/20 group-hover:bg-white/40 rounded-full transition-colors" />
-                </div>
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-                    <div className="flex items-center gap-2">
-                        {view !== "notifications" && (
-                            <button
-                                onClick={showNotifications}
-                                className="mr-1 rounded-full p-1 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
-                            >
-                                <ChevronLeftIcon className="h-5 w-5" />
-                            </button>
-                        )}
-                        <h2 className="font-semibold text-white">
-                            {view === "notifications" && "Notifications"}
-                            {view === "comments" && "Comments"}
-                            {view === "attendance" && "Guest List"}
-                            {view === "report" && "Report Content"}
-                            {view === "report-details" && "Report Details"}
-                            {view === "post-history" && "Post History"}
-                            {view === "likes" && "Likes"}
-                            {view === "my-clubs" && "My Clubs"}
-                            {view === "club-privacy-info" && "Club Privacy"}
-                            {view === "support-ticket-info" && "Ticket Info"}
-                        </h2>
+                    {/* Resize Handle */}
+                    <div
+                        className="absolute -left-1 top-0 bottom-0 w-3 cursor-ew-resize group z-10"
+                        onMouseDown={() => setIsResizing(true)}
+                    >
+                        <div className="absolute left-1 top-0 bottom-0 w-px bg-secondary/10 group-hover:bg-secondary/20 transition-colors" />
+                        <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1 h-16 bg-secondary/20 group-hover:bg-secondary/40 rounded-full transition-colors" />
+                    </div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-secondary/10">
+                        <div className="flex items-center gap-2">
+                            {view !== "notifications" && (
+                                <button
+                                    onClick={showNotifications}
+                                    className="mr-1 rounded-full p-1 hover:bg-secondary/15 text-secondary hover:text-foreground transition-colors"
+                                >
+                                    <ChevronLeftIcon className="h-5 w-5" />
+                                </button>
+                            )}
+                            <h2 className="font-semibold text-foreground">
+                                {view === "notifications" && "Notifications"}
+                                {view === "comments" && "Comments"}
+                                {view === "attendance" && "Guest List"}
+                                {view === "report" && "Report Content"}
+                                {view === "report-details" && "Report Details"}
+                                {view === "post-history" && "Post History"}
+                                {view === "likes" && "Likes"}
+                                {view === "my-clubs" && "My Clubs"}
+                                {view === "club-privacy-info" && "Club Privacy"}
+                                {view === "support-ticket-info" && "Ticket Info"}
+                                {view === "mapHelp" && "How to get a Map Link"}
+                            </h2>
+                        </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-2">
+                        {view === "notifications" && <NotificationsView />}
+                        {view === "comments" && <CommentsView data={data} />}
+                        {view === "details" && <PostDetailsSidebarView data={data} />}
+                        {view === "attendance" && <AttendanceView data={data} />}
+                        {view === "report" && <ReportView data={data} />}
+                        {view === "likes" && <LikesView data={data} />}
+                        {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
+                        {view === "report-details" && <ReportDetailsView data={data} />}
+                        {view === "post-history" && <PostHistoryView data={data} />}
+                        {view === "club-privacy-info" && <ClubPrivacyInfoView />}
+                        {view === "support-ticket-info" && <SupportTicketInfoView data={data} />}
+                        {view === "mapHelp" && <MapHelpView />}
                     </div>
                 </div>
-
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-2">
-                    {view === "notifications" && <NotificationsView />}
-                    {view === "comments" && <CommentsView data={data} />}
-                    {view === "details" && <PostDetailsSidebarView data={data} />}
-                    {view === "attendance" && <AttendanceView data={data} />}
-                    {view === "report" && <ReportView data={data} />}
-                    {view === "likes" && <LikesView data={data} />}
-                    {view === "my-clubs" && currentUser && <MyClubsView userId={currentUser.uid} />}
-                    {view === "report-details" && <ReportDetailsView data={data} />}
-                    {view === "post-history" && <PostHistoryView data={data} />}
-                    {view === "club-privacy-info" && <ClubPrivacyInfoView />}
-                    {view === "support-ticket-info" && <SupportTicketInfoView data={data} />}
-                </div>
-            </aside>
+            </div>
         </>
     );
 }
@@ -262,7 +293,7 @@ function NotificationsView() {
     return (
         <div className="flex flex-col gap-3">
             {notifications.map((notif) => (
-                <div key={notif.id} className="flex items-start gap-3 rounded-2xl bg-white/5 p-3 border border-white/5">
+                <div key={notif.id} className="flex items-start gap-3 rounded-2xl bg-surface-2 p-3 border border-secondary/15">
                     <div className="shrink-0 pt-1">
                         <div className="h-2 w-2 rounded-full bg-blue-500"></div>
                     </div>
@@ -297,7 +328,6 @@ function PostDetailsSidebarView({ data }: { data: Post | null }) {
                         post={data}
                         noPadding
                         fullWidth
-                        className="h-[200px] rounded-[18px]"
                     />
                 </div>
             )}
@@ -306,16 +336,8 @@ function PostDetailsSidebarView({ data }: { data: Post | null }) {
                 {/* 2) Post content block (Chat-style) */}
                 <PostDetailMainInfo post={data} />
 
-                {/* Optional Campus Name from sidebar data */}
-                {data.campusName && (
-                    <div className="mt-4 pt-4 border-t border-white/5">
-                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-1">Campus</h4>
-                        <p className="text-sm text-white/70 font-medium">{data.campusName}</p>
-                    </div>
-                )}
-
                 {/* 3) Embedded Comments */}
-                <div className="mt-1 pt-2 border-t border-white/5 -mx-2">
+                <div className="mt-4 pt-4 border-t border-secondary/15 -mx-2">
                     <CommentsView data={data} />
                 </div>
             </div>
@@ -423,8 +445,25 @@ function ReportView({ data }: { data: any }) {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
+    const ui = {
+        emptyState: "text-secondary text-sm py-10 text-center",
+        form: "p-4 space-y-6",
+        sectionLabel: "block text-sm font-semibold text-secondary mb-3",
+        card: "rounded-2xl bg-surface-2/50 backdrop-blur-xl ring-1 ring-secondary/10",
+        optionRow: "flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-colors bg-surface-2/50 hover:bg-secondary/10 ring-1 ring-secondary/10",
+        optionRowActive: "bg-secondary/10 ring-1 ring-red-500/30",
+        radio: "h-4 w-4 text-red-500 focus:ring-red-500 focus:ring-offset-background",
+        textarea: "w-full resize-none rounded-2xl bg-surface-2/50 backdrop-blur-xl ring-1 ring-secondary/10 px-4 py-3 text-sm text-foreground placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-red-500/30",
+        helperText: "text-xs text-secondary mt-1.5",
+        errorBox: "rounded-2xl bg-surface-2/30 backdrop-blur-xl ring-1 ring-red-500/25 p-3",
+        submitBtn: "w-full rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-red-600 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+        footnote: "text-[11px] text-center text-secondary leading-relaxed",
+        successWrap: "p-8 text-center flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300",
+        successIconWrap: "inline-flex h-16 w-16 items-center justify-center rounded-full bg-surface-2/50 backdrop-blur-xl ring-1 ring-emerald-500/25 mb-4",
+    };
+
     if (!data || !data.id) {
-        return <div className="text-neutral-500 text-sm">No content selected.</div>;
+        return <div className={ui.emptyState}>No content selected.</div>;
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -481,33 +520,30 @@ function ReportView({ data }: { data: any }) {
 
     if (success) {
         return (
-            <div className="p-6 text-center">
-                <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20 mb-4">
-                    <svg className="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className={ui.successWrap}>
+                <div className={ui.successIconWrap}>
+                    <svg className="h-8 w-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <p className="text-white font-medium">Report submitted</p>
-                <p className="text-sm text-neutral-400 mt-1">Thank you for helping keep our community safe</p>
+                <p className="text-foreground font-medium">Report submitted</p>
+                <p className="text-sm text-secondary mt-1">Thank you for helping keep our community safe</p>
             </div>
         );
     }
 
     return (
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className={ui.form}>
             {/* Reason Selection */}
             <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-3">
+                <label className={ui.sectionLabel}>
                     Why are you reporting this post?
                 </label>
                 <div className="space-y-2">
                     {(Object.keys(REPORT_REASON_LABELS) as Array<keyof typeof REPORT_REASON_LABELS>).map((reason) => (
                         <label
                             key={reason}
-                            className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${selectedReason === reason
-                                ? "bg-red-500/20 ring-1 ring-red-500/50"
-                                : "bg-white/5 hover:bg-white/10"
-                                }`}
+                            className={`${ui.optionRow} ${selectedReason === reason ? ui.optionRowActive : ""}`}
                         >
                             <input
                                 type="radio"
@@ -515,9 +551,9 @@ function ReportView({ data }: { data: any }) {
                                 value={reason}
                                 checked={selectedReason === reason}
                                 onChange={(e) => setSelectedReason(e.target.value)}
-                                className="h-4 w-4 text-red-500 focus:ring-red-500 focus:ring-offset-neutral-900"
+                                className={ui.radio}
                             />
-                            <span className="text-sm text-white">{REPORT_REASON_LABELS[reason]}</span>
+                            <span className="text-sm text-foreground">{REPORT_REASON_LABELS[reason]}</span>
                         </label>
                     ))}
                 </div>
@@ -525,7 +561,7 @@ function ReportView({ data }: { data: any }) {
 
             {/* Optional Details */}
             <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                <label className={ui.sectionLabel}>
                     Additional details (optional)
                 </label>
                 <textarea
@@ -534,16 +570,16 @@ function ReportView({ data }: { data: any }) {
                     maxLength={500}
                     rows={3}
                     placeholder="Provide more context about this report..."
-                    className="w-full resize-none rounded-xl bg-white/5 px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 border border-white/10"
+                    className={ui.textarea}
                 />
-                <p className="text-xs text-neutral-500 mt-1">
+                <p className={ui.helperText}>
                     {details.length}/500 characters
                 </p>
             </div>
 
             {/* Error Message */}
             {error && (
-                <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-3">
+                <div className={ui.errorBox}>
                     <p className="text-sm text-red-400">{error}</p>
                 </div>
             )}
@@ -552,12 +588,12 @@ function ReportView({ data }: { data: any }) {
             <button
                 type="submit"
                 disabled={!selectedReason || submitting}
-                className="w-full rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white transition-all hover:bg-red-600 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-500"
+                className={ui.submitBtn}
             >
                 {submitting ? "Submitting..." : "Submit Report"}
             </button>
 
-            <p className="text-xs text-center text-neutral-500">
+            <p className={ui.footnote}>
                 Reports are reviewed by our moderation team. False reports may result in action against your account.
             </p>
         </form>
@@ -1232,6 +1268,44 @@ function SupportTicketInfoView({ data }: { data: any }) {
                     </div>
                 </>
             )}
+        </div>
+    );
+}
+
+function MapHelpView() {
+    return (
+        <div className="space-y-4 p-3">
+            {/* Google Maps Section */}
+            <div className="cc-section p-4 space-y-2">
+                <h4 className="font-semibold text-foreground flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 5.42 7.72 14.73 8.06 15.13.19.23.53.23.72 0 .34-.4 8.06-9.71 8.06-15.13C20.5 3.81 16.69 0 12 0zm0 12.5c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                    </svg>
+                    Google Maps
+                </h4>
+                <p className="text-sm text-secondary">
+                    You can copy the URL from your browser's address bar, or use the "Share" button and click "Copy Link".
+                </p>
+                <code className="block rounded bg-secondary/10 p-2 text-xs text-secondary">
+                    maps.app.goo.gl/... or google.com/maps/...
+                </code>
+            </div>
+
+            {/* Apple Maps Section */}
+            <div className="cc-section p-4 space-y-2">
+                <h4 className="font-semibold text-foreground flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                    </svg>
+                    Apple Maps
+                </h4>
+                <p className="text-sm text-secondary">
+                    Select a location, click the "Share" button, and choose "Copy Link". It usually looks like:
+                </p>
+                <code className="block rounded bg-secondary/10 p-2 text-xs text-secondary">
+                    maps.apple.com/?...&ll=lat,lng...
+                </code>
+            </div>
         </div>
     );
 }

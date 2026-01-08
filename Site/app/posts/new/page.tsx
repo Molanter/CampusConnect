@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import clsx from "clsx";
 import {
   onAuthStateChanged,
   type User,
@@ -20,6 +21,11 @@ import { auth, db } from "../../../lib/firebase";
 import { Club, ClubMember } from "../../../lib/clubs";
 import Toast, { ToastData } from "@/components/Toast";
 import { PostCard } from "@/components/post-card";
+import { useRightSidebar } from "@/components/right-sidebar-context";
+import { useMainLayoutMetrics } from "@/components/main-layout-metrics-context";
+import { CalendarIcon, ClockIcon, QuestionMarkCircleIcon, MegaphoneIcon, ChatBubbleBottomCenterTextIcon, BuildingLibraryIcon } from "@heroicons/react/24/outline";
+import { CheckBadgeIcon } from "@heroicons/react/24/solid";
+import { PostType } from "../../../lib/posts";
 
 type UserProfile = {
   preferredName?: string;
@@ -51,57 +57,15 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-function MapHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-[#1C1C1E] ring-1 ring-white/10 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 p-4">
-          <h3 className="text-lg font-bold text-white">How to get a Map Link</h3>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 text-neutral-400 hover:bg-white/10 hover:text-white transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="p-6 space-y-6">
-          <div className="space-y-2">
-            <h4 className="font-semibold text-blue-400 flex items-center gap-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 5.42 7.72 14.73 8.06 15.13.19.23.53.23.72 0 .34-.4 8.06-9.71 8.06-15.13C20.5 3.81 16.69 0 12 0zm0 12.5c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" /></svg>
-              Google Maps
-            </h4>
-            <p className="text-sm text-neutral-300">
-              You can copy the URL from your browser's address bar, or use the "Share" button and click "Copy Link".
-            </p>
-            <code className="block rounded bg-black/30 p-2 text-xs text-neutral-400">
-              maps.app.goo.gl/... or google.com/maps/...
-            </code>
-          </div>
-          <div className="space-y-2">
-            <h4 className="font-semibold text-pink-400 flex items-center gap-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" /></svg>
-              Apple Maps
-            </h4>
-            <p className="text-sm text-neutral-300">
-              Select a location, click the "Share" button, and choose "Copy Link". It usually looks like:
-            </p>
-            <code className="block rounded bg-black/30 p-2 text-xs text-neutral-400">
-              maps.apple.com/?...&ll=lat,lng...
-            </code>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+
 
 export default function CreateEventPage() {
+  const MEDIA_LIMIT = 10;
+  const WORD_LIMIT = 300;
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialClubId = searchParams.get("clubId");
+  const { isMainNarrow, mainWidth } = useMainLayoutMetrics();
 
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -114,9 +78,11 @@ export default function CreateEventPage() {
   const [campusesLoading, setCampusesLoading] = useState(false);
 
   const [toast, setToast] = useState<ToastData | null>(null);
+  const [isCampusAdmin, setIsCampusAdmin] = useState(false);
 
   // Event form fields
-  const [isEvent, setIsEvent] = useState(false);
+  const [type, setType] = useState<PostType>("post");
+  const isEvent = type === "event";
 
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -135,14 +101,33 @@ export default function CreateEventPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false); // New state for LocationPicker
-  const [isMapHelpOpen, setIsMapHelpOpen] = useState(false);
   const [showMapPreview, setShowMapPreview] = useState(true); // Toggle for map preview
 
   // Club posting state
-  const [userClubs, setUserClubs] = useState<{ id: string; name: string; role: string }[]>([]);
+  const [userClubs, setUserClubs] = useState<{
+    id: string;
+    name: string;
+    role: string;
+    allowMemberPosts?: boolean;
+    imageUrl?: string;
+    status?: string;
+    type?: string;
+    isVerified?: boolean;
+    category?: string;
+  }[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(initialClubId);
   const [loadingClubs, setLoadingClubs] = useState(false);
   const [selectedClubName, setSelectedClubName] = useState<string | null>(null);
+  const [isPostAsMenuOpen, setIsPostAsMenuOpen] = useState(false);
+  const [campusImageUrl, setCampusImageUrl] = useState<string | null>(null);
+
+  // Active section state for visual feedback
+  const [activeSection, setActiveSection] = useState<
+    "postAs" | "details" | "type" | "eventDetails" | "extraInfo" | null
+  >(null);
+
+  // Right sidebar
+  const { openView } = useRightSidebar();
 
   // ---- Auth ----
   useEffect(() => {
@@ -156,97 +141,146 @@ export default function CreateEventPage() {
   // Helper to parse coordinates from Google/Apple Maps URL
   const parseCoordinatesFromUrl = async (url: string) => {
     if (!url) return null;
-
     let targetUrl = url;
 
-    // If it's a short Google Maps URL, expand it first
-    if (url.includes("goo.gl") || url.includes("maps.app.goo.gl")) {
+    // Expand shortened URLs (Google and Apple Maps)
+    const needsExpansion = url.includes("goo.gl") ||
+      url.includes("maps.app.goo.gl") ||
+      url.includes("maps.apple.com/p/") ||
+      url.includes("maps.apple/p/") ||
+      (url.includes("apple") && url.includes("/p/"));
+
+    if (needsExpansion) {
       try {
-        console.log("Expanding URL:", url);
+        console.log("Expanding shortened URL:", url);
         const res = await fetch(`/api/expand-map-url?url=${encodeURIComponent(url)}`);
         if (res.ok) {
           const data = await res.json();
-          console.log("Expanded data:", data);
           if (data.expandedUrl) {
             targetUrl = data.expandedUrl;
+            console.log("Expanded to:", targetUrl);
+          } else {
+            console.log("API response did not contain expandedUrl:", data);
           }
         } else {
-          console.error("Expansion failed:", res.status, res.statusText);
+          console.log("API returned error status:", res.status, await res.text());
         }
       } catch (err) {
-        console.error("Failed to expand map URL", err);
+        console.error("Failed to expand URL:", err);
       }
     }
 
-    console.log("Target URL for regex:", targetUrl);
+    // Helper to extract label from URL
+    const extractLabel = (urlStr: string) => {
+      try {
+        const u = new URL(urlStr);
+        // Apple Maps name param
+        const nameParam = u.searchParams.get("name");
+        if (nameParam) return decodeURIComponent(nameParam.replace(/\+/g, " "));
 
-    // Priority 1: Data params (!3d and !4d) - often used for specific pin location
-    // Format: ...!3d38.835848!4d-77.0828711...
+        // Google/Apple query param (if it's not JUST coordinates)
+        const qParam = u.searchParams.get("q");
+        if (qParam && !qParam.match(/^-?\d+\.\d+,-?\d+\.\d+$/)) {
+          return decodeURIComponent(qParam.replace(/\+/g, " "));
+        }
+
+        // Google Maps place path
+        const placeMatch = urlStr.match(/\/place\/([^/@?]+)/);
+        if (placeMatch && placeMatch[1]) {
+          return decodeURIComponent(placeMatch[1].replace(/\+/g, " "));
+        }
+      } catch (e) {
+        // Not a full URL or other error
+      }
+      return null;
+    };
+
+    const foundLabel = extractLabel(targetUrl) || extractLabel(url);
+
+    // Priority 1: Google Maps !3d and !4d params (most specific)
     const data3dRegex = /!3d(-?\d+\.\d+)/;
     const data4dRegex = /!4d(-?\d+\.\d+)/;
     const match3d = targetUrl.match(data3dRegex);
     const match4d = targetUrl.match(data4dRegex);
-
     if (match3d && match4d) {
+      console.log("Found Google Maps !3d/!4d coordinates");
       return {
         lat: parseFloat(match3d[1]),
         lng: parseFloat(match4d[1]),
+        label: foundLabel
       };
     }
 
-    // Google Maps: @lat,lng
+    // Priority 2: Google Maps @ format
     const googleRegex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
     const googleMatch = targetUrl.match(googleRegex);
     if (googleMatch) {
+      console.log("Found Google Maps @ coordinates");
       return {
         lat: parseFloat(googleMatch[1]),
         lng: parseFloat(googleMatch[2]),
+        label: foundLabel
       };
     }
 
-    // Google Maps: /search/lat,lng
-    const googleSearchRegex = /search\/(-?\d+\.\d+)[, ]\+?(-?\d+\.\d+)/;
-    const googleSearchMatch = targetUrl.match(googleSearchRegex);
-    if (googleSearchMatch) {
+    // Priority 3: Apple Maps coordinate= format (full place URLs)
+    const appleCoordinateRegex = /coordinate=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+    const appleCoordinateMatch = targetUrl.match(appleCoordinateRegex);
+    if (appleCoordinateMatch) {
+      console.log("Found Apple Maps coordinate= parameter");
       return {
-        lat: parseFloat(googleSearchMatch[1]),
-        lng: parseFloat(googleSearchMatch[2]),
+        lat: parseFloat(appleCoordinateMatch[1]),
+        lng: parseFloat(appleCoordinateMatch[2]),
+        label: foundLabel
       };
     }
 
-    // Google Maps: ?q=lat,lng
-    const googleQueryRegex = /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/;
-    const googleQueryMatch = targetUrl.match(googleQueryRegex);
-    if (googleQueryMatch) {
-      return {
-        lat: parseFloat(googleQueryMatch[1]),
-        lng: parseFloat(googleQueryMatch[2]),
-      };
-    }
-
-    // Apple Maps: ll=lat,lng
+    // Priority 4: Apple Maps ll= format (share URLs)
     const appleRegex = /ll=(-?\d+\.\d+),(-?\d+\.\d+)/;
     const appleMatch = targetUrl.match(appleRegex);
     if (appleMatch) {
+      console.log("Found Apple Maps ll= coordinates");
       return {
         lat: parseFloat(appleMatch[1]),
         lng: parseFloat(appleMatch[2]),
+        label: foundLabel
       };
     }
 
+    // Priority 5: Google Maps ?q= format
+    const googleQueryRegex = /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+    const googleQueryMatch = targetUrl.match(googleQueryRegex);
+    if (googleQueryMatch) {
+      console.log("Found Google Maps ?q= coordinates");
+      return {
+        lat: parseFloat(googleQueryMatch[1]),
+        lng: parseFloat(googleQueryMatch[2]),
+        label: foundLabel
+      };
+    }
+
+    console.log("No coordinate patterns matched in URL:", targetUrl);
     return null;
   };
 
   // Auto-parse coordinates when URL changes
   useEffect(() => {
     const parse = async () => {
-      const coords = await parseCoordinatesFromUrl(locationUrl);
-      if (coords) {
-        setCoordinates(coords);
+      if (!locationUrl) {
+        setCoordinates(null);
+        return;
+      }
+
+      const result = await parseCoordinatesFromUrl(locationUrl);
+      if (result) {
+        console.log("Parsed result:", result);
+        setCoordinates({ lat: result.lat, lng: result.lng });
+        if (result.label && !locationLabel) {
+          setLocationLabel(result.label);
+        }
       } else {
-        // Only clear if user cleared the URL, otherwise keep previous valid coords?
-        // Or clear if invalid? Let's clear if invalid to avoid mismatch.
-        if (!locationUrl) setCoordinates(null);
+        console.log("Could not parse coordinates from URL:", locationUrl);
+        // Don't clear coordinates if parsing fails - keep existing ones
       }
     };
     parse();
@@ -306,6 +340,45 @@ export default function CreateEventPage() {
     void loadCampuses();
   }, []);
 
+  // ---- Check if User is Campus Admin ----
+  useEffect(() => {
+    const checkCampusAdmin = async () => {
+      if (!user || !profile?.campusId) {
+        setIsCampusAdmin(false);
+        return;
+      }
+
+      try {
+        // Fetch the campus/university document
+        const campusRef = doc(db, "universities", profile.campusId);
+        const campusSnap = await getDoc(campusRef);
+
+        if (campusSnap.exists()) {
+          const campusData = campusSnap.data();
+          const adminEmails = campusData.adminEmails || [];
+          const userEmail = user.email?.toLowerCase();
+
+          // Store campus image URL
+          setCampusImageUrl(campusData.logoUrl || campusData.imageUrl || null);
+
+          // Check if user's email is in the campus adminEmails array
+          if (userEmail && adminEmails.map((e: string) => e.toLowerCase()).includes(userEmail)) {
+            setIsCampusAdmin(true);
+          } else {
+            setIsCampusAdmin(false);
+          }
+        } else {
+          setIsCampusAdmin(false);
+        }
+      } catch (err) {
+        console.error("Error checking campus admin status:", err);
+        setIsCampusAdmin(false);
+      }
+    };
+
+    void checkCampusAdmin();
+  }, [user, profile?.campusId]);
+
   // ---- Load User's Clubs ----
   useEffect(() => {
     const loadUserClubs = async () => {
@@ -314,7 +387,17 @@ export default function CreateEventPage() {
       try {
         const { getUserClubs } = await import("../../../lib/clubs");
         const userClubsList = await getUserClubs(user.uid);
-        const availableClubs: { id: string; name: string; role: string }[] = [];
+        const availableClubs: {
+          id: string;
+          name: string;
+          role: string;
+          allowMemberPosts?: boolean;
+          imageUrl?: string;
+          status?: string;
+          type?: string;
+          isVerified?: boolean;
+          category?: string;
+        }[] = [];
 
         for (const club of userClubsList) {
           // Check membership for role and club settings
@@ -330,10 +413,17 @@ export default function CreateEventPage() {
               club.allowMemberPosts === true;
 
             if (canPost && memberData.status === "approved") {
+              const clubData = club as any;
               availableClubs.push({
                 id: club.id,
                 name: club.name,
                 role: memberData.role,
+                allowMemberPosts: club.allowMemberPosts,
+                imageUrl: clubData.logoUrl || clubData.coverImageUrl,
+                status: memberData.status,
+                type: clubData.type, // To differentiate dorms from clubs
+                isVerified: clubData.isVerified, // For verification badge
+                category: clubData.category, // For dorm detection
               });
             }
           }
@@ -365,6 +455,40 @@ export default function CreateEventPage() {
       setSelectedClubName(null);
     }
   }, [selectedClubId, userClubs]);
+
+  // Reset announcement type if user switches to context where announcements aren't allowed
+  useEffect(() => {
+    if (type !== "announcement") return;
+
+    let canPostAnnouncement = false;
+
+    // Announcements are ONLY for campus or club posts, NOT personal
+    if (selectedClubId === "campus") {
+      // Posting as campus - campus admins can post announcements
+      canPostAnnouncement = isCampusAdmin;
+    } else if (selectedClubId) {
+      // Posting as a club - check if user is owner/admin
+      const selectedClub = userClubs.find(c => c.id === selectedClubId);
+      if (selectedClub) {
+        canPostAnnouncement =
+          (selectedClub.role === "owner" || selectedClub.role === "admin") &&
+          selectedClub.allowMemberPosts !== true;
+      }
+    }
+    // If posting as personal (!selectedClubId), canPostAnnouncement stays false
+
+    // If announcements not allowed and currently selected, reset to "post"
+    if (!canPostAnnouncement) {
+      setType("post");
+    }
+  }, [selectedClubId, userClubs, isCampusAdmin, type]);
+
+  // Helper function to determine if a club is a dorm
+  const isDorm = (club: { type?: string; category?: string; name: string }) => {
+    return club.type === "dorm" ||
+      club.category?.toLowerCase() === "dorm" ||
+      club.name.toLowerCase().includes("dorm");
+  };
 
   // Determine university colors for this user (if any)
   const trimmedCampusName = (profile?.campus || "").trim();
@@ -408,9 +532,18 @@ export default function CreateEventPage() {
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newFiles = Array.from(e.target.files);
-      setSelectedFiles((prev) => [...prev, ...newFiles]);
+      const remainingSlots = MEDIA_LIMIT - selectedFiles.length;
+      if (remainingSlots <= 0) {
+        setToast({ type: "error", message: `Maximum ${MEDIA_LIMIT} photos allowed.` });
+        return;
+      }
 
+      const newFiles = Array.from(e.target.files).slice(0, remainingSlots);
+      if (Array.from(e.target.files).length > remainingSlots) {
+        setToast({ type: "error", message: `Only ${remainingSlots} more photo(s) could be added.` });
+      }
+
+      setSelectedFiles((prev) => [...prev, ...newFiles]);
       const newUrls = newFiles.map((file) => URL.createObjectURL(file));
       setPreviewUrls((prev) => [...prev, ...newUrls]);
     }
@@ -453,6 +586,17 @@ export default function CreateEventPage() {
       return;
     }
 
+    const wordCount = description.trim() ? description.trim().split(/\s+/).length : 0;
+    if (wordCount > WORD_LIMIT) {
+      setFormError(`Description exceeds the ${WORD_LIMIT} word limit.`);
+      return;
+    }
+
+    if (selectedFiles.length > MEDIA_LIMIT) {
+      setFormError(`Maximum ${MEDIA_LIMIT} photos allowed.`);
+      return;
+    }
+
     try {
       setSaving(true);
       setUploading(true);
@@ -476,12 +620,14 @@ export default function CreateEventPage() {
       const baseData: any = {
         description: description.trim(),
         authorId: user.uid,
-        // authorName removed
-        // authorUsername removed
-        // authorAvatarUrl removed
         createdAt: serverTimestamp(),
         likes: [],
+        seenCount: 0,
+        type,
         isEvent: isEvent,
+        // Always tag with the user's active campus for analytics
+        campusId: profile?.campusId,
+        campusName: profile?.campus,
         // Moderation fields
         visibility: "visible",
         reportCount: 0,
@@ -492,16 +638,29 @@ export default function CreateEventPage() {
       }
 
       if (selectedClubId) {
-        baseData.clubId = selectedClubId;
+        if (selectedClubId === "campus") {
+          // Posting as campus
+          baseData.ownerType = "campus";
+          if (campusImageUrl) baseData.campusAvatarUrl = campusImageUrl;
+        } else {
+          // Posting as club
+          baseData.ownerType = "club";
+          baseData.clubId = selectedClubId;
+        }
+      } else {
+        baseData.ownerType = "personal";
       }
 
       if (isEvent) {
         Object.assign(baseData, {
-          date: eventDate, // yyyy-mm-dd
-          startTime: startTime, // hh:mm
-          endTime: endTime, // hh:mm
+          date: eventDate.trim(), // yyyy-mm-dd
+          startTime: startTime.trim(), // hh:mm
+          endTime: endTime.trim(), // hh:mm
           locationLabel: locationLabel.trim(),
+          locationUrl: locationUrl.trim(),
           coordinates: coordinates,
+          dressCode: dressCode.trim(),
+          extraNotes: extraNotes.trim(),
           goingUids: [],
           maybeUids: [],
           notGoingUids: [],
@@ -511,7 +670,7 @@ export default function CreateEventPage() {
       await addDoc(collection(db, "posts"), baseData);
 
       // 3. Redirect back
-      if (selectedClubId) {
+      if (selectedClubId && selectedClubId !== "campus") {
         router.push(`/clubs/${selectedClubId}`);
       } else {
         router.push("/");
@@ -544,7 +703,7 @@ export default function CreateEventPage() {
   // ---- Guards ----
   if (authLoading || profileLoading || campusesLoading) {
     return (
-      <div className="flex h-screen items-center justify-center text-neutral-400">
+      <div className="flex h-screen items-center justify-center cc-page text-secondary">
         <div className="animate-pulse">Loading...</div>
       </div>
     );
@@ -552,11 +711,11 @@ export default function CreateEventPage() {
 
   if (!user) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 text-neutral-300">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 cc-page text-secondary">
         <p>You must sign in to create events.</p>
         <button
           onClick={() => router.push("/login")}
-          className="rounded-full bg-white px-6 py-2 text-sm font-medium text-black hover:bg-neutral-200"
+          className="rounded-full bg-brand px-6 py-2 text-sm font-medium text-brand-foreground hover:opacity-90"
         >
           Sign In
         </button>
@@ -569,292 +728,567 @@ export default function CreateEventPage() {
       <Toast toast={toast} onClear={() => setToast(null)} />
 
       {/* Main Content using Layout Grid */}
-      <div className="mx-auto w-full max-w-7xl px-4 lg:px-8 py-6 lg:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+      <div className="cc-page">
+        <div className="mx-auto w-full max-w-7xl px-4 lg:px-8 py-6 lg:py-8">
+          <div className={clsx(
+            "grid gap-8 items-start",
+            mainWidth < 1024 ? "grid-cols-1" : "grid-cols-12 gap-12"
+          )}>
 
-          {/* Left Column: Form */}
-          <div className="lg:col-span-7 space-y-6">
-            {/* Header */}
-            <header className="space-y-1">
-              <h1 className="text-2xl font-bold tracking-tight text-white">Create Post</h1>
-              <p className="text-neutral-400 text-sm">Share what's happening on campus.</p>
-            </header>
+            {/* Left Column: Form */}
+            <div className={clsx("space-y-6", mainWidth < 1024 ? "" : "col-span-7")}>
+              {/* Header */}
+              <header className="space-y-1">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">Create Post</h1>
+                <p className="text-secondary text-sm">Share what's happening on campus.</p>
+              </header>
 
-            <form onSubmit={handleCreateEvent} className="space-y-6">
+              <form
+                onSubmit={handleCreateEvent}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                  }
+                }}
+                className="space-y-6"
+              >
 
-              {/* Post As */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Post As</label>
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-white/5 rounded-3xl blur-sm transition-opacity opacity-0 group-hover:opacity-100" />
-                  <div className="relative bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg transition-transform active:scale-[0.99]">
-                    <select
-                      value={selectedClubId || ""}
-                      onChange={(e) => setSelectedClubId(e.target.value || null)}
-                      className="w-full appearance-none bg-transparent px-4 py-3.5 text-sm text-white focus:outline-none"
+                {/* Post As */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-secondary ml-1">Post As</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsPostAsMenuOpen(!isPostAsMenuOpen)}
+                      className={clsx(
+                        "w-full cc-section rounded-full transition-shadow flex items-center gap-3 px-4 py-3.5",
+                        activeSection === "postAs" && "cc-shadow-soft"
+                      )}
                     >
-                      <option value="" className="bg-[#1A1A1A] text-white">Personal (Your Account)</option>
-                      {userClubs.map((club) => (
-                        <option key={club.id} value={club.id} className="bg-[#1A1A1A] text-white">
-                          Club: {club.name} ({club.role})
-                        </option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-neutral-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                      {/* Display selected option */}
+                      {!selectedClubId && (
+                        <>
+                          <div className="h-10 w-10 rounded-full bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
+                            {profile?.photoURL || user?.photoURL ? (
+                              <img src={profile?.photoURL || user?.photoURL || ""} alt="Your avatar" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-secondary">
+                                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          <span className="flex-1 text-left text-sm text-foreground">Personal (Your Account)</span>
+                        </>
+                      )}
+                      {selectedClubId === "campus" && (
+                        <>
+                          <div className="h-10 w-10 rounded-full overflow-hidden bg-secondary/20 ring-1 ring-secondary/30 shadow-sm flex-shrink-0 relative">
+                            {campusImageUrl ? (
+                              <img src={campusImageUrl} alt="Campus logo" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center">
+                                <BuildingLibraryIcon className="h-6 w-6 text-secondary" />
+                              </div>
+                            )}
+                          </div>
+                          <span className="flex-1 text-left text-sm text-foreground">Campus: {profile?.campus}</span>
+                        </>
+                      )}
+                      {selectedClubId && selectedClubId !== "campus" && (() => {
+                        const selectedClub = userClubs.find(c => c.id === selectedClubId);
+                        return selectedClub ? (
+                          <>
+                            <div className="h-10 w-10 rounded-lg bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
+                              {selectedClub.imageUrl ? (
+                                <img src={selectedClub.imageUrl} alt={selectedClub.name} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
+                              ) : isDorm(selectedClub) ? (
+                                <div className="h-full w-full flex items-center justify-center text-secondary">
+                                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                                  </svg>
+                                </div>
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center text-secondary">
+                                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-foreground">{selectedClub.name}</span>
+                                {selectedClub.isVerified && (
+                                  <CheckBadgeIcon className="h-4 w-4 text-brand" />
+                                )}
+                              </div>
+                              <span className="text-xs text-secondary capitalize">{selectedClub.role}</span>
+                            </div>
+                          </>
+                        ) : null;
+                      })()}
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={clsx("w-4 h-4 text-secondary transition-transform", isPostAsMenuOpen && "rotate-180")}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                       </svg>
-                    </div>
-                  </div>
-                </div>
-                {loadingClubs && <p className="text-xs text-neutral-500 animate-pulse ml-1">Loading clubs...</p>}
-              </div>
+                    </button>
 
-              {/* Main Input Details */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Details</label>
-                <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
-                  {/* Description */}
-                  <textarea
-                    rows={4}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:bg-white/[0.02] transition-colors"
-                    placeholder="What's going on?"
-                  />
-
-                  {/* Image Upload */}
-                  <div className="flex flex-col gap-3 px-4 py-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-neutral-400">
-                        {selectedFiles.length > 0 ? `${selectedFiles.length} photo(s)` : "Photos"}
-                      </span>
-                      <label className="cursor-pointer rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 transition-colors">
-                        Add Photos
-                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
-                      </label>
-                    </div>
-                    {previewUrls.length > 0 && (
-                      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                        {previewUrls.map((url, idx) => (
-                          <div key={url} className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 group">
-                            <img src={url} alt="Preview" className="h-full w-full object-cover" />
-                            <button type="button" onClick={() => removeImage(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                              </svg>
-                            </button>
+                    {/* Dropdown menu */}
+                    {isPostAsMenuOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 cc-section rounded-3xl overflow-hidden z-50 max-h-96 overflow-y-auto">
+                        {/* Personal account */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedClubId(null);
+                            setIsPostAsMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors"
+                        >
+                          <div className="h-10 w-10 rounded-full bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
+                            {profile?.photoURL || user?.photoURL ? (
+                              <img src={profile?.photoURL || user?.photoURL || ""} alt="Your avatar" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-secondary">
+                                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            )}
                           </div>
+                          <span className="flex-1 text-left text-sm text-foreground">Personal (Your Account)</span>
+                        </button>
+
+                        {/* Campus option */}
+                        {isCampusAdmin && profile?.campus && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedClubId("campus");
+                              setIsPostAsMenuOpen(false);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors border-t border-secondary/10"
+                          >
+                            <div className="h-10 w-10 rounded-full overflow-hidden bg-secondary/20 ring-1 ring-secondary/30 shadow-sm flex-shrink-0 relative">
+                              {campusImageUrl ? (
+                                <img src={campusImageUrl} alt="Campus logo" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center">
+                                  <BuildingLibraryIcon className="h-6 w-6 text-secondary" />
+                                </div>
+                              )}
+                            </div>
+                            <span className="flex-1 text-left text-sm text-foreground">Campus: {profile.campus}</span>
+                          </button>
+                        )}
+
+                        {/* Clubs */}
+                        {userClubs.map((club) => (
+                          <button
+                            key={club.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedClubId(club.id);
+                              setIsPostAsMenuOpen(false);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors border-t border-secondary/10"
+                          >
+                            <div className="h-10 w-10 rounded-lg bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
+                              {club.imageUrl ? (
+                                <img src={club.imageUrl} alt={club.name} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
+                              ) : isDorm(club) ? (
+                                <div className="h-full w-full flex items-center justify-center text-secondary">
+                                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                                  </svg>
+                                </div>
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center text-secondary">
+                                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-foreground">{club.name}</span>
+                                {club.isVerified && (
+                                  <CheckBadgeIcon className="h-4 w-4 text-brand" />
+                                )}
+                              </div>
+                              <span className="text-xs text-secondary capitalize">{club.role}</span>
+                            </div>
+                          </button>
                         ))}
                       </div>
                     )}
                   </div>
+                  {loadingClubs && <p className="text-xs text-secondary animate-pulse ml-1">Loading clubs...</p>}
                 </div>
-              </div>
 
-              {/* Is Event Toggle */}
-              <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl px-4 py-3 flex items-center justify-between shadow-lg">
-                <span className="text-sm font-medium text-white">Is this an event?</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={isEvent}
-                  onClick={() => setIsEvent(!isEvent)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isEvent ? 'bg-[#ffb200]' : 'bg-neutral-700'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEvent ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-
-              {/* Event Logistics */}
-              {isEvent && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Event Details</label>
-                  <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
-                    {/* Date */}
-                    <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
-                      <span className="text-sm text-neutral-300">Date</span>
-                      <input
-                        type="date"
-                        value={eventDate}
-                        onChange={(e) => setEventDate(e.target.value)}
-                        className="bg-transparent text-right text-sm text-white focus:outline-none focus:text-[#ffb200] [color-scheme:dark]"
-                        required={isEvent}
+                {/* Main Input Details */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-secondary ml-1">Details</label>
+                  <div
+                    className={clsx(
+                      "cc-section cc-radius-24 overflow-hidden divide-y divide-secondary/10 transition-shadow",
+                      activeSection === "details" && "cc-shadow-soft"
+                    )}
+                    onFocusCapture={() => setActiveSection("details")}
+                    onClick={() => setActiveSection("details")}
+                  >
+                    {/* Description */}
+                    <div className="relative">
+                      <textarea
+                        rows={4}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full resize-none bg-transparent px-4 py-3.5 pb-8 text-sm text-foreground placeholder:text-secondary focus:outline-none transition-colors"
+                        placeholder="What's going on?"
                       />
-                    </div>
-                    {/* Start Time */}
-                    <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
-                      <span className="text-sm text-neutral-300">Start Time</span>
-                      <input
-                        type="time"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        className="bg-transparent text-right text-sm text-white focus:outline-none focus:text-[#ffb200] [color-scheme:dark]"
-                        required={isEvent}
-                      />
-                    </div>
-                    {/* End Time */}
-                    <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
-                      <span className="text-sm text-neutral-300">End Time</span>
-                      <input
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        className="bg-transparent text-right text-sm text-white focus:outline-none focus:text-[#ffb200] [color-scheme:dark]"
-                        required={isEvent}
-                      />
+                      <div className={clsx(
+                        "absolute bottom-2 right-4 text-[10px] font-bold tracking-wider",
+                        (description.trim() ? description.trim().split(/\s+/).length : 0) > WORD_LIMIT ? "text-red-500" : "text-secondary"
+                      )}>
+                        {description.trim() ? description.trim().split(/\s+/).length : 0}/{WORD_LIMIT} WORDS
+                      </div>
                     </div>
 
-                    {/* Location URL */}
-                    <div className="relative flex items-center px-4 py-1 hover:bg-white/[0.02] transition-colors">
-                      <input
-                        value={locationUrl}
-                        onChange={(e) => setLocationUrl(e.target.value)}
-                        className="w-full bg-transparent py-2.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                        placeholder="Paste Map URL (Apple/Google)"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setIsMapHelpOpen(true)}
-                        className="ml-2 text-neutral-500 hover:text-[#ffb200] transition-colors"
-                        title="Help"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.06 5.312 5.312 0 017.56 0 .75.75 0 01-1.06 1.06 3.812 3.812 0 00-5.44 0zM8.94 13.06a.75.75 0 11-1.06-1.06 2.31 2.31 0 013.25 0 .75.75 0 01-1.06 1.06 1.5 1.5 0 00-1.13 0z" clipRule="evenodd" />
-                        </svg>
-                      </button>
+                    {/* Image Upload */}
+                    <div className="flex flex-col gap-3 px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-secondary">
+                          {selectedFiles.length > 0 ? `${selectedFiles.length}/${MEDIA_LIMIT} photo(s)` : "Photos"}
+                        </span>
+                        <label className="cursor-pointer rounded-full bg-secondary/15 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/25 transition-colors cc-hover-shadow">
+                          Add Photos
+                          <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
+                        </label>
+                      </div>
+                      {previewUrls.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                          {previewUrls.map((url, idx) => (
+                            <div key={url} className="relative h-20 w-20 flex-shrink-0 overflow-hidden cc-radius-24 ring-2 ring-inset ring-secondary/25 bg-secondary/10 group">
+                              <img src={url} alt="Preview" className="h-full w-full object-cover" />
+                              <button type="button" onClick={() => removeImage(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 cc-glass-strong text-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80 hover:text-white">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {/* Location Label */}
-                    <input
-                      value={locationLabel}
-                      onChange={(e) => setLocationLabel(e.target.value)}
-                      className="w-full bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none hover:bg-white/[0.02] transition-colors"
-                      placeholder="Location Label (e.g. Library)"
-                    />
-                    {/* Map Toggle */}
-                    {coordinates && (
-                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
-                        <span className="text-sm text-neutral-300">Show map preview</span>
+                  </div>
+                </div>
+
+                {/* Post Type Selector */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-secondary ml-1">Post Type</label>
+                  <div
+                    className={clsx(
+                      "cc-section cc-radius-24 p-1.5 flex transition-shadow",
+                      activeSection === "type" && "cc-shadow-soft"
+                    )}
+                    onClick={() => setActiveSection("type")}
+                  >
+                    {(() => {
+                      // Determine if announcements should be available
+                      let canPostAnnouncement = false;
+
+                      // Announcements are ONLY for campus or club posts, NOT personal
+                      if (selectedClubId === "campus") {
+                        // Posting as campus - campus admins can post announcements
+                        canPostAnnouncement = isCampusAdmin;
+                      } else if (selectedClubId) {
+                        // Posting as a club - check if user is owner/admin
+                        const selectedClub = userClubs.find(c => c.id === selectedClubId);
+                        if (selectedClub) {
+                          // Only allow announcements if user is owner/admin
+                          // AND club doesn't allow all members to post (indicating official club posts)
+                          canPostAnnouncement =
+                            (selectedClub.role === "owner" || selectedClub.role === "admin") &&
+                            selectedClub.allowMemberPosts !== true;
+                        }
+                      }
+                      // If posting as personal (!selectedClubId), canPostAnnouncement stays false
+
+                      const postTypes = [
+                        { id: "post", label: "Post", icon: ChatBubbleBottomCenterTextIcon },
+                        { id: "event", label: "Event", icon: CalendarIcon },
+                      ];
+
+                      // Only add announcement if user can post announcements
+                      if (canPostAnnouncement) {
+                        postTypes.push({ id: "announcement", label: "Announcement", icon: MegaphoneIcon });
+                      }
+
+                      return postTypes.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setType(t.id as PostType)}
+                          className={clsx(
+                            "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-full transition-all",
+                            type === t.id
+                              ? "bg-brand text-brand-foreground shadow-sm"
+                              : "text-secondary hover:text-foreground hover:bg-secondary/5"
+                          )}
+                        >
+                          <t.icon className="h-4 w-4" />
+                          {t.label}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                {/* Event Logistics */}
+                {isEvent && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <label className="text-xs font-bold uppercase tracking-wider text-secondary ml-1">Event Details</label>
+                    <div
+                      className={clsx(
+                        "cc-section cc-radius-24 overflow-hidden divide-y divide-secondary/10 transition-shadow",
+                        activeSection === "eventDetails" && "cc-shadow-soft"
+                      )}
+                      onFocusCapture={() => setActiveSection("eventDetails")}
+                      onClick={() => setActiveSection("eventDetails")}
+                    >
+                      {/* Date */}
+                      <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                        <span className="text-sm text-secondary">Date</span>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={eventDate}
+                            onChange={(e) => setEventDate(e.target.value)}
+                            className="cc-picker-input cursor-pointer"
+                            required={isEvent}
+                          />
+                          <CalendarIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
+                        </div>
+                      </div>
+                      {/* Start Time */}
+                      <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                        <span className="text-sm text-secondary">Start Time</span>
+                        <div className="relative">
+                          <input
+                            type="time"
+                            value={startTime}
+                            onChange={(e) => setStartTime(e.target.value)}
+                            className="cc-picker-input cursor-pointer"
+                            required={isEvent}
+                          />
+                          <ClockIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
+                        </div>
+                      </div>
+                      {/* End Time */}
+                      <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                        <span className="text-sm text-secondary">End Time</span>
+                        <div className="relative">
+                          <input
+                            type="time"
+                            value={endTime}
+                            onChange={(e) => setEndTime(e.target.value)}
+                            className="cc-picker-input cursor-pointer"
+                            required={isEvent}
+                          />
+                          <ClockIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
+                        </div>
+                      </div>
+
+                      {/* Location URL */}
+                      <div className="relative flex items-center pl-4 pr-2.5 py-1 cc-row-hover focus-within:cc-row-active">
+                        <input
+                          value={locationUrl}
+                          onChange={(e) => setLocationUrl(e.target.value)}
+                          className="w-full bg-transparent py-2.5 text-sm text-foreground placeholder:text-secondary focus:outline-none"
+                          placeholder="Paste Map URL (Apple/Google)"
+                        />
                         <button
                           type="button"
-                          role="switch"
-                          onClick={() => setShowMapPreview(!showMapPreview)}
-                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${showMapPreview ? 'bg-[#ffb200]' : 'bg-neutral-700'}`}
+                          onClick={() => openView("mapHelp", {})}
+                          className="ml-2 flex flex-none items-center justify-center rounded-full p-1.5 text-secondary hover:bg-secondary/10 hover:text-foreground transition-colors"
+                          title="Help"
                         >
-                          <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${showMapPreview ? 'translate-x-5' : 'translate-x-1'}`} />
+                          <QuestionMarkCircleIcon className="h-5 w-5" />
                         </button>
                       </div>
+                      {/* Location Label */}
+                      {coordinates && (
+                        <div className="px-4 py-2 text-xs text-secondary border-t border-secondary/5">
+                          <span className="font-mono">lat: {coordinates.lat}, lng: {coordinates.lng}</span>
+                        </div>
+                      )}
+                      <input
+                        value={locationLabel}
+                        onChange={(e) => setLocationLabel(e.target.value)}
+                        className="w-full bg-transparent px-4 py-3.5 text-sm text-foreground placeholder:text-secondary focus:outline-none cc-row-hover focus-within:cc-row-active"
+                        placeholder="Location Label (e.g. Library)"
+                      />
+                      {/* Map Toggle */}
+                      {coordinates && (
+                        <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                          <span className="text-sm text-secondary">Show map preview</span>
+                          <button
+                            type="button"
+                            role="switch"
+                            onClick={() => setShowMapPreview(!showMapPreview)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${showMapPreview ? 'bg-brand' : 'bg-secondary/40'}`}
+                          >
+                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${showMapPreview ? 'translate-x-5' : 'translate-x-1'}`} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Extra Notes */}
+                {isEvent && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-secondary ml-1">Additional Info</label>
+                    <div
+                      className={clsx(
+                        "cc-section cc-radius-24 overflow-hidden divide-y divide-secondary/10 transition-shadow",
+                        activeSection === "extraInfo" && "cc-shadow-soft"
+                      )}
+                      onFocusCapture={() => setActiveSection("extraInfo")}
+                      onClick={() => setActiveSection("extraInfo")}
+                    >
+                      <textarea
+                        rows={2}
+                        value={dressCode}
+                        onChange={(e) => setDressCode(e.target.value)}
+                        className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-foreground focus:outline-none cc-row-hover focus-within:cc-row-active placeholder:text-secondary"
+                        placeholder="Dress Code (Optional)"
+                      />
+                      <textarea
+                        rows={2}
+                        value={extraNotes}
+                        onChange={(e) => setExtraNotes(e.target.value)}
+                        className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-foreground focus:outline-none cc-row-hover focus-within:cc-row-active placeholder:text-secondary"
+                        placeholder="Other Notes (Optional)"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {formError && (
+                  <div className="w-full rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
+                    {formError}
+                  </div>
+                )}
+
+                {authError && (
+                  <div className="w-full rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
+                    {authError}
+                  </div>
+                )}
+
+                <div className="flex w-full gap-3 items-center">
+                  {/* Cancel Button - Icon on mobile, text on desktop */}
+                  <button
+                    type="button"
+                    onClick={() => router.back()}
+                    aria-label="Cancel"
+                    className={clsx(
+                      "flex h-11 items-center justify-center rounded-full bg-secondary/15 text-secondary hover:bg-secondary/25 hover:text-foreground transition-all cc-hover-shadow",
+                      isMainNarrow ? "w-11 px-0" : "flex-1 px-6"
                     )}
-                  </div>
+                  >
+                    {isMainNarrow ? (
+                      /* Icon only - visible on mobile/narrow */
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                      </svg>
+                    ) : (
+                      /* Text - visible on desktop */
+                      <span className="text-sm font-medium">Cancel</span>
+                    )}
+                  </button>
+
+                  {/* Create Button - Primary action */}
+                  <button
+                    type="submit"
+                    disabled={saving || uploading}
+                    className="flex-1 h-11 rounded-full bg-brand px-6 text-sm font-bold text-brand-foreground cc-shadow-soft cc-hover-shadow transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
+                  >
+                    {saving ? "Creating..." : "Create Post"}
+                  </button>
                 </div>
-              )}
-
-              {/* Extra Notes */}
-              {isEvent && (
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Additional Info</label>
-                  <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
-                    <textarea
-                      rows={2}
-                      value={dressCode}
-                      onChange={(e) => setDressCode(e.target.value)}
-                      className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-white focus:outline-none hover:bg-white/[0.02] transition-colors placeholder:text-neutral-500"
-                      placeholder="Dress Code (Optional)"
-                    />
-                    <textarea
-                      rows={2}
-                      value={extraNotes}
-                      onChange={(e) => setExtraNotes(e.target.value)}
-                      className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-white focus:outline-none hover:bg-white/[0.02] transition-colors placeholder:text-neutral-500"
-                      placeholder="Other Notes (Optional)"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {formError && (
-                <div className="w-full rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
-                  {formError}
-                </div>
-              )}
-
-              {authError && (
-                <div className="w-full rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
-                  {authError}
-                </div>
-              )}
-
-              <div className="flex w-full flex-col gap-3">
-                <button
-                  type="submit"
-                  disabled={saving || uploading}
-                  className="w-full rounded-full bg-[#ffb200] py-3 text-sm font-bold text-black shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
-                >
-                  {saving ? "Creating..." : "Create Post"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => router.back()}
-                  className="w-full rounded-full bg-neutral-800/50 py-3 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-white"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Right Column: Preview (Stacked on mobile, sticky on desktop) */}
-          <div className="lg:col-span-5 sticky top-24">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Live Preview</h2>
-              </div>
-
-              {/* Preview Card Wrapper */}
-              <div className="opacity-90 transition-opacity hover:opacity-100">
-                <PostCard
-
-                  post={{
-                    id: "preview",
-                    title: description || "New Post",
-                    content: description, // Old field
-                    imageUrls: previewUrls,
-                    date: eventDate,
-                    startTime: startTime,
-                    endTime: endTime,
-                    locationLabel: locationLabel,
-
-                    authorName: (selectedClubId ? userClubs.find(c => c.id === selectedClubId)?.name : profile?.preferredName) || user?.displayName || "You",
-                    authorUsername: selectedClubId ? undefined : profile?.username,
-                    authorAvatarUrl: selectedClubId ? undefined : (profile?.photoURL || user?.photoURL),
-
-                    authorId: user?.uid || "user", // Dummy ID
-                    coordinates: isEvent && showMapPreview && coordinates ? coordinates : undefined,
-                    isEvent: isEvent,
-                    likes: [],
-                    goingUids: [],
-                    maybeUids: [],
-                    notGoingUids: [],
-                    commentsCount: 0,
-                    repliesCommentsCount: 0,
-                    clubId: selectedClubId || undefined,
-                    createdAt: new Date() as any, // Mock timestamp
-                  }}
-                  previewMode={true}
-                  variant="threads"
-                  hideCommentPreview={true}
-                />
-              </div>
-
-              <p className="text-xs text-neutral-500 text-center px-4">
-                This is how your post will appear in the feed.
-              </p>
+              </form>
             </div>
-          </div>
 
-        </div>
-      </div>
-      <MapHelpModal isOpen={isMapHelpOpen} onClose={() => setIsMapHelpOpen(false)} />
+            {/* Right Column: Preview (Stacked on mobile, sticky on desktop) */}
+            <div className={clsx("sticky top-24", mainWidth < 1024 ? "" : "col-span-5")}>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between px-1">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-secondary ml-1">Live Preview</h2>
+                </div>
+
+                {/* Preview Card Wrapper */}
+                <div>
+                  <PostCard
+
+                    post={{
+                      id: "preview",
+                      title: description || "New Post",
+                      content: description, // Old field
+                      imageUrls: previewUrls,
+                      date: eventDate,
+                      startTime: startTime,
+                      endTime: endTime,
+                      locationLabel: locationLabel,
+
+                      authorName: (
+                        selectedClubId === "campus"
+                          ? profile?.campus
+                          : selectedClubId
+                            ? userClubs.find(c => c.id === selectedClubId)?.name
+                            : profile?.preferredName
+                      ) || user?.displayName || "You",
+                      authorUsername: selectedClubId ? undefined : profile?.username,
+                      authorAvatarUrl: selectedClubId ? undefined : (profile?.photoURL || user?.photoURL),
+
+                      authorId: user?.uid || "user", // Dummy ID
+                      coordinates: isEvent && showMapPreview && coordinates ? coordinates : undefined,
+                      type: type,
+                      isEvent: isEvent,
+                      likes: [],
+                      goingUids: [],
+                      maybeUids: [],
+                      notGoingUids: [],
+                      commentsCount: 0,
+                      repliesCommentsCount: 0,
+                      clubId: (selectedClubId && selectedClubId !== "campus") ? selectedClubId : undefined,
+                      createdAt: new Date() as any, // Mock timestamp
+                      isVerified: selectedClubId && selectedClubId !== "campus"
+                        ? userClubs.find(c => c.id === selectedClubId)?.isVerified
+                        : undefined,
+                      ownerType: selectedClubId === "campus" ? "campus" : selectedClubId ? "club" : "personal",
+                      campusName: selectedClubId === "campus" ? profile?.campus : undefined,
+                      campusAvatarUrl: selectedClubId === "campus" ? campusImageUrl || undefined : undefined,
+                    }}
+                    previewMode={true}
+                    variant="threads"
+                    hideCommentPreview={true}
+                  />
+                </div>
+
+                <p className="text-xs text-secondary text-center px-4">
+                  This is how your post will appear in the feed.
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </div >
+      </div >
     </>
   );
 }

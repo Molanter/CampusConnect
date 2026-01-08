@@ -32,9 +32,14 @@ export const mapDocToPost = (doc: QueryDocumentSnapshot<DocumentData>): Post => 
     return {
         id: doc.id,
         title: data.title,
+        description: data.description,
         content: data.content ?? data.description ?? "",
         imageUrls: (Array.isArray(data.imageUrls) ? data.imageUrls : null) ?? (data.imageUrl ? [data.imageUrl] : []),
-        isEvent: data.isEvent ?? true,
+
+        // Handle new type field with legacy isEvent fallback
+        type: data.type ?? (data.isEvent ? "event" : "post"),
+        isEvent: data.isEvent ?? (data.type === "event"),
+
         date: data.date ?? undefined,
         startTime: data.startTime ?? undefined,
         endTime: data.endTime ?? undefined,
@@ -57,6 +62,13 @@ export const mapDocToPost = (doc: QueryDocumentSnapshot<DocumentData>): Post => 
         clubId: data.clubId,
         clubName: data.clubName,
         clubAvatarUrl: data.clubAvatarUrl,
+        isVerified: data.isVerified,
+
+        // New fields
+        seenCount: data.seenCount ?? 0,
+        ownerType: data.ownerType,
+        campusName: data.campusName,
+        campusAvatarUrl: data.campusAvatarUrl,
 
         // Moderation fields
         visibility: data.visibility,
@@ -128,7 +140,7 @@ export function useFeed(user: any, targetUserId?: string) {
                         // Simple query first to avoid index issues
                         let todayQ = query(
                             collRef,
-                            where("isEvent", "==", true),
+                            where("type", "==", "event"),
                             where("date", "==", memoizedTodayStr),
                             limit(50)
                         );
@@ -208,6 +220,13 @@ export function useFeed(user: any, targetUserId?: string) {
 
             let newPosts = [...todayPosts, ...uniqueFeed.map(x => x.post)];
 
+            // Final sort: Newest Activity first
+            newPosts.sort((a, b) => {
+                const timeA = a.createdAt?.seconds ?? a.createdAt?.toMillis?.() ?? 0;
+                const timeB = b.createdAt?.seconds ?? b.createdAt?.toMillis?.() ?? 0;
+                return timeB - timeA;
+            });
+
             // Final safety filter: remove duplicates already in state if not initial
             if (!isInitial) {
                 setPosts(prev => {
@@ -221,10 +240,8 @@ export function useFeed(user: any, targetUserId?: string) {
 
             if (feedDocs.length > 0) {
                 lastDocRef.current = feedDocs[feedDocs.length - 1];
-                setHasMore(true);
-            } else {
-                setHasMore(false);
             }
+            setHasMore(feedDocs.length === POSTS_PER_PAGE);
 
         } catch (err: any) {
             console.error("Error loading posts", err);

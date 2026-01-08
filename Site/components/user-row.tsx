@@ -17,9 +17,11 @@ type UserRowProps = {
     onlyAvatar?: boolean;
     rightElement?: React.ReactNode;
     isVerified?: boolean;
+    type?: "User" | "Club" | "Event" | "Post" | "Dorm";
 };
+import { HomeIcon } from "@heroicons/react/24/solid";
 
-export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElement, isVerified = false }: UserRowProps) {
+export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElement, isVerified = false, type }: UserRowProps) {
     const [profile, setProfile] = useState<{
         displayName?: string;
         username?: string;
@@ -60,11 +62,11 @@ export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElem
         return (
             <div className="flex w-full items-center justify-between py-1">
                 <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
+                    <div className="h-8 w-8 animate-pulse rounded-full bg-secondary/10" />
                     {!onlyAvatar && (
                         <div className="flex flex-col gap-1">
-                            <div className="h-3 w-24 animate-pulse rounded bg-white/10" />
-                            <div className="h-2 w-16 animate-pulse rounded bg-white/10" />
+                            <div className="h-3 w-24 animate-pulse rounded bg-secondary/10" />
+                            <div className="h-2 w-16 animate-pulse rounded bg-secondary/10" />
                         </div>
                     )}
                 </div>
@@ -78,29 +80,45 @@ export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElem
     const initials = displayName.charAt(0).toUpperCase();
 
     // Allow overriding the default size (h-8 w-8)
-    const avatarClass = onlyAvatar ? "h-full w-full" : "h-8 w-8";
+    const avatarSizeClass = onlyAvatar ? "h-full w-full" : "h-8 w-8";
+    const isClubLike = (type === "Club" || type === "Dorm") ||
+        (subtitle?.toLowerCase().includes("club") || subtitle?.toLowerCase().includes("dorm"));
+    const roundingClass = isClubLike ? "rounded-[12px]" : "rounded-full";
 
     return (
         <div className={`flex w-full items-center ${onlyAvatar ? 'justify-center h-full' : 'justify-between py-1'}`}>
             <div className={`flex items-center ${onlyAvatar ? 'justify-center w-full h-full' : 'gap-3'}`}>
-                <div className={`${avatarClass} shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-1 ring-white/10`}>
+                <div className={`${avatarSizeClass} shrink-0 overflow-hidden ${roundingClass} cc-avatar ring-1 ring-secondary/20 bg-secondary/10 flex items-center justify-center aspect-square shadow-sm`}>
                     {photoURL ? (
-                        <img src={photoURL} alt={displayName} className="h-full w-full object-cover" />
+                        <img src={photoURL} alt={displayName} className="!h-full !w-full object-cover object-center" />
+                    ) : type === "Dorm" || subtitle === "Dorm" ? (
+                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-secondary">
+                            <HomeIcon className="h-1/2 w-1/2" />
+                        </div>
                     ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
+                        <div className="flex h-full w-full items-center justify-center bg-brand text-xs font-bold text-brand-foreground">
                             {initials}
                         </div>
                     )}
                 </div>
                 {!onlyAvatar && (
                     <div className="flex flex-col leading-tight">
-                        <span className="text-sm font-semibold text-white flex items-center gap-1">
+                        <span className="text-sm font-semibold text-foreground flex items-center gap-1">
                             {displayName}
-                            {isVerified && <CheckBadgeIcon className="h-3.5 w-3.5 text-blue-500" />}
+                            {isVerified && <CheckBadgeIcon className="h-3.5 w-3.5 text-brand" />}
                         </span>
-                        <span className="text-xs text-neutral-400">
-                            {subtitle || (username ? `@${username}` : "")}
-                        </span>
+                        {type === "User" || !type ? (
+                            username && (
+                                <span className="text-[11px] cc-muted font-medium">
+                                    @{username}
+                                </span>
+                            )
+                        ) : null}
+                        {subtitle && subtitle !== `@${username}` && (
+                            <span className="text-[11px] leading-none text-secondary mt-0.5">
+                                {subtitle}
+                            </span>
+                        )}
                     </div>
                 )}
             </div>

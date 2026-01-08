@@ -37,14 +37,20 @@ export function CompactPostCard({
     const {
         id,
         title,
-        content,
+        description: postDescription,
+        content: postContent,
         imageUrls,
-        isEvent,
+        type,
         date,
         startTime,
         coordinates,
         likes = [],
+        editCount = 0,
     } = post;
+
+    const isEvent = type === "event";
+
+    const content = postDescription || postContent || "";
 
     const isLiked = currentUser ? likes.includes(currentUser.uid) : false;
     const likeCount = likes.length;
@@ -107,7 +113,7 @@ export function CompactPostCard({
                 <img
                     src={primaryImage}
                     alt={title || "Post image"}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                 />
             );
         }
@@ -146,14 +152,14 @@ export function CompactPostCard({
     return (
         <article
             onClick={handleCardClick}
-            className={`group relative aspect-square w-full cursor-pointer overflow-hidden rounded-[24px] border border-white/10 shadow-sm transition-all active:scale-[0.98] ${hasMedia
-                ? "bg-[#1C1C1E] hover:border-white/20"
-                : "bg-gradient-to-br from-white/[0.08] to-white/[0.03] hover:border-white/30"
+            className={`group relative aspect-square w-full cursor-pointer overflow-hidden rounded-[24px] border border-secondary/10 shadow-sm transition-all active:scale-[0.98] ${hasMedia
+                ? "bg-[#1C1C1E] hover:border-secondary/30"
+                : "bg-gradient-to-br from-white/[0.08] to-white/[0.03] hover:border-secondary/20"
                 }`}
         >
             {/* 1. Media Layer (if exists) */}
             {hasMedia && (
-                <div className="absolute inset-0 h-full w-full bg-neutral-900">
+                <div className="absolute inset-0 h-full w-full bg-secondary">
                     {renderMedia()}
                 </div>
             )}
@@ -245,6 +251,17 @@ export function CompactPostCard({
                                 {post.commentsCount || 0}
                             </span>
                         </button>
+
+                        {editCount > 0 && (
+                            <div className="flex items-center gap-1 text-white/60">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-[17px] w-[17px]">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                                </svg>
+                                <span className="text-xs font-semibold tabular-nums leading-none">
+                                    {editCount}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Detail Indicator for events */}

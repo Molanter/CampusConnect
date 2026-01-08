@@ -11,8 +11,11 @@ import {
   updateDoc,
   deleteDoc,
   addDoc,
+  query,
+  where,
 } from "firebase/firestore";
 import { auth, db } from "../../../../lib/firebase";
+import { createClub } from "../../../../lib/clubs";
 import Toast, { ToastData } from "@/components/Toast";
 
 function isGlobalAdmin(email?: string | null, admins?: string[] | null) {
@@ -185,7 +188,7 @@ export default function EditUniversityAdminPage() {
         themeColor: primaryColor || null,
       });
 
-      // Replace dorms
+      // Replace dorms (metadata) and sync Club IDs
       const dormsCol = collection(db, "universities", universityId, "dorms");
       const existingDormSnap = await getDocs(dormsCol);
       for (const d of existingDormSnap.docs) {
@@ -200,12 +203,54 @@ export default function EditUniversityAdminPage() {
       const defaultLocationId =
         cleanedLocations.find((l) => l.id)?.id || "main";
 
+      const validDormClubIds: string[] = [];
+
       for (const name of dormNames) {
-        await addDoc(dormsCol, {
-          name,
-          locationId: defaultLocationId,
-        });
+        let clubId: string | null = null;
+
+        // 1. Check if club already exists for this dorm
+        const q = query(
+          collection(db, "clubs"),
+          where("campusId", "==", universityId),
+          where("name", "==", name)
+        );
+        const snap = await getDocs(q);
+
+        if (!snap.empty) {
+          clubId = snap.docs[0].id;
+        } else {
+          // 2. Create new Club
+          clubId = await createClub(user.uid, {
+            name,
+            description: `Official residence hall group for ${name}`,
+            isPrivate: false,
+            postingPermission: 'anyone',
+          });
+          // Update club with dorm metadata
+          await updateDoc(doc(db, "clubs", clubId), {
+            campusId: universityId,
+            category: "dorm",
+            type: "dorm",
+            isOfficial: true
+          });
+        }
+
+        if (clubId) {
+          validDormClubIds.push(clubId);
+
+          // 3. Create subcollection metadata
+          await addDoc(dormsCol, {
+            name,
+            locationId: defaultLocationId,
+            clubId
+          });
+        }
       }
+
+      // 4. Update main University doc with array of Dorm IDs
+      await updateDoc(uniRef, {
+        dorms: validDormClubIds
+      });
 
       setToast({ type: "success", message: "University updated." });
     } catch (err) {

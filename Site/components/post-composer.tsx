@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db, storage } from "../lib/firebase";
+import { db, storage } from "../lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { User } from "firebase/auth";
@@ -15,20 +15,23 @@ interface PostComposerProps {
 
 export function PostComposer({ user, onPostCreated }: PostComposerProps) {
     const router = useRouter();
+
     const [content, setContent] = useState("");
     const [loading, setLoading] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.photoURL || null);
+
     const [selectedImages, setSelectedImages] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Auto-resize textarea based on content
     useEffect(() => {
-        if (textareaRef.current) {
-            textareaRef.current.style.height = "auto";
-            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-        }
+        const el = textareaRef.current;
+        if (!el) return;
+        el.style.height = "auto";
+        el.style.height = `${el.scrollHeight}px`;
     }, [content]);
 
     // Fetch avatar from Firestore to ensure it's up to date
@@ -39,47 +42,46 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                 const userDoc = await getDoc(doc(db, "users", user.uid));
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
-                    if (userData.photoURL) {
-                        setAvatarUrl(userData.photoURL);
-                    }
+                    if (userData.photoURL) setAvatarUrl(userData.photoURL);
                 }
             } catch (error) {
                 console.error("Error fetching user avatar:", error);
             }
         };
 
-        if (user) {
-            fetchAvatar();
-        }
+        fetchAvatar();
     }, [user]);
 
     // Cleanup object URLs on unmount
     useEffect(() => {
         return () => {
-            previewUrls.forEach(url => URL.revokeObjectURL(url));
+            previewUrls.forEach((url) => URL.revokeObjectURL(url));
         };
     }, [previewUrls]);
 
-    const handleImageClick = () => {
-        fileInputRef.current?.click();
-    };
+    const handleImageClick = () => fileInputRef.current?.click();
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const newFiles = Array.from(e.target.files);
-            const newUrls = newFiles.map(file => URL.createObjectURL(file));
-
-            setSelectedImages(prev => [...prev, ...newFiles]);
-            setPreviewUrls(prev => [...prev, ...newUrls]);
+            const newUrls = newFiles.map((file) => URL.createObjectURL(file));
+            setSelectedImages((prev) => [...prev, ...newFiles]);
+            setPreviewUrls((prev) => [...prev, ...newUrls]);
         }
-        // Reset input so validation logic or re-selecting same file works
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     const removeImage = (index: number) => {
-        URL.revokeObjectURL(previewUrls[index]);
-        setSelectedImages(prev => prev.filter((_, i) => i !== index));
-        setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+        const url = previewUrls[index];
+        if (url) URL.revokeObjectURL(url);
+        setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+        setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const clearAllImages = () => {
+        previewUrls.forEach((url) => URL.revokeObjectURL(url));
+        setSelectedImages([]);
+        setPreviewUrls([]);
     };
 
     const handlePost = async () => {
@@ -91,7 +93,7 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
 
             if (selectedImages.length > 0) {
                 const uploadPromises = selectedImages.map(async (file) => {
-                    const storagePath = 'posts/' + user.uid + '/' + Date.now() + '_' + file.name;
+                    const storagePath = `posts/${user.uid}/${Date.now()}_${file.name}`;
                     const storageRef = ref(storage, storagePath);
                     await uploadBytes(storageRef, file);
                     return getDownloadURL(storageRef);
@@ -102,14 +104,11 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
 
             const docData: any = {
                 authorId: user.uid,
-                // authorName removed
-                // authorUsername removed
-                // authorAvatarUrl removed - fetched dynamically from profile
-                content: content.trim(),
+                description: content.trim(),
                 createdAt: serverTimestamp(),
-                isEvent: false, // Standard post
+                type: "post",
+                isEvent: false,
                 likes: [],
-                // Moderation fields
                 visibility: "visible",
                 reportCount: 0,
             };
@@ -118,14 +117,10 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                 docData.imageUrls = uploadedImageUrls;
             }
 
-            await addDoc(collection(db, "posts"), docData); // Using 'posts' collection as shared posts collection
+            await addDoc(collection(db, "posts"), docData);
 
             setContent("");
-            // Clear images
-            selectedImages.forEach((_, i) => removeImage(i));
-            setSelectedImages([]);
-            setPreviewUrls([]);
-
+            clearAllImages();
             onPostCreated?.();
         } catch (error) {
             console.error("Error creating post:", error);
@@ -138,17 +133,17 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
     if (!user) return null;
 
     return (
-        <div className="mb-6 rounded-[24px] border border-white/10 bg-[#1C1C1E] px-3 py-5 ring-1 ring-white/5 shadow-soft relative w-full @3xl:mx-auto @3xl:max-w-[600px]">
-            {/* Wrapper to control layout relative to padding */}
+        // SECTION COLOR CARD (light: white, dark: dark gray) + theme border
+        <div className="mb-6 cc-section cc-shadow-soft px-3 py-5 -mx-3">
             <div className="relative flex gap-3">
-                {/* User Avatar - Absolute on Desktop to Match PostCard */}
+                {/* Avatar with light stroke that adapts to theme */}
                 <div className="shrink-0 w-9 h-9">
-                    <div className="h-9 w-9 overflow-hidden rounded-full bg-neutral-700 ring-2 ring-white/5">
+                    <div className="h-9 w-9 overflow-hidden rounded-full bg-surface-2 border border-border aspect-square">
                         {avatarUrl ? (
                             <img
                                 src={avatarUrl}
                                 alt={user.displayName || "User"}
-                                className="h-full w-full object-cover"
+                                className="!h-full !w-full object-cover object-center"
                             />
                         ) : (
                             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-600 to-neutral-700 text-sm font-bold text-white">
@@ -158,30 +153,35 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                     </div>
                 </div>
 
-                {/* Input Area - Full Width in Padding Area */}
+                {/* Input Area */}
                 <div className="flex-1 min-w-0">
                     <textarea
                         ref={textareaRef}
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                         placeholder="What's happening?"
-                        className="w-full resize-none bg-transparent pt-2.5 text-[17px] text-white placeholder:text-neutral-500 focus:outline-none min-h-[40px] max-h-[160px] overflow-y-auto"
+                        className="w-full resize-none bg-transparent pt-2.5 text-[17px] text-foreground placeholder:text-muted focus:outline-none min-h-[40px] max-h-[160px] overflow-y-auto"
                         style={{ overflowAnchor: "none" }}
                     />
 
-                    {/* Image Preview - Horizontal Scroll */}
+                    {/* Image Preview */}
                     {previewUrls.length > 0 && (
                         <div className="flex gap-3 overflow-x-auto pb-2 mt-3 no-scrollbar">
                             {previewUrls.map((url, index) => (
                                 <div key={url} className="relative flex-shrink-0">
-                                    <img
-                                        src={url}
-                                        alt={`Selected ${index + 1}`}
-                                        className="h-20 w-20 rounded-xl border border-white/10 object-cover"
-                                    />
+                                    {/* Media background = section color, + light stroke */}
+                                    <div className="h-20 w-20 rounded-xl bg-surface-2 border-2 border-border overflow-hidden">
+                                        <img
+                                            src={url}
+                                            alt={`Selected ${index + 1}`}
+                                            className="h-full w-full object-cover"
+                                        />
+                                    </div>
+
                                     <button
                                         onClick={() => removeImage(index)}
-                                        className="absolute -right-1.5 -top-1.5 rounded-full bg-black/70 p-0.5 text-white hover:bg-black ring-1 ring-white/10 transition-colors"
+                                        className="absolute -right-1.5 -top-1.5 rounded-full bg-black/70 p-0.5 text-white hover:bg-black border border-border/40 transition-colors"
+                                        aria-label="Remove image"
                                     >
                                         <XMarkIcon className="h-3.5 w-3.5" />
                                     </button>
@@ -200,23 +200,26 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                     />
 
                     {/* Action Bar */}
-                    <div className="flex items-center justify-between pt-4 mt-1 border-t border-white/5">
+                    <div className="flex items-center justify-between pt-4 mt-1 border-t border-divider">
                         <div className="flex items-center gap-2">
-                            {/* Mark as Event -> Navigates to /posts/new */}
+                            {/* Event button: theme-safe background/text */}
                             <button
                                 onClick={() => router.push("/posts/new")}
-                                className="flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-sm font-medium text-neutral-300 transition-colors hover:bg-white/10 hover:text-white group"
+                                className="flex items-center gap-2 rounded-full bg-secondary/15 hover:bg-secondary/25 px-4 py-2 text-sm font-medium text-foreground transition-colors"
                             >
-                                <CalendarIcon className="h-4.5 w-4.5 text-neutral-400 group-hover:text-white transition-colors" />
+                                <CalendarIcon className="h-4.5 w-4.5 text-secondary" />
                                 <span className="hidden @3xl:inline">Create event</span>
                                 <span className="@3xl:hidden">Event</span>
                             </button>
 
-                            {/* Media Attachment */}
+                            {/* Media Attachment button */}
                             <button
                                 onClick={handleImageClick}
-                                className={`flex items-center justify-center h-9 w-9 rounded-full transition-colors ${previewUrls.length > 0 ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/10 hover:text-white"
+                                className={`flex items-center justify-center h-9 w-9 rounded-full transition-colors ${previewUrls.length > 0
+                                    ? "bg-surface-3 text-foreground"
+                                    : "text-muted hover:bg-surface-3 hover:text-foreground"
                                     }`}
+                                aria-label="Add media"
                             >
                                 <PhotoIcon className="h-5 w-5" />
                             </button>
@@ -226,9 +229,9 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
                         <button
                             onClick={handlePost}
                             disabled={loading || (!content.trim() && selectedImages.length === 0)}
-                            className={`rounded-full px-5 py-2 text-sm font-bold transition-all duration-200 ${(content.trim() || selectedImages.length > 0)
-                                ? "bg-[#ffb200] text-black hover:scale-[1.02] active:scale-[0.98]"
-                                : "bg-white/5 text-neutral-500 cursor-not-allowed"
+                            className={`rounded-full px-5 py-2 text-sm font-bold transition-all duration-200 ${content.trim() || selectedImages.length > 0
+                                ? "bg-brand text-brand-foreground hover:scale-[1.02] active:scale-[0.98]"
+                                : "bg-secondary/15 text-secondary cursor-not-allowed"
                                 }`}
                         >
                             {loading ? "Posting..." : "Post"}

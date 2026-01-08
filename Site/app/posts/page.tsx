@@ -103,18 +103,22 @@ export default function EventsPage() {
       try {
         setCampusEventsLoading(true);
         const postsRef = collection(db, "posts");
-        // Query for actual events/posts. 
-        // We can filter by isEvent=true if we strictly want events only.
-        const q = query(postsRef, orderBy("date", "asc"));
+        // Update to fetch only events using the new type field
+        const q = query(postsRef, where("type", "==", "event"), orderBy("date", "asc"));
         const snap = await getDocs(q);
 
         const items: Post[] = snap.docs.map((doc) => {
           const data = doc.data();
+          const isEventLegacy = data.isEvent ?? true;
           return {
             id: doc.id,
             title: data.title,
+            description: data.description,
             content: data.content ?? data.description ?? "",
-            isEvent: data.isEvent ?? true, // Assume mostly events in "events" collection for now
+
+            type: data.type ?? (isEventLegacy ? "event" : "post"),
+            isEvent: isEventLegacy,
+
             date: data.date,
             startTime: data.startTime,
             endTime: data.endTime,
@@ -129,6 +133,7 @@ export default function EventsPage() {
             goingUids: data.goingUids || [],
             maybeUids: data.maybeUids || [],
             notGoingUids: data.notGoingUids || [],
+            editCount: data.editCount ?? 0,
           };
         });
 
@@ -430,7 +435,7 @@ export default function EventsPage() {
                   key={`campus-${post.id}`}
                   id={post.id}
                   title={post.title || ""}
-                  description={post.content || ""}
+                  description={post.description || post.content || ""}
                   image={(post.imageUrls && post.imageUrls[0]) || undefined}
                   date={post.date || "Date"}
                   time={post.startTime ? `${post.startTime}${post.endTime ? ` - ${post.endTime}` : ""}` : "Time"}

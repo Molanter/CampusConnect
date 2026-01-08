@@ -11,6 +11,31 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { PhotoIcon, XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Switch } from '@headlessui/react';
 
+const ui = {
+    page: "mx-auto w-full max-w-2xl px-4 py-8 pb-32",
+    header: "mb-8 space-y-1.5",
+    title: "text-3xl font-bold tracking-tight text-foreground",
+    subtitle: "text-secondary text-sm",
+    section: "space-y-2",
+    sectionLabel: "text-[12px] font-bold uppercase tracking-widest text-secondary ml-1.5",
+    card: "cc-glass cc-section rounded-[28px] overflow-hidden shadow-xl border border-secondary/15 divide-y divide-secondary/10",
+    inputRow: "w-full bg-transparent px-5 py-4 text-[15px] text-foreground placeholder:text-secondary/50 focus:outline-none hover:bg-secondary/5 transition-colors",
+    textAreaRow: "w-full resize-none bg-transparent px-5 py-4 text-[15px] text-foreground placeholder:text-secondary/50 focus:outline-none hover:bg-secondary/5 transition-colors",
+    footerText: "text-[11px] text-secondary/60 ml-1.5 leading-relaxed",
+    // Toggle / Switch
+    toggleContainer: "cc-glass cc-section rounded-[24px] px-5 py-4 flex items-center justify-between shadow-lg border border-secondary/15",
+    toggleLabel: "text-[15px] font-semibold text-foreground",
+    toggleSublabel: "text-[11px] text-secondary mt-0.5",
+    // Item Cards (Clubs/Dorms)
+    itemCard: "flex-1 cc-glass cc-section rounded-[24px] overflow-hidden shadow-lg border border-secondary/15",
+    itemAvatar: "flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl bg-secondary/10 text-secondary ring-1 ring-secondary/20 transition-all hover:bg-secondary/20 hover:text-foreground shadow-inner",
+    // Buttons
+    primaryBtn: "w-full rounded-full bg-brand py-4 text-base font-bold text-brand-foreground shadow-lg shadow-brand/20 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50",
+    secondaryBtn: "w-full rounded-full bg-secondary/10 py-3.5 text-sm font-semibold text-foreground transition-all hover:bg-secondary/20 active:scale-[0.98]",
+    actionBtn: "rounded-full bg-foreground/5 px-4 py-2 text-[12px] font-semibold text-foreground hover:bg-foreground/10 transition-colors border border-foreground/5",
+    removeBtn: "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-secondary/40 transition-all hover:bg-red-500/10 hover:text-red-500",
+};
+
 export default function CreateCampusPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -193,6 +218,7 @@ export default function CreateCampusPage() {
                             createdBy: currentUser.uid,
                             createdAt: serverTimestamp(),
                             allowMemberPosts: true,
+                            category: "dorm",
                             coverImageUrl: "",
                         });
 
@@ -285,37 +311,37 @@ export default function CreateCampusPage() {
     };
 
     return (
-        <div className="mx-auto w-full max-w-2xl px-4 py-8 pb-24">
+        <div className={ui.page}>
             {/* Header */}
-            <header className="mb-8 space-y-1">
-                <h1 className="text-2xl font-bold tracking-tight text-white">Create Campus</h1>
-                <p className="text-neutral-400 text-sm">Set up a new campus or university directory.</p>
+            <header className={ui.header}>
+                <h1 className={ui.title}>Create Campus</h1>
+                <p className={ui.subtitle}>Set up a new campus or university directory.</p>
             </header>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-8">
 
                 {/* Campus Identity */}
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Identity</label>
-                    <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                <div className={ui.section}>
+                    <label className={ui.sectionLabel}>Identity</label>
+                    <div className={ui.card}>
                         {/* Logo Upload */}
-                        <div className="flex items-center justify-between px-4 py-3.5">
-                            <span className="text-sm text-neutral-300">Campus Logo</span>
+                        <div className="flex items-center justify-between px-5 py-4">
+                            <span className="text-[15px] font-medium text-foreground">Campus Logo</span>
                             {previewUrl ? (
                                 <div className="flex items-center gap-3">
-                                    <div className="h-12 w-12 overflow-hidden rounded-xl border border-white/10">
+                                    <div className="h-12 w-12 overflow-hidden rounded-2xl cc-avatar bg-surface-2 ring-1 ring-secondary/15 shadow-sm">
                                         <img src={previewUrl} alt="Logo" className="h-full w-full object-contain" />
                                     </div>
                                     <button
                                         type="button"
                                         onClick={clearImage}
-                                        className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                                        className="rounded-full bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-500/20 transition-colors"
                                     >
                                         Remove
                                     </button>
                                 </div>
                             ) : (
-                                <label className="cursor-pointer rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 transition-colors">
+                                <label className={ui.actionBtn}>
                                     Upload PNG
                                     <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png" className="hidden" />
                                 </label>
@@ -327,7 +353,7 @@ export default function CreateCampusPage() {
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="w-full bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none hover:bg-white/[0.02] transition-colors"
+                            className={ui.inputRow}
                             placeholder="Full Name (e.g. Stanford University)"
                         />
                         {/* Short Name */}
@@ -335,51 +361,51 @@ export default function CreateCampusPage() {
                             type="text"
                             value={shortName}
                             onChange={(e) => setShortName(e.target.value)}
-                            className="w-full bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none hover:bg-white/[0.02] transition-colors"
+                            className={ui.inputRow}
                             placeholder="Short Name / Acronym (e.g. STAN)"
                         />
                     </div>
                 </div>
 
                 {/* Location */}
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Location</label>
-                    <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg">
+                <div className={ui.section}>
+                    <label className={ui.sectionLabel}>Location</label>
+                    <div className={ui.card}>
                         <input
                             required
                             type="text"
                             value={locationName}
                             onChange={(e) => setLocationName(e.target.value)}
-                            className="w-full bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none hover:bg-white/[0.02] transition-colors"
+                            className={ui.inputRow}
                             placeholder="City, State/Country"
                         />
                     </div>
-                    <p className="text-xs text-neutral-500 ml-1">Used for regional discovery and map clustering.</p>
+                    <p className={ui.footerText}>Used for regional discovery and map clustering.</p>
                 </div>
 
                 {/* Admin Emails */}
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Administration</label>
-                    <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg">
+                <div className={ui.section}>
+                    <label className={ui.sectionLabel}>Administration</label>
+                    <div className={ui.card}>
                         <textarea
                             rows={3}
                             value={adminEmails}
                             onChange={(e) => setAdminEmails(e.target.value)}
-                            className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none hover:bg-white/[0.02] transition-colors"
+                            className={ui.textAreaRow}
                             placeholder="Admin emails (one per line)"
                         />
                     </div>
-                    <p className="text-xs text-neutral-500 ml-1">These users gain root-level control of this campus.</p>
+                    <p className={ui.footerText}>These users gain root-level control of this campus.</p>
                 </div>
 
                 {/* Default Clubs */}
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Default Clubs</label>
-                    <div className="space-y-3">
+                <div className={ui.section}>
+                    <label className={ui.sectionLabel}>Default Clubs</label>
+                    <div className="space-y-4">
                         {defaultClubs.map((club, i) => (
                             <div key={i} className="flex items-center gap-3">
                                 {/* Club Card */}
-                                <div className="flex-1 bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg">
+                                <div className={ui.itemCard}>
                                     <div className="flex items-center gap-4 p-4">
                                         {/* Club Logo */}
                                         <input
@@ -389,7 +415,7 @@ export default function CreateCampusPage() {
                                             accept="image/png"
                                             onChange={(e) => e.target.files?.[0] && handleDefaultClubImage(i, e.target.files[0])}
                                         />
-                                        <label htmlFor={`club-logo-${i}`} className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-white/5 text-neutral-500 ring-1 ring-white/10 transition-all hover:bg-white/10 hover:text-white">
+                                        <label htmlFor={`club-logo-${i}`} className={ui.itemAvatar}>
                                             {club.previewUrl ? <img src={club.previewUrl} className="h-full w-full object-cover" /> : <PhotoIcon className="h-5 w-5" />}
                                         </label>
 
@@ -397,31 +423,30 @@ export default function CreateCampusPage() {
                                         <div className="flex-1 min-w-0">
                                             <input
                                                 placeholder="Club Name"
-                                                className="w-full bg-transparent text-sm font-medium text-white placeholder:text-neutral-500 focus:outline-none"
+                                                className="w-full bg-transparent text-[15px] font-semibold text-foreground placeholder:text-secondary/50 focus:outline-none"
                                                 value={club.name} onChange={e => handleDefaultClubChange(i, 'name', e.target.value)}
                                             />
                                             <input
                                                 placeholder="Admin email (optional)"
-                                                className="w-full bg-transparent text-xs text-neutral-400 placeholder:text-neutral-600 focus:outline-none mt-1"
+                                                className="w-full bg-transparent text-[11px] font-medium text-secondary placeholder:text-secondary/30 focus:outline-none mt-1"
                                                 value={club.adminEmail} onChange={e => handleDefaultClubChange(i, 'adminEmail', e.target.value)}
                                             />
                                         </div>
                                     </div>
                                     {/* Description */}
                                     <input
-                                        placeholder="Description (optional)"
-                                        className="w-full border-t border-white/5 bg-transparent px-4 py-3 text-xs text-neutral-300 placeholder:text-neutral-600 focus:outline-none hover:bg-white/[0.02] transition-colors"
+                                        placeholder="Add a description (optional)"
+                                        className="w-full border-t border-secondary/10 bg-transparent px-5 py-3 text-[12px] text-secondary placeholder:text-secondary/30 focus:outline-none hover:bg-secondary/5 transition-colors"
                                         value={club.description} onChange={e => handleDefaultClubChange(i, 'description', e.target.value)}
                                     />
                                 </div>
 
-                                {/* Remove Button - Outside container, always visible */}
                                 <button
                                     type="button"
                                     onClick={() => handleRemoveDefaultClub(i)}
-                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-all hover:bg-red-500/20 hover:text-red-400"
+                                    className={ui.removeBtn}
                                 >
-                                    <TrashIcon className="h-4 w-4" />
+                                    <TrashIcon className="h-5 w-5" />
                                 </button>
                             </div>
                         ))}
@@ -429,41 +454,39 @@ export default function CreateCampusPage() {
                         <button
                             type="button"
                             onClick={handleAddDefaultClub}
-                            className="w-full flex items-center justify-center gap-2 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] py-4 text-sm font-medium text-neutral-400 transition-all hover:bg-white/[0.04] hover:text-white hover:border-white/20"
+                            className="w-full flex items-center justify-center gap-2 rounded-[24px] border border-dashed border-secondary/30 bg-secondary/5 py-5 text-sm font-bold text-secondary transition-all hover:bg-secondary/10 hover:text-foreground hover:border-secondary/50"
                         >
-                            <PlusIcon className="h-4 w-4" />
-                            Add Club
+                            <PlusIcon className="h-5 w-5" />
+                            Add Preferred Club
                         </button>
                     </div>
-                    <p className="text-xs text-neutral-500 ml-1">Default clubs are auto-joined by all members.</p>
+                    <p className={ui.footerText}>Default clubs are auto-joined by all members.</p>
                 </div>
 
                 {/* University Mode Toggle */}
-                <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl px-4 py-3.5 flex items-center justify-between shadow-lg">
+                <div className={ui.toggleContainer}>
                     <div>
-                        <span className="text-sm font-medium text-white">University Mode</span>
-                        <p className="text-xs text-neutral-500 mt-0.5">Enable housing, dorms, and campus life features</p>
+                        <span className={ui.toggleLabel}>University Mode</span>
+                        <p className={ui.toggleSublabel}>Enable housing, dorms, and campus life features</p>
                     </div>
                     <Switch
                         checked={isUniversity}
                         onChange={setIsUniversity}
-                        className={`${isUniversity ? 'bg-[#ffb200]' : 'bg-neutral-700'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none`}
+                        className={`${isUniversity ? 'bg-brand' : 'bg-secondary/20'} relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none shadow-inner`}
                     >
-                        <span className={`${isUniversity ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
+                        <span className={`${isUniversity ? 'translate-x-6' : 'translate-x-1'} inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform`} />
                     </Switch>
                 </div>
 
                 {/* Dorms Section (University Only) */}
                 {isUniversity && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Dorms & Residences</label>
-                        <div className="space-y-3">
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-3 duration-500">
+                        <label className={ui.sectionLabel}>Dorms & Residences</label>
+                        <div className="space-y-4">
                             {dorms.map((dorm, i) => (
                                 <div key={i} className="flex items-center gap-3">
-                                    {/* Dorm Card */}
-                                    <div className="flex-1 bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg">
+                                    <div className={ui.itemCard}>
                                         <div className="flex items-center gap-4 p-4">
-                                            {/* Dorm Logo */}
                                             <input
                                                 type="file"
                                                 id={`dorm-logo-${i}`}
@@ -471,33 +494,31 @@ export default function CreateCampusPage() {
                                                 accept="image/png"
                                                 onChange={(e) => e.target.files?.[0] && handleDormImage(i, e.target.files[0])}
                                             />
-                                            <label htmlFor={`dorm-logo-${i}`} className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-white/5 text-neutral-500 ring-1 ring-white/10 transition-all hover:bg-white/10 hover:text-white">
+                                            <label htmlFor={`dorm-logo-${i}`} className={ui.itemAvatar}>
                                                 {dorm.previewUrl ? <img src={dorm.previewUrl} className="h-full w-full object-cover" /> : <PhotoIcon className="h-5 w-5" />}
                                             </label>
 
-                                            {/* Dorm Info */}
                                             <div className="flex-1 min-w-0">
                                                 <input
                                                     placeholder="Dorm Name"
-                                                    className="w-full bg-transparent text-sm font-medium text-white placeholder:text-neutral-500 focus:outline-none"
+                                                    className="w-full bg-transparent text-[15px] font-semibold text-foreground placeholder:text-secondary/50 focus:outline-none"
                                                     value={dorm.name} onChange={(e) => handleDormChange(i, 'name', e.target.value)}
                                                 />
                                                 <input
                                                     placeholder="Admin email (optional)"
-                                                    className="w-full bg-transparent text-xs text-neutral-400 placeholder:text-neutral-600 focus:outline-none mt-1"
+                                                    className="w-full bg-transparent text-[11px] font-medium text-secondary placeholder:text-secondary/30 focus:outline-none mt-1"
                                                     value={dorm.adminEmail} onChange={(e) => handleDormChange(i, 'adminEmail', e.target.value)}
                                                 />
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Remove Button - Outside container, always visible */}
                                     <button
                                         type="button"
                                         onClick={() => handleRemoveDorm(i)}
-                                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-all hover:bg-red-500/20 hover:text-red-400"
+                                        className={ui.removeBtn}
                                     >
-                                        <TrashIcon className="h-4 w-4" />
+                                        <TrashIcon className="h-5 w-5" />
                                     </button>
                                 </div>
                             ))}
@@ -505,29 +526,29 @@ export default function CreateCampusPage() {
                             <button
                                 type="button"
                                 onClick={handleAddDorm}
-                                className="w-full flex items-center justify-center gap-2 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] py-4 text-sm font-medium text-neutral-400 transition-all hover:bg-white/[0.04] hover:text-white hover:border-white/20"
+                                className="w-full flex items-center justify-center gap-2 rounded-[24px] border border-dashed border-secondary/30 bg-secondary/5 py-5 text-sm font-bold text-secondary transition-all hover:bg-secondary/10 hover:text-foreground hover:border-secondary/50"
                             >
-                                <PlusIcon className="h-4 w-4" />
-                                Add Dorm
+                                <PlusIcon className="h-5 w-5" />
+                                Add Residence
                             </button>
                         </div>
-                        <p className="text-xs text-neutral-500 ml-1">Dorms are created as clubs. Students will be required to join at least one.</p>
+                        <p className={ui.footerText}>Dorms are created as clubs. Students will be required to join at least one.</p>
                     </div>
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex flex-col gap-3 pt-4">
+                <div className="flex flex-col gap-4 pt-6">
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full rounded-full bg-[#ffb200] py-3.5 text-sm font-bold text-black shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
+                        className={ui.primaryBtn}
                     >
-                        {loading ? "Creating..." : "Create Campus"}
+                        {loading ? "Creating Campus..." : "Create Campus"}
                     </button>
                     <button
                         type="button"
                         onClick={() => router.back()}
-                        className="w-full rounded-full bg-neutral-800/50 py-3 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-white"
+                        className={ui.secondaryBtn}
                     >
                         Cancel
                     </button>

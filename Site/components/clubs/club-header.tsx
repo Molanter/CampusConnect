@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Fragment, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Club, JoinStatus } from "../../lib/clubs";
 import {
     UserGroupIcon,
@@ -9,7 +10,8 @@ import {
     ArrowUpOnSquareIcon,
     ExclamationTriangleIcon,
     ArrowRightOnRectangleIcon,
-    LockClosedIcon
+    LockClosedIcon,
+    HomeIcon
 } from "@heroicons/react/24/outline";
 import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 import { Menu, Transition } from "@headlessui/react";
@@ -69,57 +71,61 @@ export function ClubHeader({
     ];
 
     return (
-        <div className="relative rounded-[36px] md:rounded-[44px] border border-white/10 shadow-2xl ring-1 ring-white/5">
+        <div className="relative cc-section cc-radius-24 overflow-visible">
             {/* Shared Background Image Layer */}
             {backgroundUrl && (
-                <div className="absolute inset-0 z-0 overflow-hidden rounded-[36px] md:rounded-[44px]">
+                <div className="absolute inset-0 z-0 overflow-hidden cc-radius-24">
                     <img
                         src={backgroundUrl}
                         alt=""
-                        className="h-full w-full object-cover transition-opacity duration-700"
+                        className="!h-full !w-full object-cover object-center transition-opacity duration-700"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-[#0A0A0A]" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-secondary/10 to-background/90" />
                 </div>
             )}
 
             {/* Content Container */}
             <div className="relative z-10 p-2 pb-4 space-y-3 md:p-4 md:space-y-4">
                 {/* Main Club Card */}
-                <div className="w-full overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] backdrop-blur-sm shadow-lg ring-1 ring-white/5">
+                <div className="w-full overflow-hidden cc-radius-24 border border-secondary/20 cc-glass-strong shadow-lg">
                     {/* Foreground Content */}
                     <div className="space-y-4 p-4 md:space-y-6 md:p-6">
                         {/* Top Section: Avatar & Identity */}
                         <div className="flex items-center gap-4 md:gap-6">
                             <div className="relative shrink-0">
-                                <div className="h-16 w-16 overflow-hidden rounded-full border border-white/10 bg-neutral-800 md:h-20 md:w-20">
+                                <div className="h-16 w-16 overflow-hidden rounded-2xl cc-avatar md:h-20 md:w-20 shadow-md">
                                     {avatarUrl ? (
                                         <img
                                             src={avatarUrl}
                                             alt={club.name}
-                                            className="h-full w-full object-cover"
+                                            className="!h-full !w-full object-cover object-center"
                                         />
+                                    ) : (club.category === "dorm" || (club as any).type === "dorm" || (club as any).isDorm || club.name?.toLowerCase().includes("dorm")) ? (
+                                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 border border-secondary/25 text-secondary">
+                                            <HomeIcon className="h-8 w-8 md:h-10 md:w-10" />
+                                        </div>
                                     ) : (
-                                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-500/20 to-orange-600/20 text-xl font-bold text-white/50 md:text-2xl">
+                                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-xl font-bold text-foreground md:text-2xl">
                                             {initials}
                                         </div>
                                     )}
                                 </div>
                                 {club.isPrivate && (
-                                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-black/60 shadow-md backdrop-blur-xl">
-                                        <LockClosedIcon className="h-3.5 w-3.5 text-white/70" />
+                                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-secondary/20 shadow-md backdrop-blur-xl border border-secondary/25">
+                                        <LockClosedIcon className="h-3.5 w-3.5 text-foreground/70" />
                                     </div>
                                 )}
                             </div>
 
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-col">
-                                    <h1 className="flex items-center gap-1.5 truncate text-2xl font-semibold tracking-tight text-white md:text-3xl">
+                                    <h1 className="flex items-center gap-1.5 truncate text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
                                         {club.name}
                                         {club.isVerified && (
-                                            <CheckBadgeIcon className="h-6 w-6 shrink-0 text-blue-500 md:h-7 md:w-7" />
+                                            <CheckBadgeIcon className="h-6 w-6 shrink-0 text-brand md:h-7 md:w-7" />
                                         )}
                                     </h1>
-                                    <p className="text-sm text-neutral-400 md:text-base line-clamp-1">
+                                    <p className="text-sm cc-muted md:text-base line-clamp-1">
                                         {club.category || "General"} • {club.isPrivate ? "Private" : "Public"} Group
                                     </p>
                                 </div>
@@ -129,22 +135,22 @@ export function ClubHeader({
                         {/* Description - Below Avatar */}
                         {club.description && (
                             <div className="mt-3">
-                                <p className="text-sm text-neutral-400 md:text-base line-clamp-2">
+                                <p className="text-sm cc-muted md:text-base line-clamp-2">
                                     {club.description}
                                 </p>
                             </div>
                         )}
 
                         {/* Stats Row - Capsules */}
-                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5">
+                        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-0.5 px-0.5">
                             {statItems.map((stat) => (
                                 <button
                                     key={stat.label}
                                     onClick={stat.onClick}
-                                    className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 ring-1 ring-white/20 transition-all hover:bg-white/10 cursor-pointer active:scale-95"
+                                    className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary/10 px-2.5 py-0.5 border border-secondary/25 transition-all hover:bg-secondary/16 cursor-pointer active:scale-95"
                                 >
-                                    <span className="text-xs font-bold text-white">{stat.value}</span>
-                                    <span className="text-[9px] font-bold uppercase tracking-tight text-neutral-400">{stat.label}</span>
+                                    <span className="text-xs font-bold text-foreground">{stat.value}</span>
+                                    <span className="text-[9px] font-bold uppercase tracking-tight cc-muted">{stat.label}</span>
                                 </button>
                             ))}
                         </div>
@@ -152,25 +158,25 @@ export function ClubHeader({
                 </div>
 
                 {/* Action Buttons Row */}
-                <div className="flex items-center gap-2">
+                <div className="relative flex items-center gap-2">
                     {/* Primary Action Button (Join/Joined) */}
                     {isPending ? (
                         <button
                             onClick={onLeave}
-                            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-neutral-800 text-base font-semibold text-white/60 transition-transform active:scale-[0.98]"
+                            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full cc-header-btn text-base font-semibold text-secondary transition-transform active:scale-[0.98]"
                         >
                             Pending
                         </button>
                     ) : isMember ? (
                         <button
-                            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-white/10 text-base font-semibold text-neutral-400 cursor-default"
+                            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full cc-header-btn text-base font-semibold text-secondary cursor-default"
                         >
                             Joined
                         </button>
                     ) : (
                         <button
                             onClick={onJoin}
-                            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[#ffb200] text-base font-semibold text-black transition-transform active:scale-[0.98]"
+                            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-brand text-base font-semibold text-brand-foreground transition-transform active:scale-[0.98]"
                         >
                             {club.isPrivate ? "Request to Join" : "Join Club"}
                         </button>
@@ -207,15 +213,13 @@ function ActionControls({
     onLeave?: () => void;
     onReport?: () => void;
 }) {
-    // Menu Items Definition
-    // Admin: Settings, Share, Leave
-    // Member: Share, Leave, Report
-    // Public: Share, Report
+    const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
         <>
-            {/* Desktop: Horizontal Row (Settings only) */}
-            <div className="hidden md:flex items-center gap-2">
+            {/* Desktop: Icon Buttons + Overflow Menu */}
+            <div className="hidden md:flex items-center gap-2 shrink-0">
                 {onInvite && (
                     <IconButton onClick={onInvite} icon={ArrowUpOnSquareIcon} />
                 )}
@@ -223,112 +227,140 @@ function ActionControls({
                     <IconButton onClick={onSettings} icon={Cog6ToothIcon} />
                 )}
 
-                {/* Overflow Menu for desktop too? Profile has 'More' button. */}
-                <Menu as="div" className="relative">
-                    <Menu.Button as="div">
+                {/* Desktop Overflow Menu */}
+                <div className="relative">
+                    <div onClick={(e) => {
+                        e.stopPropagation();
+                        setDesktopMenuOpen((v) => !v);
+                    }}>
                         <IconButton icon={EllipsisHorizontalIcon} />
-                    </Menu.Button>
-                    <Transition
-                        enter="transition ease-out duration-200"
-                        enterFrom="transform opacity-0 scale-95"
-                        enterTo="transform opacity-100 scale-100"
-                        leave="transition ease-in duration-150"
-                        leaveFrom="transform opacity-100 scale-100"
-                        leaveTo="transform opacity-0 scale-95"
-                    >
-                        <Menu.Items className="absolute right-0 top-full mt-2 z-50 w-56 origin-top-right divide-y divide-white/5 rounded-3xl border border-white/10 bg-[#1C1C1E]/90 backdrop-blur-xl shadow-2xl ring-1 ring-black/5 focus:outline-none">
-                            <div className="p-1.5">
-                                {isMember && (
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button onClick={onLeave} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-red-500 transition-colors`}>
-                                                <ArrowRightOnRectangleIcon className="h-[22px] w-[22px]" />
-                                                <span>Leave Club</span>
-                                            </button>
-                                        )}
-                                    </Menu.Item>
-                                )}
-                                {!isMember && onReport && (
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button onClick={onReport} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-red-500 transition-colors`}>
-                                                <ExclamationTriangleIcon className="h-[22px] w-[22px]" />
-                                                <span>Report Club</span>
-                                            </button>
-                                        )}
-                                    </Menu.Item>
-                                )}
+                    </div>
+
+                    {desktopMenuOpen && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setDesktopMenuOpen(false)} />
+                            <div className="absolute bottom-full right-0 z-50 mb-2 min-w-[180px] overflow-hidden cc-radius-menu cc-glass-strong">
+                                <div className="p-1.5">
+                                    {isMember && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onLeave?.();
+                                                setDesktopMenuOpen(false);
+                                            }}
+                                            className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400 transition-colors"
+                                        >
+                                            <span className="font-medium">Leave Club</span>
+                                            <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                    {!isMember && onReport && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onReport();
+                                                setDesktopMenuOpen(false);
+                                            }}
+                                            className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400 transition-colors"
+                                        >
+                                            <span className="font-medium">Report Club</span>
+                                            <ExclamationTriangleIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </Menu.Items>
-                    </Transition>
-                </Menu>
+                        </>
+                    )}
+                </div>
             </div>
 
-            {/* Mobile: Single Menu Button */}
-            <Menu as="div" className="relative md:hidden">
-                <Menu.Button className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2C2C2E]/80 text-white backdrop-blur-md transition-all active:scale-95 hover:bg-[#3A3A3C]">
-                    <EllipsisHorizontalIcon className="h-6 w-6" />
-                </Menu.Button>
-
-                <Transition
-                    enter="transition ease-out duration-200"
-                    enterFrom="transform opacity-0 scale-95"
-                    enterTo="transform opacity-100 scale-100"
-                    leave="transition ease-in duration-150"
-                    leaveFrom="transform opacity-100 scale-100"
-                    leaveTo="transform opacity-0 scale-95"
+            {/* Mobile: Single Menu Button with All Actions */}
+            <div className="relative md:hidden shrink-0">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setMobileMenuOpen((v) => !v);
+                    }}
+                    className="flex h-11 w-11 items-center justify-center rounded-full cc-header-btn text-foreground transition-all active:scale-95"
                 >
-                    <Menu.Items className="absolute right-0 top-full mt-2 z-50 w-56 origin-top-right divide-y divide-white/5 rounded-3xl border border-white/10 bg-[#1C1C1E]/90 backdrop-blur-xl shadow-2xl ring-1 ring-black/5 focus:outline-none">
+                    <EllipsisHorizontalIcon className="h-6 w-6" />
+                </button>
 
-                        {/* Standard Actions */}
-                        <div className="p-1.5">
-                            <Menu.Item>
-                                {({ active }) => (
-                                    <button onClick={onInvite} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-white transition-colors`}>
-                                        <ArrowUpOnSquareIcon className="h-[22px] w-[22px] text-white" />
-                                        <span>Share Club</span>
+                {mobileMenuOpen && (
+                    <>
+                        <div className="fixed inset-0 z-40" onClick={() => setMobileMenuOpen(false)} />
+                        <div className="absolute bottom-full right-0 z-50 mb-2 min-w-[180px] overflow-hidden cc-radius-menu cc-glass-strong">
+                            <div className="p-1.5">
+                                {onInvite && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onInvite();
+                                            setMobileMenuOpen(false);
+                                        }}
+                                        className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-foreground hover:bg-secondary/20 transition-colors"
+                                    >
+                                        <span className="font-medium">Share Club</span>
+                                        <ArrowUpOnSquareIcon className="h-4 w-4" />
                                     </button>
                                 )}
-                            </Menu.Item>
 
-                            {isAdmin && onSettings && (
-                                <Menu.Item>
-                                    {({ active }) => (
-                                        <button onClick={onSettings} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-white transition-colors`}>
-                                            <Cog6ToothIcon className="h-[22px] w-[22px] text-white" />
-                                            <span>Settings</span>
+                                {isAdmin && onSettings && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSettings();
+                                            setMobileMenuOpen(false);
+                                        }}
+                                        className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-foreground hover:bg-secondary/20 transition-colors"
+                                    >
+                                        <span className="font-medium">Settings</span>
+                                        <Cog6ToothIcon className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Destructive Actions */}
+                            {(isMember || (!isMember && onReport)) && (
+                                <div className="p-1.5 border-t border-secondary/10">
+                                    {isMember && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onLeave?.();
+                                                setMobileMenuOpen(false);
+                                            }}
+                                            className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400 transition-colors"
+                                        >
+                                            <span className="font-medium">Leave Club</span>
+                                            <ArrowRightOnRectangleIcon className="h-4 w-4" />
                                         </button>
                                     )}
-                                </Menu.Item>
+                                    {!isMember && onReport && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onReport();
+                                                setMobileMenuOpen(false);
+                                            }}
+                                            className="flex w-full items-center justify-between rounded-full px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400 transition-colors"
+                                        >
+                                            <span className="font-medium">Report Club</span>
+                                            <ExclamationTriangleIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
                             )}
                         </div>
-
-                        {/* Destructive Actions */}
-                        <div className="p-1.5">
-                            {isMember && (
-                                <Menu.Item>
-                                    {({ active }) => (
-                                        <button onClick={onLeave} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-red-500 transition-colors`}>
-                                            <ArrowRightOnRectangleIcon className="h-[22px] w-[22px]" />
-                                            <span>Leave Club</span>
-                                        </button>
-                                    )}
-                                </Menu.Item>
-                            )}
-                            {!isMember && onReport && (
-                                <Menu.Item>
-                                    {({ active }) => (
-                                        <button onClick={onReport} className={`${active ? 'bg-white/10' : ''} group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-[17px] text-red-500 transition-colors`}>
-                                            <ExclamationTriangleIcon className="h-[22px] w-[22px]" />
-                                            <span>Report Club</span>
-                                        </button>
-                                    )}
-                                </Menu.Item>
-                            )}
-                        </div>
-                    </Menu.Items>
-                </Transition>
-            </Menu>
+                    </>
+                )}
+            </div>
         </>
     );
 }
@@ -338,9 +370,9 @@ function IconButton({ onClick, icon: Icon, variant = 'default' }: { onClick?: ()
     return (
         <button
             onClick={onClick}
-            className={`flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-md transition-all active:scale-95 border ${isDanger
-                ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/30'
-                : 'bg-[#2C2C2E]/80 text-white hover:bg-[#3A3A3C] border-white/10'
+            className={`flex h-11 w-11 items-center justify-center rounded-full transition-all active:scale-95 ${isDanger
+                ? 'bg-red-500/10 text-red-500 hover:bg-red-500/16 border border-red-500/25 backdrop-blur-md'
+                : 'cc-header-btn text-foreground'
                 }`}
         >
             <Icon className="h-6 w-6" />

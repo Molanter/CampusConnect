@@ -121,11 +121,16 @@ export default function UserProfilePage() {
 
         const items: Post[] = docs.map((doc) => {
           const data = doc.data();
+          const isEventLegacy = data.isEvent ?? true;
           return {
             id: doc.id,
             title: data.title,
+            description: data.description,
             content: data.content ?? data.description ?? "",
-            isEvent: data.isEvent ?? true,
+
+            type: data.type ?? (isEventLegacy ? "event" : "post"),
+            isEvent: isEventLegacy,
+
             date: data.date,
             startTime: data.startTime,
             endTime: data.endTime,
@@ -140,16 +145,23 @@ export default function UserProfilePage() {
             goingUids: data.goingUids || [],
             maybeUids: data.maybeUids || [],
             notGoingUids: data.notGoingUids || [],
+            editCount: data.editCount ?? 0,
             clubId: data.clubId,
             clubName: data.clubName,
             clubAvatarUrl: data.clubAvatarUrl,
+            createdAt: data.createdAt,
+            ownerType: data.ownerType,
+            campusName: data.campusName,
+            campusAvatarUrl: data.campusAvatarUrl,
+            isVerified: data.isVerified,
           };
         });
 
-        // Sort client-side
+        // Sort client-side (Newest first)
         items.sort((a, b) => {
-          if (a.date && b.date) return b.date.localeCompare(a.date);
-          return 0;
+          const timeA = a.createdAt?.seconds ?? a.createdAt?.toMillis?.() ?? 0;
+          const timeB = b.createdAt?.seconds ?? b.createdAt?.toMillis?.() ?? 0;
+          return timeB - timeA;
         });
 
         setUserPosts(items);
@@ -254,7 +266,7 @@ export default function UserProfilePage() {
 
   return (
     <div className="min-h-screen text-neutral-50">
-      <div className="mx-auto w-full max-w-2xl px-2 py-6 md:py-2 pb-32 space-y-6">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:py-2 pb-32 space-y-6">
         {/* Header Bar */}
         <div className="flex items-center justify-between">
           <button
@@ -313,7 +325,7 @@ export default function UserProfilePage() {
           style={{ width: "100%" }}
         >
           {/* Page: Posts */}
-          <div className="w-full shrink-0 snap-start px-1">
+          <div className="w-full shrink-0 snap-start px-3">
             <div className="space-y-4">
               {postsLoading && (
                 <div className="rounded-2xl border border-white/10 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-300">
@@ -339,13 +351,19 @@ export default function UserProfilePage() {
                       onDetailsClick={() => openView("details", post)}
                     />
                   ))}
+
+                  <div className="py-16 text-center">
+                    <p className="text-[13px] font-medium text-secondary/50">
+                      You&apos;ve reached the end of the feed
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
           {/* Page: Clubs */}
-          <div className="w-full shrink-0 snap-start px-1">
+          <div className="w-full shrink-0 snap-start px-3">
             <MyClubsView userId={targetUid} />
           </div>
         </div>

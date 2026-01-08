@@ -9,6 +9,7 @@ export interface UserProfile {
     displayName: string;
     username?: string | null;
     photoURL?: string | null;
+    campus?: string | null;
 }
 
 interface UserProfilesContextType {
@@ -36,6 +37,7 @@ export function UserProfilesProvider({ children }: { children: ReactNode }) {
                         displayName: data.displayName || data.name || data.preferredName || "User",
                         username: data.username || null,
                         photoURL: data.photoURL || null,
+                        campus: data.campus || null,
                     };
                     setProfiles((prev) => ({ ...prev, [uid]: profile }));
                     loadedUids.current.add(uid);

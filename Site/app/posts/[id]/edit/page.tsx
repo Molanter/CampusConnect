@@ -20,6 +20,10 @@ import {
 import { auth, db } from "../../../../lib/firebase";
 import Toast, { ToastData } from "@/components/Toast";
 import { ClubMember } from "@/lib/clubs";
+import { PostType } from "@/lib/posts";
+import { CalendarIcon, ClockIcon, QuestionMarkCircleIcon, MegaphoneIcon, ChatBubbleBottomCenterTextIcon } from "@heroicons/react/24/outline";
+import { useRightSidebar } from "@/components/right-sidebar-context";
+import clsx from "clsx";
 
 type UserProfile = {
     preferredName?: string;
@@ -32,55 +36,11 @@ type UserProfile = {
     photoURL?: string;
 };
 
-// Reusing MapHelpModal from create page for consistency
-function MapHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-[#1C1C1E] ring-1 ring-white/10 shadow-2xl">
-                <div className="flex items-center justify-between border-b border-white/10 p-4">
-                    <h3 className="text-lg font-bold text-white">How to get a Map Link</h3>
-                    <button
-                        onClick={onClose}
-                        className="rounded-full p-2 text-neutral-400 hover:bg-white/10 hover:text-white transition-colors"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <div className="p-6 space-y-6">
-                    <div className="space-y-2">
-                        <h4 className="font-semibold text-blue-400 flex items-center gap-2">
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 5.42 7.72 14.73 8.06 15.13.19.23.53.23.72 0 .34-.4 8.06-9.71 8.06-15.13C20.5 3.81 16.69 0 12 0zm0 12.5c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" /></svg>
-                            Google Maps
-                        </h4>
-                        <p className="text-sm text-neutral-300">
-                            You can copy the URL from your browser's address bar, or use the "Share" button and click "Copy Link".
-                        </p>
-                        <code className="block rounded bg-black/30 p-2 text-xs text-neutral-400">
-                            maps.app.goo.gl/... or google.com/maps/...
-                        </code>
-                    </div>
-                    <div className="space-y-2">
-                        <h4 className="font-semibold text-pink-400 flex items-center gap-2">
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" /></svg>
-                            Apple Maps
-                        </h4>
-                        <p className="text-sm text-neutral-300">
-                            Select a location, click the "Share" button, and choose "Copy Link". It usually looks like:
-                        </p>
-                        <code className="block rounded bg-black/30 p-2 text-xs text-neutral-400">
-                            maps.apple.com/?...&ll=lat,lng...
-                        </code>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
+
 
 export default function EditPostPage() {
+    const MEDIA_LIMIT = 10;
+    const WORD_LIMIT = 300;
     const router = useRouter();
     const params = useParams();
     const postId = params.id as string;
@@ -91,7 +51,8 @@ export default function EditPostPage() {
     const [toast, setToast] = useState<ToastData | null>(null);
 
     // Form fields
-    const [isEvent, setIsEvent] = useState(false);
+    const [type, setType] = useState<PostType>("post");
+    const isEvent = type === "event";
     const [description, setDescription] = useState("");
     const [imageUrl, setImageUrl] = useState(""); // Kept for logic compatibility, effectively unused in multi-image flow
     const [eventDate, setEventDate] = useState("");
@@ -108,8 +69,8 @@ export default function EditPostPage() {
 
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
-    const [isMapHelpOpen, setIsMapHelpOpen] = useState(false);
     const [showMapPreview, setShowMapPreview] = useState(true);
+    const { openView } = useRightSidebar();
 
     // Club context (read-only for edit usually, but good to know)
     const [clubName, setClubName] = useState<string | null>(null);
@@ -162,22 +123,30 @@ export default function EditPostPage() {
                             }
                         }
 
-                        setDescription(data.description || "");
-                        setIsEvent(data.isEvent || false);
-                        setClubName(data.clubName || null);
+                        setDescription(data.description ?? data.content ?? "");
+                        setType(data.type ?? (data.isEvent ? "event" : "post"));
+                        setClubName(data.clubName ?? null);
 
                         // Images
-                        const images = data.imageUrls || (data.imageUrl ? [data.imageUrl] : []);
-                        setExistingImages(images);
+                        setExistingImages(data.imageUrls ?? (data.imageUrl ? [data.imageUrl] : []));
 
                         // Event Details
                         if (data.isEvent) {
-                            setEventDate(data.date || "");
-                            setStartTime(data.startTime || "");
-                            setEndTime(data.endTime || "");
-                            setLocationLabel(data.locationLabel || "");
-                            setLocationUrl(data.locationUrl || ""); // Ideally this is saved, if not we might not have it
-                            setCoordinates(data.coordinates || null);
+                            setEventDate(data.date ?? "");
+                            setStartTime(data.startTime ?? "");
+                            setEndTime(data.endTime ?? "");
+                            setLocationLabel(data.locationLabel ?? "");
+
+                            // If we have coordinates but no URL, generate an Apple Maps link
+                            if (data.coordinates && !data.locationUrl) {
+                                const { lat, lng } = data.coordinates;
+                                const appleMapsUrl = `https://maps.apple.com/?ll=${lat},${lng}&q=${encodeURIComponent(data.locationLabel || "Location")}`;
+                                setLocationUrl(appleMapsUrl);
+                            } else {
+                                setLocationUrl(data.locationUrl ?? "");
+                            }
+
+                            setCoordinates(data.coordinates ?? null);
 
                             // Try to find extra info in description if we don't have dedicated fields
                             // (This is separate from core description)
@@ -198,50 +167,175 @@ export default function EditPostPage() {
         return () => unsub();
     }, [postId, router]);
 
-    // Helper to parse coordinates (Same as create page)
+    // Helper to parse coordinates (Enhanced for both Google and Apple Maps)
     const parseCoordinatesFromUrl = async (url: string) => {
         if (!url) return null;
         let targetUrl = url;
 
-        // Reuse parsing logic from create page
-        if (url.includes("goo.gl") || url.includes("maps.app.goo.gl")) {
+        // Expand shortened URLs (Google and Apple Maps)
+        const needsExpansion = url.includes("goo.gl") ||
+            url.includes("maps.app.goo.gl") ||
+            url.includes("maps.apple.com/p/") ||
+            url.includes("maps.apple/p/") ||
+            (url.includes("apple") && url.includes("/p/"));
+
+        if (needsExpansion) {
             try {
+                console.log("Expanding shortened URL:", url);
                 const res = await fetch(`/api/expand-map-url?url=${encodeURIComponent(url)}`);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.expandedUrl) targetUrl = data.expandedUrl;
+                    if (data.expandedUrl) {
+                        targetUrl = data.expandedUrl;
+                        console.log("Expanded to:", targetUrl);
+                    } else {
+                        console.log("API response did not contain expandedUrl:", data);
+                    }
+                } else {
+                    console.log("API returned error status:", res.status, await res.text());
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error("Failed to expand URL:", err);
+            }
         }
 
+        // Helper to extract label from URL
+        const extractLabel = (urlStr: string) => {
+            try {
+                const u = new URL(urlStr);
+                // Apple Maps name param
+                const nameParam = u.searchParams.get("name");
+                if (nameParam) return decodeURIComponent(nameParam.replace(/\+/g, " "));
+
+                // Google/Apple query param (if it's not JUST coordinates)
+                const qParam = u.searchParams.get("q");
+                if (qParam && !qParam.match(/^-?\d+\.\d+,-?\d+\.\d+$/)) {
+                    return decodeURIComponent(qParam.replace(/\+/g, " "));
+                }
+
+                // Google Maps place path
+                const placeMatch = urlStr.match(/\/place\/([^/@?]+)/);
+                if (placeMatch && placeMatch[1]) {
+                    return decodeURIComponent(placeMatch[1].replace(/\+/g, " "));
+                }
+            } catch (e) {
+                // Not a full URL or other error
+            }
+            return null;
+        };
+
+        const foundLabel = extractLabel(targetUrl) || extractLabel(url);
+
+        // Priority 1: Google Maps !3d and !4d params (most specific)
         const data3dRegex = /!3d(-?\d+\.\d+)/;
         const data4dRegex = /!4d(-?\d+\.\d+)/;
         const match3d = targetUrl.match(data3dRegex);
         const match4d = targetUrl.match(data4dRegex);
-        if (match3d && match4d) return { lat: parseFloat(match3d[1]), lng: parseFloat(match4d[1]) };
+        if (match3d && match4d) {
+            console.log("Found Google Maps !3d/!4d coordinates");
+            return {
+                lat: parseFloat(match3d[1]),
+                lng: parseFloat(match4d[1]),
+                label: foundLabel
+            };
+        }
 
+        // Priority 2: Google Maps @ format
         const googleRegex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
-        const matches = targetUrl.match(googleRegex);
-        if (matches) return { lat: parseFloat(matches[1]), lng: parseFloat(matches[2]) };
+        const googleMatch = targetUrl.match(googleRegex);
+        if (googleMatch) {
+            console.log("Found Google Maps @ coordinates");
+            return {
+                lat: parseFloat(googleMatch[1]),
+                lng: parseFloat(googleMatch[2]),
+                label: foundLabel
+            };
+        }
 
-        // ... simplified reuse ...
+        // Priority 3: Apple Maps coordinate= format (full place URLs)
+        const appleCoordinateRegex = /coordinate=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+        const appleCoordinateMatch = targetUrl.match(appleCoordinateRegex);
+        if (appleCoordinateMatch) {
+            console.log("Found Apple Maps coordinate= parameter");
+            return {
+                lat: parseFloat(appleCoordinateMatch[1]),
+                lng: parseFloat(appleCoordinateMatch[2]),
+                label: foundLabel
+            };
+        }
+
+        // Priority 4: Apple Maps ll= format (share URLs)
+        const appleRegex = /ll=(-?\d+\.\d+),(-?\d+\.\d+)/;
+        const appleMatch = targetUrl.match(appleRegex);
+        if (appleMatch) {
+            console.log("Found Apple Maps ll= coordinates");
+            return {
+                lat: parseFloat(appleMatch[1]),
+                lng: parseFloat(appleMatch[2]),
+                label: foundLabel
+            };
+        }
+
+        // Priority 5: Google Maps ?q= format
+        const googleQueryRegex = /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+        const googleQueryMatch = targetUrl.match(googleQueryRegex);
+        if (googleQueryMatch) {
+            console.log("Found Google Maps ?q= coordinates");
+            return {
+                lat: parseFloat(googleQueryMatch[1]),
+                lng: parseFloat(googleQueryMatch[2]),
+                label: foundLabel
+            };
+        }
+
+        console.log("No coordinate patterns matched in URL:", targetUrl);
         return null;
     };
 
     useEffect(() => {
         const parse = async () => {
-            // Only parse if URL changed and differs from what we might have loaded? 
-            // Actually just re-parsing is fine to ensure consistency
-            const coords = await parseCoordinatesFromUrl(locationUrl);
-            if (coords) setCoordinates(coords);
+            if (!locationUrl) {
+                // Clear coordinates if URL is removed
+                setCoordinates(null);
+                return;
+            }
+
+            const result = await parseCoordinatesFromUrl(locationUrl);
+            if (result) {
+                console.log("Parsed result:", result);
+                setCoordinates({ lat: result.lat, lng: result.lng });
+                if (result.label && !locationLabel) {
+                    setLocationLabel(result.label);
+                }
+            } else {
+                console.log("Could not parse coordinates from URL:", locationUrl);
+                // Don't clear coordinates if parsing fails - keep existing ones
+            }
         };
-        if (locationUrl) parse();
+        parse();
     }, [locationUrl]);
+
+    // Active section state for visual feedback
+    const [activeSection, setActiveSection] = useState<
+        "details" | "type" | "eventDetails" | "extraInfo" | null
+    >(null);
 
     // Image handling
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const newFiles = Array.from(e.target.files);
+            const totalImages = existingImages.length + selectedFiles.length;
+            const remainingSlots = MEDIA_LIMIT - totalImages;
+
+            if (remainingSlots <= 0) {
+                setToast({ type: "error", message: `Maximum ${MEDIA_LIMIT} photos allowed.` });
+                return;
+            }
+
+            const newFiles = Array.from(e.target.files).slice(0, remainingSlots);
+            if (Array.from(e.target.files).length > remainingSlots) {
+                setToast({ type: "error", message: `Only ${remainingSlots} more photo(s) could be added.` });
+            }
+
             setSelectedFiles((prev) => [...prev, ...newFiles]);
             const newUrls = newFiles.map((file) => URL.createObjectURL(file));
             setPreviewUrls((prev) => [...prev, ...newUrls]);
@@ -284,6 +378,17 @@ export default function EditPostPage() {
             return;
         }
 
+        const wordCount = description.trim() ? description.trim().split(/\s+/).length : 0;
+        if (wordCount > WORD_LIMIT) {
+            setFormError(`Description exceeds the ${WORD_LIMIT} word limit.`);
+            return;
+        }
+
+        if (existingImages.length + selectedFiles.length > MEDIA_LIMIT) {
+            setFormError(`Maximum ${MEDIA_LIMIT} photos allowed.`);
+            return;
+        }
+
         try {
             setSaving(true);
             setUploading(true);
@@ -306,6 +411,7 @@ export default function EditPostPage() {
 
             const updateData: any = {
                 description: description.trim(),
+                type: type,
                 isEvent: isEvent,
                 imageUrls: finalImageUrls,
                 editCount: increment(1),
@@ -314,13 +420,12 @@ export default function EditPostPage() {
 
             if (isEvent) {
                 Object.assign(updateData, {
-                    date: eventDate,
-                    startTime: startTime,
-                    endTime: endTime,
+                    date: eventDate.trim(),
+                    startTime: startTime.trim(),
+                    endTime: endTime.trim(),
                     locationLabel: locationLabel.trim(),
                     coordinates: coordinates,
-                    // keep locationUrl if we tracked it, otherwise it might be lost if we don't save it
-                    locationUrl: locationUrl,
+                    locationUrl: locationUrl.trim(),
                 });
             }
 
@@ -343,7 +448,7 @@ export default function EditPostPage() {
 
     if (authLoading || loadingPost) {
         return (
-            <div className="flex h-screen items-center justify-center text-neutral-400 bg-neutral-950">
+            <div className="flex h-screen items-center justify-center cc-page text-secondary">
                 <div className="animate-pulse">Loading...</div>
             </div>
         );
@@ -355,43 +460,59 @@ export default function EditPostPage() {
     }
 
     return (
-        <div className="min-h-screen bg-neutral-950 text-white">
+        <div className="cc-page">
             <Toast toast={toast} onClear={() => setToast(null)} />
 
             <div className="mx-auto w-full max-w-2xl px-4 py-8">
                 <header className="mb-8 space-y-1">
-                    <h1 className="text-2xl font-bold tracking-tight">Edit Post</h1>
-                    <p className="text-neutral-400 text-sm">Update your post details.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Edit Post</h1>
+                    <p className="text-sm text-secondary">Update your post details.</p>
                 </header>
 
-                <form onSubmit={handleUpdate} className="space-y-6">
+                <form
+                    onSubmit={handleUpdate}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+                            e.preventDefault();
+                        }
+                    }}
+                    className="space-y-6"
+                >
 
                     {/* Context Info */}
                     {clubName && (
-                        <div className="rounded-xl bg-blue-500/10 p-3 text-sm text-blue-400">
-                            Editing post for <strong>{clubName}</strong>
+                        <div className="cc-section cc-shadow-soft px-4 py-3 text-sm text-foreground">
+                            <span className="text-secondary">Editing post for </span><strong className="text-foreground">{clubName}</strong>
                         </div>
                     )}
 
                     {/* Description */}
                     <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Content</label>
-                        <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg">
-                            <textarea
-                                rows={4}
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                className="w-full resize-none bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:bg-white/[0.02] transition-colors"
-                                placeholder="What's going on?"
-                            />
+                        <label className="ml-1 text-xs font-bold uppercase tracking-wider text-secondary">Content</label>
+                        <div className="cc-section cc-shadow-soft overflow-hidden">
+                            <div className="relative">
+                                <textarea
+                                    rows={4}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    className="w-full resize-none bg-transparent px-4 py-3.5 pb-8 text-sm text-foreground placeholder:text-secondary focus:outline-none"
+                                    placeholder="What's going on?"
+                                />
+                                <div className={clsx(
+                                    "absolute bottom-2 right-4 text-[10px] font-bold tracking-wider",
+                                    (description.trim() ? description.trim().split(/\s+/).length : 0) > WORD_LIMIT ? "text-red-500" : "text-secondary"
+                                )}>
+                                    {description.trim() ? description.trim().split(/\s+/).length : 0}/{WORD_LIMIT} WORDS
+                                </div>
+                            </div>
 
                             {/* Image Management */}
-                            <div className="flex flex-col gap-3 px-4 py-3 border-t border-white/5">
+                            <div className="flex flex-col gap-3 px-4 py-3 border-t border-secondary/10">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-neutral-400">
-                                        {existingImages.length + selectedFiles.length} photo(s)
+                                    <span className="text-sm text-secondary">
+                                        {existingImages.length + selectedFiles.length}/{MEDIA_LIMIT} photo(s)
                                     </span>
-                                    <label className="cursor-pointer rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 transition-colors">
+                                    <label className="cursor-pointer rounded-full bg-secondary/15 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/25 transition-colors">
                                         Add Photos
                                         <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
                                     </label>
@@ -400,9 +521,9 @@ export default function EditPostPage() {
                                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                                     {/* Existing Images */}
                                     {existingImages.map((url, idx) => (
-                                        <div key={`exist-${idx}`} className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 group">
+                                        <div key={`exist-${idx}`} className="relative h-20 w-20 flex-shrink-0 overflow-hidden cc-radius-24 ring-2 ring-inset ring-secondary/25 bg-secondary/10 group">
                                             <img src={url} alt="Existing" className="h-full w-full object-cover" />
-                                            <button type="button" onClick={() => removeExistingImage(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80">
+                                            <button type="button" onClick={() => removeExistingImage(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 cc-glass-strong text-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80 hover:text-white">
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
                                                     <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                                                 </svg>
@@ -411,9 +532,9 @@ export default function EditPostPage() {
                                     ))}
                                     {/* New Images */}
                                     {previewUrls.map((url, idx) => (
-                                        <div key={`new-${idx}`} className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 group">
+                                        <div key={`new-${idx}`} className="relative h-20 w-20 flex-shrink-0 overflow-hidden cc-radius-24 ring-2 ring-inset ring-secondary/25 bg-secondary/10 group">
                                             <img src={url} alt="New Preview" className="h-full w-full object-cover" />
-                                            <button type="button" onClick={() => removeNewImage(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80">
+                                            <button type="button" onClick={() => removeNewImage(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 cc-glass-strong text-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80 hover:text-white">
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
                                                     <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                                                 </svg>
@@ -425,83 +546,114 @@ export default function EditPostPage() {
                         </div>
                     </div>
 
-                    {/* Is Event Toggle */}
-                    <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl px-4 py-3 flex items-center justify-between shadow-lg">
-                        <span className="text-sm font-medium text-white">Is this an event?</span>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={isEvent}
-                            onClick={() => setIsEvent(!isEvent)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isEvent ? 'bg-[#ffb200]' : 'bg-neutral-700'}`}
-                        >
-                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEvent ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
+                    {/* Post Type Selector */}
+                    <div className="space-y-2">
+                        <label className="ml-1 text-xs font-bold uppercase tracking-wider text-secondary">Post Type</label>
+                        <div className="cc-section cc-shadow-soft p-1.5 flex transition-shadow">
+                            {[
+                                { id: "post", label: "Post", icon: ChatBubbleBottomCenterTextIcon },
+                                { id: "event", label: "Event", icon: CalendarIcon },
+                                { id: "announcement", label: "Announcement", icon: MegaphoneIcon },
+                            ].map((t) => (
+                                <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => setType(t.id as PostType)}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-full transition-all ${type === t.id
+                                        ? "bg-brand text-brand-foreground shadow-sm"
+                                        : "text-secondary hover:text-foreground hover:bg-secondary/5"
+                                        }`}
+                                >
+                                    <t.icon className="h-4 w-4" />
+                                    {t.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Event Logistics */}
                     {isEvent && (
                         <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Event Details</label>
-                            <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-lg divide-y divide-white/5">
+                            <label className="ml-1 text-xs font-bold uppercase tracking-wider text-secondary">Event Details</label>
+                            <div
+                                className={`cc-section cc-radius-24 overflow-hidden divide-y divide-secondary/10 transition-shadow ${activeSection === "eventDetails" ? "cc-shadow-soft" : ""
+                                    }`}
+                                onFocusCapture={() => setActiveSection("eventDetails")}
+                                onClick={() => setActiveSection("eventDetails")}
+                            >
                                 {/* Date */}
-                                <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
-                                    <span className="text-sm text-neutral-300">Date</span>
-                                    <input
-                                        type="date"
-                                        value={eventDate}
-                                        onChange={(e) => setEventDate(e.target.value)}
-                                        className="bg-transparent text-right text-sm text-white focus:outline-none focus:text-[#ffb200] [color-scheme:dark]"
-                                        required={isEvent}
-                                    />
+                                <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                                    <span className="text-sm text-secondary">Date</span>
+                                    <div className="relative">
+                                        <input
+                                            type="date"
+                                            value={eventDate}
+                                            onChange={(e) => setEventDate(e.target.value)}
+                                            className="cc-picker-input cursor-pointer"
+                                            required={isEvent}
+                                        />
+                                        <CalendarIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
+                                    </div>
                                 </div>
                                 {/* Start Time */}
-                                <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
-                                    <span className="text-sm text-neutral-300">Start Time</span>
-                                    <input
-                                        type="time"
-                                        value={startTime}
-                                        onChange={(e) => setStartTime(e.target.value)}
-                                        className="bg-transparent text-right text-sm text-white focus:outline-none focus:text-[#ffb200] [color-scheme:dark]"
-                                        required={isEvent}
-                                    />
+                                <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                                    <span className="text-sm text-secondary">Start Time</span>
+                                    <div className="relative">
+                                        <input
+                                            type="time"
+                                            value={startTime}
+                                            onChange={(e) => setStartTime(e.target.value)}
+                                            className="cc-picker-input cursor-pointer"
+                                            required={isEvent}
+                                        />
+                                        <ClockIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
+                                    </div>
                                 </div>
                                 {/* End Time */}
-                                <div className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
-                                    <span className="text-sm text-neutral-300">End Time</span>
-                                    <input
-                                        type="time"
-                                        value={endTime}
-                                        onChange={(e) => setEndTime(e.target.value)}
-                                        className="bg-transparent text-right text-sm text-white focus:outline-none focus:text-[#ffb200] [color-scheme:dark]"
-                                        required={isEvent}
-                                    />
+                                <div className="flex items-center justify-between px-4 py-3.5 cc-row-hover focus-within:cc-row-active">
+                                    <span className="text-sm text-secondary">End Time</span>
+                                    <div className="relative">
+                                        <input
+                                            type="time"
+                                            value={endTime}
+                                            onChange={(e) => setEndTime(e.target.value)}
+                                            className="cc-picker-input cursor-pointer"
+                                            required={isEvent}
+                                        />
+                                        <ClockIcon className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 cc-picker-icon" />
+                                    </div>
                                 </div>
 
                                 {/* Location URL */}
-                                <div className="relative flex items-center px-4 py-1 hover:bg-white/[0.02] transition-colors">
+                                <div className="relative flex items-center pl-4 pr-2.5 py-1 cc-row-hover focus-within:cc-row-active">
                                     <input
                                         value={locationUrl}
                                         onChange={(e) => setLocationUrl(e.target.value)}
-                                        className="w-full bg-transparent py-2.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                                        className="w-full bg-transparent py-2.5 text-sm text-foreground placeholder:text-secondary focus:outline-none"
                                         placeholder="Paste Map URL (Apple/Google)"
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => setIsMapHelpOpen(true)}
-                                        className="ml-2 text-neutral-500 hover:text-[#ffb200] transition-colors"
+                                        onClick={() => openView("mapHelp", {})}
+                                        className="ml-2 flex flex-none items-center justify-center rounded-full p-1.5 text-secondary hover:bg-secondary/10 hover:text-foreground transition-colors"
                                         title="Help"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.06 5.312 5.312 0 017.56 0 .75.75 0 01-1.06 1.06 3.812 3.812 0 00-5.44 0zM8.94 13.06a.75.75 0 11-1.06-1.06 2.31 2.31 0 013.25 0 .75.75 0 01-1.06 1.06 1.5 1.5 0 00-1.13 0z" clipRule="evenodd" />
-                                        </svg>
+                                        <QuestionMarkCircleIcon className="h-5 w-5" />
                                     </button>
                                 </div>
+
+                                {/* Coordinates Display */}
+                                {coordinates && (
+                                    <div className="px-4 py-2 text-xs text-secondary border-t border-secondary/5">
+                                        <span className="font-mono">lat: {coordinates.lat}, lng: {coordinates.lng}</span>
+                                    </div>
+                                )}
+
                                 {/* Location Label */}
                                 <input
                                     value={locationLabel}
                                     onChange={(e) => setLocationLabel(e.target.value)}
-                                    className="w-full bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none hover:bg-white/[0.02] transition-colors"
+                                    className="w-full bg-transparent px-4 py-3.5 text-sm text-foreground placeholder:text-secondary focus:outline-none cc-row-hover focus-within:cc-row-active"
                                     placeholder="Location Label (e.g. Library)"
                                 />
                             </div>
@@ -509,7 +661,7 @@ export default function EditPostPage() {
                     )}
 
                     {formError && (
-                        <div className="w-full rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
+                        <div className="w-full rounded-xl bg-red-500/10 p-3 text-xs text-red-500 font-medium">
                             {formError}
                         </div>
                     )}
@@ -518,14 +670,14 @@ export default function EditPostPage() {
                         <button
                             type="button"
                             onClick={() => router.back()}
-                            className="flex-1 rounded-full bg-neutral-800/50 py-3 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-white"
+                            className="flex-1 rounded-full bg-secondary/15 py-3 text-sm font-medium text-foreground hover:bg-secondary/25 transition-colors"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={saving || uploading}
-                            className="flex-1 rounded-full bg-[#ffb200] py-3 text-sm font-bold text-black shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70"
+                            className="flex-1 rounded-full bg-brand py-3 text-sm font-bold text-brand-foreground cc-shadow-soft transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70"
                         >
                             {saving ? "Saving..." : "Save Changes"}
                         </button>
@@ -533,7 +685,7 @@ export default function EditPostPage() {
 
                 </form>
 
-                <MapHelpModal isOpen={isMapHelpOpen} onClose={() => setIsMapHelpOpen(false)} />
+
             </div>
         </div>
     );

@@ -9,9 +9,12 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        // Validate that it's a Google Maps URL
+        // Validate that it's a Google or Apple Maps URL
         const urlObj = new URL(url);
-        if (!urlObj.hostname.includes("goo.gl") && !urlObj.hostname.includes("google.com")) {
+        const isGoogleMaps = urlObj.hostname.includes("goo.gl") || urlObj.hostname.includes("google.com");
+        const isAppleMaps = urlObj.hostname.includes("maps.apple") || urlObj.hostname.includes("apple.com");
+
+        if (!isGoogleMaps && !isAppleMaps) {
             return NextResponse.json({ error: "Invalid URL domain" }, { status: 400 });
         }
 

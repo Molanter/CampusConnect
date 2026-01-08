@@ -28,7 +28,7 @@ function CommentTextWithMentions({ text }: { text: string }) {
             <Link
               key={index}
               href={`/user/u/${username}`}
-              className="text-amber-400 hover:text-amber-300 hover:underline font-medium"
+              className="text-brand hover:text-foreground hover:underline font-medium transition-colors"
               onClick={(e) => e.stopPropagation()}
             >
               {part}
@@ -197,22 +197,22 @@ export function CommentMessage({
           onTouchMove={handleLongPressEnd}
         >
           <div className="flex flex-col items-center">
-            <div className={cn("shrink-0 overflow-hidden rounded-full bg-neutral-800", avatarSize)}>
+            <div className={cn("shrink-0 overflow-hidden rounded-full bg-surface-2 border border-secondary/30 aspect-square", avatarSize)}>
               {displayPhotoURL ? (
                 <img
                   src={displayPhotoURL}
                   alt={displayName}
-                  className="h-full w-full object-cover"
+                  className="!h-full !w-full object-cover object-center"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-white/5 text-[10px] font-semibold text-white">
+                <div className="flex h-full w-full items-center justify-center bg-surface-3 text-[10px] font-semibold text-foreground">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
             {/* Vertical line piece in parent row - stretches to bottom */}
             {comment.replies && comment.replies.length > 0 && (
-              <div className="w-[2px] flex-1 bg-white/8 rounded-t-full mt-1.5"></div>
+              <div className="w-[2px] flex-1 bg-secondary/10 rounded-t-full mt-1.5"></div>
             )}
           </div>
 
@@ -220,16 +220,16 @@ export function CommentMessage({
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-semibold text-white truncate">
+                  <p className="text-sm font-semibold text-foreground truncate">
                     {displayUsername || displayName}
                   </p>
-                  <span className="text-xs text-neutral-500 shrink-0">{timeLabel}</span>
+                  <span className="text-xs text-muted shrink-0">{timeLabel}</span>
                 </div>
 
                 {comment.replyTo && (
-                  <div className="rounded-xl border border-white/5 bg-white/5 px-2.5 py-1.5 text-xs text-neutral-300 mb-1">
-                    <span className="text-neutral-500 mr-1">Replying to</span>
-                    <span className="font-medium text-white">
+                  <div className="rounded-xl border border-secondary/10 bg-secondary/5 px-2.5 py-1.5 text-xs text-foreground/80 mb-1">
+                    <span className="text-muted mr-1">Replying to</span>
+                    <span className="font-medium text-foreground">
                       {comment.replyTo.authorUsername || comment.replyTo.authorName}
                     </span>
                   </div>
@@ -238,7 +238,7 @@ export function CommentMessage({
                 {isEditing ? (
                   <div className="space-y-2 pt-1">
                     <textarea
-                      className="w-full rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+                      className="w-full rounded-2xl border border-secondary/20 bg-surface-2 px-3 py-2 text-sm text-foreground focus:border-secondary/40 focus:outline-none transition-all"
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
                       rows={3}
@@ -246,7 +246,7 @@ export function CommentMessage({
                     <div className="flex justify-end gap-2 text-xs">
                       <button
                         type="button"
-                        className="rounded-full border border-white/10 px-3 py-1 text-neutral-400 hover:border-white/20 hover:text-white"
+                        className="rounded-full border border-secondary/20 px-3 py-1 text-secondary hover:border-secondary/40 hover:text-foreground transition-all"
                         onClick={resetEdit}
                         disabled={pending}
                       >
@@ -254,7 +254,7 @@ export function CommentMessage({
                       </button>
                       <button
                         type="button"
-                        className="rounded-full bg-white px-4 py-1 font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
+                        className="rounded-full bg-foreground px-4 py-1 font-semibold text-background hover:opacity-90 disabled:opacity-50 transition-all"
                         onClick={handleSave}
                         disabled={pending || !draft.trim()}
                       >
@@ -263,7 +263,7 @@ export function CommentMessage({
                     </div>
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-200">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
                     <CommentTextWithMentions text={comment.text} />
                   </p>
                 )}
@@ -273,7 +273,7 @@ export function CommentMessage({
                   {canReply && (
                     <button
                       type="button"
-                      className="group flex items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-white"
+                      className="group flex items-center gap-1.5 text-xs font-medium text-secondary hover:text-foreground transition-colors"
                       onClick={() => onReply(comment)}
                     >
                       <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
@@ -284,8 +284,8 @@ export function CommentMessage({
                   <button
                     type="button"
                     className={cn(
-                      "group flex items-center gap-1.5 text-xs font-medium",
-                      liked ? "text-amber-400" : "text-neutral-400 hover:text-white"
+                      "group flex items-center gap-1.5 text-xs font-medium transition-colors",
+                      liked ? "text-brand" : "text-secondary hover:text-foreground"
                     )}
                     onClick={() => {
                       setLikeAnimating(true);
@@ -296,7 +296,7 @@ export function CommentMessage({
                     <HeartIcon
                       className={cn(
                         "h-3.5 w-3.5",
-                        liked && "fill-amber-400 text-amber-400",
+                        liked && "fill-brand text-brand",
                         likeAnimating && "animate-like-pop"
                       )}
                     />
@@ -306,7 +306,7 @@ export function CommentMessage({
                   {canEdit && (
                     <button
                       type="button"
-                      className="flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-white"
+                      className="flex items-center gap-1 text-xs font-medium text-secondary hover:text-foreground transition-colors"
                       onClick={() => setIsEditing((prev) => !prev)}
                     >
                       <PencilIcon className="h-3.5 w-3.5" />
@@ -316,7 +316,7 @@ export function CommentMessage({
 
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-white"
+                    className="flex items-center gap-1 text-xs font-medium text-secondary hover:text-foreground transition-colors"
                     onClick={(e) => {
                       const rect = e.currentTarget.getBoundingClientRect();
                       setMenuPosition({ x: rect.left, y: rect.bottom });
@@ -341,7 +341,7 @@ export function CommentMessage({
                 }}
               />
               <div
-                className="fixed z-[9999] w-40 rounded-2xl border border-white/10 bg-[#1C1C1E]/95 backdrop-blur-xl p-1.5 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.8)] animate-fade-slide-in"
+                className="fixed z-[9999] w-40 cc-glass-strong cc-radius-menu p-1.5 text-xs text-foreground shadow-2xl animate-fade-slide-in"
                 style={{
                   top: menuPosition.y,
                   left: menuPosition.x,
@@ -351,36 +351,36 @@ export function CommentMessage({
               >
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 hover:bg-white/10 transition-colors active:scale-95"
+                  className="flex w-full items-center gap-2.5 rounded-full px-3.5 py-2.5 hover:bg-secondary/15 transition-colors active:scale-95"
                   onClick={(e) => {
                     e.stopPropagation();
                     closeMenu();
                     onReport(comment);
                   }}
                 >
-                  <FlagIcon className="h-4 w-4 text-neutral-400" />
+                  <FlagIcon className="h-4 w-4 text-secondary" />
                   Report
                 </button>
                 {canEdit && (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 hover:bg-white/10 transition-colors active:scale-95"
+                    className="flex w-full items-center gap-2.5 rounded-full px-3.5 py-2.5 hover:bg-secondary/15 transition-colors active:scale-95"
                     onClick={(e) => {
                       e.stopPropagation();
                       closeMenu();
                       setIsEditing(true);
                     }}
                   >
-                    <PencilIcon className="h-4 w-4 text-neutral-400" />
+                    <PencilIcon className="h-4 w-4 text-secondary" />
                     Edit
                   </button>
                 )}
                 {canDelete && (
                   <>
-                    <div className="my-1 h-px bg-white/5 mx-2" />
+                    <div className="my-1 h-px bg-secondary/10 mx-2" />
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-red-400 hover:bg-red-500/10 transition-colors active:scale-95"
+                      className="flex w-full items-center gap-2.5 rounded-full px-3.5 py-2.5 text-red-400 hover:bg-red-500/10 transition-colors active:scale-95"
                       onClick={(e) => {
                         e.stopPropagation();
                         closeMenu();
@@ -407,7 +407,7 @@ export function CommentMessage({
                 <div className="flex flex-col items-center relative" style={{ width: isReply ? '24px' : '36px' }}>
                   {/* Vertical line segment before curve - connects from parent or previous reply */}
                   <div
-                    className="absolute w-[2px] bg-white/8"
+                    className="absolute w-[2px] bg-secondary/10"
                     style={{
                       left: isReply ? '11px' : '17px',
                       top: '-10px',
@@ -417,7 +417,7 @@ export function CommentMessage({
 
                   {/* Curved connector (the branch) */}
                   <div
-                    className="absolute border-l-2 border-b-2 border-white/8 rounded-bl-[12px]"
+                    className="absolute border-l-2 border-b-2 border-secondary/10 rounded-bl-[12px]"
                     style={{
                       left: isReply ? '11px' : '17px',
                       top: 0,
@@ -429,7 +429,7 @@ export function CommentMessage({
                   {/* Vertical line segment after curve - continues down to the next branch (not for last reply) */}
                   {index < (comment.replies?.length ?? 0) - 1 && (
                     <div
-                      className="absolute w-[2px] bg-white/8 rounded-t-full"
+                      className="absolute w-[2px] bg-secondary/10 rounded-t-full"
                       style={{
                         left: isReply ? '11px' : '17px',
                         top: '28px',
@@ -440,7 +440,7 @@ export function CommentMessage({
 
                   {/* Curve tip rounding - positioned without overlap, exactly 1px deep semicircle */}
                   <div
-                    className="absolute w-[1px] h-[2px] bg-white/8 rounded-r-full"
+                    className="absolute w-[1px] h-[2px] bg-secondary/10 rounded-r-full"
                     style={{
                       left: isReply ? '23px' : '29px',
                       top: '18px',
