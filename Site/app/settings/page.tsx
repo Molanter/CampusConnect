@@ -32,7 +32,7 @@ import { SettingsFooter } from "../../components/settings-footer";
 
 // Shared UI class definitions
 const ui = {
-  page: "mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 pt-24 pb-8",
+  page: "mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 pb-8",
   headerKicker: "text-[11px] font-semibold uppercase tracking-[0.2em] cc-muted",
   headerTitle: "text-sm font-bold text-foreground",
   section: "space-y-3",
@@ -81,13 +81,13 @@ export default function SettingsPage() {
   return (
     <div className={ui.page}>
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-40 pt-4 pointer-events-none">
-        <div className="mx-auto flex max-w-3xl items-center px-4 pointer-events-auto">
-          <div className="flex items-center rounded-full cc-glass ml-[44px] pl-4 pr-6 py-2.5 shadow-sm">
+      <div className="sticky top-0 z-40 px-0 pt-4 pb-2 pointer-events-none">
+        <div className="flex items-center pointer-events-auto">
+          <div className="flex items-center rounded-full cc-glass ml-0 pl-4 pr-6 py-2.5 shadow-sm">
             <h1 className={ui.headerTitle}>Settings</h1>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Admin Mode Toggle */}
       {showAdminModeToggle && (
@@ -237,15 +237,18 @@ export default function SettingsPage() {
       <section className={ui.section}>
         <h2 className={ui.sectionLabel}>Preferences</h2>
         <div className={ui.card}>
-          <div className={`${ui.row} ${ui.rowBorder}`}>
+          <Link
+            href="/settings/notifications"
+            className={`${ui.row} ${ui.rowBorder}`}
+          >
             <div className={`${ui.iconBox} bg-gradient-to-br from-red-500 to-red-600`}>
               <BellIcon className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1">
               <p className="text-[15px] font-normal text-foreground">Notifications</p>
             </div>
-            <div className="text-sm cc-muted">Coming soon</div>
-          </div>
+            <ChevronRightIcon className={ui.chevron} />
+          </Link>
           <Link
             href="/settings/display"
             className={`${ui.row} ${ui.rowBorder}`}

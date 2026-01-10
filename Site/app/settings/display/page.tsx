@@ -110,15 +110,19 @@ export default function DisplayPage() {
         <div className={ui.page}>
             <div className={ui.container}>
                 {/* Header */}
-                <header className={ui.header}>
-                    <button onClick={() => router.back()} className={ui.backBtn}>
-                        <ChevronLeftIcon className="h-5 w-5" />
-                    </button>
-                    <div>
-                        <h1 className={ui.title}>Display</h1>
-                        <p className={ui.subtitle}>Customize how CampusConnect looks for you</p>
+                <div className="sticky top-0 z-40 -mx-4 px-4 pt-4 pb-4 pointer-events-none">
+                    <div className="flex items-center gap-2 pointer-events-auto">
+                        <button
+                            onClick={() => router.back()}
+                            className="flex h-10 w-10 items-center justify-center rounded-full cc-header-btn active:scale-95 transition-all shrink-0"
+                        >
+                            <ChevronLeftIcon className="h-5 w-5 text-foreground" />
+                        </button>
+                        <div className="flex items-center rounded-full cc-glass px-6 py-2.5 shadow-sm">
+                            <h1 className="text-sm font-bold text-foreground">Display</h1>
+                        </div>
                     </div>
-                </header>
+                </div>
 
                 {/* Appearance Section */}
                 <section className={ui.section}>

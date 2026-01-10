@@ -74,7 +74,18 @@ export default function ProfilePage() {
       <div className="flex h-screen flex-col items-center justify-center gap-4">
         <p className="text-sm text-neutral-300">Sign in to view your profile.</p>
         <button
-          onClick={() => signInWithPopup(auth, provider)}
+          onClick={async () => {
+            try {
+              const { signInWithPopup } = await import("firebase/auth");
+              const result = await signInWithPopup(auth, provider);
+              if (result.user) {
+                const { requestNotificationPermissionAndRegister } = await import("@/lib/fcm");
+                await requestNotificationPermissionAndRegister(result.user.uid);
+              }
+            } catch (err) {
+              console.error("Sign-in error", err);
+            }
+          }}
           className="rounded-xl border border-white/10 bg-white/10 px-6 py-3 text-sm text-neutral-100 backdrop-blur-lg hover:bg-white/20 transition"
         >
           Sign in with Google

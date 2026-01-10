@@ -24,15 +24,15 @@ export function RightSidebarProvider({ children }: { children: ReactNode }) {
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        // Auto-open on desktop only (matches logic in right-sidebar.tsx)
-        if (typeof window !== 'undefined' && window.innerWidth > 1024) {
+        // Auto-open on desktop only
+        if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
             setIsVisible(true);
         }
     }, []);
 
     const [view, setView] = useState<RightSidebarView>("notifications");
     const [data, setData] = useState<any>(null);
-    const [sidebarWidth, setSidebarWidth] = useState(300);
+    const [sidebarWidth, setSidebarWidth] = useState(347); // Empirically tuned for 300px visible
     const [isNarrow, setIsNarrow] = useState(false);
 
     const toggle = useCallback(() => setIsVisible((prev) => !prev), []);

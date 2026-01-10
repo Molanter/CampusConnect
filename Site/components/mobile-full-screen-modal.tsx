@@ -31,7 +31,7 @@ export function MobileFullScreenModal({ isOpen, onClose, children, title }: Mobi
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: "100%" }}
                     transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                    className="fixed inset-0 z-50 bg-background flex flex-col"
+                    className="fixed inset-0 z-50 cc-glass-strong backdrop-blur-3xl flex flex-col"
                 >
                     {/* Header */}
                     {title && (

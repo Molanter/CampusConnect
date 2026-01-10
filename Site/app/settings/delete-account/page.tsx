@@ -88,22 +88,21 @@ export default function DeleteAccountPage() {
         <div className="min-h-screen bg-background pb-20">
             <Toast toast={toast} onClear={() => setToast(null)} />
 
-            {/* Header */}
-            <header className="fixed top-0 left-0 right-0 z-40 pt-4 pointer-events-none">
-                <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 pointer-events-auto">
-                    <Link
-                        href="/settings"
-                        className="flex h-10 w-10 items-center justify-center rounded-full cc-header-btn active:scale-95"
-                    >
-                        <ChevronLeftIcon className="h-5 w-5 text-foreground" />
-                    </Link>
-                    <div className="flex items-center rounded-full cc-glass px-6 py-2.5 shadow-sm">
-                        <h1 className="text-sm font-bold text-foreground">Delete Account</h1>
+            <main className="mx-auto max-w-2xl px-4 pb-8">
+                <div className="sticky top-0 z-40 -mx-4 px-4 pt-4 pb-4 pointer-events-none">
+                    <div className="flex items-center gap-2 pointer-events-auto">
+                        <Link
+                            href="/settings"
+                            className="flex h-10 w-10 items-center justify-center rounded-full cc-header-btn active:scale-95 transition-all shrink-0"
+                        >
+                            <ChevronLeftIcon className="h-5 w-5 text-foreground" />
+                        </Link>
+                        <div className="flex items-center rounded-full cc-glass px-6 py-2.5 shadow-sm">
+                            <h1 className="text-sm font-bold text-foreground">Delete Account</h1>
+                        </div>
                     </div>
                 </div>
-            </header>
 
-            <main className="mx-auto max-w-2xl px-4 pt-24 pb-8">
                 <div className="space-y-8">
                     {/* Warning Section */}
                     <div className="cc-section rounded-3xl p-6 md:p-8 space-y-4 border-2 border-red-500/20">
