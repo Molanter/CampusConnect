@@ -81,9 +81,12 @@ export default function SettingsPage() {
   return (
     <div className={ui.page}>
       {/* Header */}
-      <div className="sticky top-0 z-40 px-0 pt-4 pb-2 pointer-events-none">
-        <div className="flex items-center pointer-events-auto">
-          <div className="flex items-center rounded-full cc-glass ml-0 pl-4 pr-6 py-2.5 shadow-sm">
+      <div className="sticky top-0 z-40 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 pb-12 pointer-events-none transition-all duration-300">
+        {/* Background Blur Layer */}
+        <div className="absolute inset-0 backdrop-blur-3xl bg-background/90 [mask-image:linear-gradient(to_bottom,black_0%,black_20%,transparent_100%)]" />
+
+        <div className="relative flex items-center pointer-events-auto">
+          <div className="flex items-center rounded-full cc-glass-strong ml-0 pl-4 pr-6 py-2.5 border cc-header-item-stroke">
             <h1 className={ui.headerTitle}>Settings</h1>
           </div>
         </div>

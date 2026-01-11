@@ -123,7 +123,7 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
                 >
                     <div
                         ref={contentRef}
-                        className={`mx-auto max-w-[1600px] w-full ${isMobile && isTabPage ? 'pt-10' : 'pt-0'} md:pt-6 px-4 md:px-6 transition-all duration-200 [@container] ${leftSidebarClass}`}
+                        className={`mx-auto max-w-[1600px] w-full ${isMobile && isTabPage ? 'pb-20' : 'pb-0'} md:pt-6 px-4 md:px-6 transition-all duration-200 [@container] ${leftSidebarClass}`}
                     >
                         {children}
                     </div>

@@ -110,15 +110,18 @@ export default function DisplayPage() {
         <div className={ui.page}>
             <div className={ui.container}>
                 {/* Header */}
-                <div className="sticky top-0 z-40 -mx-4 px-4 pt-4 pb-4 pointer-events-none">
-                    <div className="flex items-center gap-2 pointer-events-auto">
+                <div className="sticky top-0 z-40 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 pb-12 pointer-events-none transition-all duration-300">
+                    {/* Background Blur Layer */}
+                    <div className="absolute inset-0 backdrop-blur-3xl bg-background/90 [mask-image:linear-gradient(to_bottom,black_0%,black_20%,transparent_100%)]" />
+
+                    <div className="relative flex items-center gap-2 pointer-events-auto">
                         <button
                             onClick={() => router.back()}
-                            className="flex h-10 w-10 items-center justify-center rounded-full cc-header-btn active:scale-95 transition-all shrink-0"
+                            className="flex h-12 w-12 items-center justify-center rounded-full cc-header-btn active:scale-95 transition-all shrink-0 border cc-header-item-stroke"
                         >
                             <ChevronLeftIcon className="h-5 w-5 text-foreground" />
                         </button>
-                        <div className="flex items-center rounded-full cc-glass px-6 py-2.5 shadow-sm">
+                        <div className="flex items-center rounded-full cc-glass-strong px-6 py-3 border cc-header-item-stroke">
                             <h1 className="text-sm font-bold text-foreground">Display</h1>
                         </div>
                     </div>

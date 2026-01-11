@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, type SVGProps, Fragment } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import {
@@ -15,7 +15,7 @@ import {
   ChatBubbleLeftRightIcon,
   MagnifyingGlassIcon,
   PlusIcon,
-  PowerIcon,
+  ArrowRightOnRectangleIcon,
   UserGroupIcon,
   WrenchScrewdriverIcon
 } from "@heroicons/react/24/outline";
@@ -23,6 +23,7 @@ import { UserRow } from "./user-row";
 import { useAdminMode } from "./admin-mode-context";
 import { Menu, Transition } from "@headlessui/react";
 import { ThemeToggle } from "./theme-toggle";
+import { motion, AnimatePresence } from "framer-motion";
 
 function SidebarIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -56,6 +57,30 @@ export function Navbar({
   const { isGlobalAdminUser, isCampusAdminUser, adminModeOn, setAdminModeOn } = useAdminMode();
   const router = useRouter();
   const pathname = usePathname();
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuPosition({ x: e.clientX, y: e.clientY });
+    setMenuVisible(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+    setMenuVisible(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = () => setMenuVisible(false);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -205,6 +230,7 @@ export function Navbar({
             {/* Desktop User Menu (Profile Link) */}
             <Link
               href="/profile"
+              onContextMenu={handleContextMenu}
               className={`relative flex h-10 w-10 items-center justify-center rounded-full overflow-hidden transition-all hover:scale-105 ${pathname === "/profile" ? "ring-2 ring-brand" : "hover:ring-2 hover:ring-secondary/30"
                 }`}
             >
@@ -221,9 +247,9 @@ export function Navbar({
         </aside>
       )}
 
-      {/* Top navbar / tab bar (MOBILE ONLY) */}
+      {/* Bottom navbar / tab bar (MOBILE ONLY) */}
       <header
-        className={`fixed top-0 left-0 right-0 z-20 flex justify-center py-3 text-sm text-foreground pointer-events-none ${showHeader ? "block" : "hidden"
+        className={`fixed bottom-0 left-0 right-0 z-20 flex justify-center py-3 text-sm text-foreground pointer-events-none ${showHeader ? "block" : "hidden"
           }`}
       >
         <div className="w-full max-w-6xl flex items-center justify-center gap-3 px-4 pointer-events-auto">
@@ -337,6 +363,7 @@ export function Navbar({
 
                 <Link
                   href="/profile"
+                  onContextMenu={handleContextMenu}
                   className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] ${pathname === "/profile"
                     ? "bg-[#ffb200] text-black shadow-sm font-medium"
                     : "text-secondary hover:text-foreground hover:bg-secondary/10"
@@ -350,6 +377,50 @@ export function Navbar({
           </nav>
         </div>
       </header>
+
+      {/* Profile Context Menu */}
+      <AnimatePresence>
+        {menuVisible && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="fixed z-[100] min-w-[180px] overflow-hidden rounded-[24px] cc-glass-strong border border-white/10 shadow-2xl p-1.5"
+            style={{
+              left: Math.min(menuPosition.x, typeof window !== 'undefined' ? window.innerWidth - 190 : 0),
+              top: Math.min(menuPosition.y, typeof window !== 'undefined' ? window.innerHeight - 150 : 0)
+            }}
+          >
+            <div className="flex flex-col gap-1 p-1">
+              <Link
+                href="/profile"
+                onClick={() => setMenuVisible(false)}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-full text-foreground hover:bg-white/15 hover:cc-glass-highlight transition-all duration-200"
+              >
+                <UserIcon className="h-5 w-5 text-secondary" />
+                <span className="text-sm font-medium">Profile</span>
+              </Link>
+              <Link
+                href="/settings"
+                onClick={() => setMenuVisible(false)}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-full text-foreground hover:bg-white/15 hover:cc-glass-highlight transition-all duration-200"
+              >
+                <Cog6ToothIcon className="h-5 w-5 text-secondary" />
+                <span className="text-sm font-medium">Settings</span>
+              </Link>
+              <div className="h-px bg-white/5 my-0.5 mx-3" />
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-full text-red-500 hover:bg-red-500/15 transition-all duration-200 w-full text-left"
+              >
+                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                <span className="text-sm font-medium">Log Out</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

@@ -626,4 +626,17 @@ video {
         rgba(255, 178, 0, 0.35) 7.9%,
         rgba(255, 178, 0, 0) 15%);
   }
+
+  .cc-header-item-stroke {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .dark .cc-header-item-stroke {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+
+  /* Hide Next.js development indicator */
+  #__next-build-watcher {
+    display: none !important;
+  }
 }

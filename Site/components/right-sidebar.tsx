@@ -134,7 +134,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
         }
 
         const getTitle = () => {
-            if (view === "notifications") return "Notifications";
+            if (view === "notifications") return ""; // NotificationsView has its own header
             if (view === "comments") return "Comments";
             if (view === "attendance") return "Guest List";
             if (view === "report") return "Report Content";
@@ -192,21 +192,25 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                         <div className="absolute left-1 top-0 bottom-0 w-px bg-secondary/10 group-hover:bg-secondary/20 transition-colors" />
                         <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1 h-16 bg-secondary/20 group-hover:bg-secondary/40 rounded-full transition-colors" />
                     </div>
-                    {/* Header - Floating Overlay */}
-                    <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-4 pb-2 pointer-events-none bg-gradient-to-b from-transparent to-transparent">
-                        <div className="flex items-center gap-3 pointer-events-auto">
+                    {/* Header - Floating Overlay with High-Fidelity Blur */}
+                    <div className={`absolute top-0 left-0 right-0 z-30 -mt-2 -mx-2 px-2 pt-4 transition-all duration-300 pointer-events-none ${view === 'notifications' ? 'pb-14' : 'pb-8'}`}>
+                        {/* Background Blur Layer - Pure standard high-fidelity mask */}
+                        <div className="absolute inset-0 backdrop-blur-3xl bg-background/90 [mask-image:linear-gradient(to_bottom,black_0%,black_20%,transparent_100%)]" />
+
+                        <div className="relative flex items-center gap-3 pointer-events-auto px-4">
                             {view !== "notifications" && (
                                 <button
                                     onClick={showNotifications}
-                                    className="flex h-10 w-10 items-center justify-center rounded-full cc-header-btn active:scale-95 transition-all text-secondary hover:text-foreground"
+                                    className="flex h-12 w-12 items-center justify-center rounded-full cc-header-btn active:scale-95 transition-all text-secondary hover:text-foreground shrink-0 shadow-sm border cc-header-item-stroke"
                                 >
                                     <ChevronLeftIcon className="h-5 w-5" />
                                 </button>
                             )}
-                            {view !== "details" && view !== "notifications" && (
-                                <div className="flex items-center rounded-full cc-glass-strong px-5 py-1.5 shadow-sm border-2 border-secondary/20">
-                                    <h1 className="text-sm font-bold text-foreground">
 
+                            {/* View Titles - excluding details/notifications which have complex internal headers */}
+                            {view !== "details" && view !== "notifications" && (
+                                <div className="flex items-center rounded-full cc-glass-strong px-5 py-3 border cc-header-item-stroke">
+                                    <h1 className="text-base font-semibold text-foreground whitespace-nowrap">
                                         {view === "comments" && "Comments"}
                                         {view === "attendance" && "Guest List"}
                                         {view === "report" && "Report Content"}
@@ -223,9 +227,8 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                         </div>
                     </div>
 
-                    {/* Content */}
-                    {/* Content */}
-                    <div className={`flex-1 overflow-y-auto px-2 pb-2 ${view === 'notifications' ? 'pt-3' : 'pt-14'}`}>
+                    {/* Content Area - dynamic padding for consistent high-fidelity header interaction */}
+                    <div className={`flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide px-2 pb-2 ${view === 'notifications' ? 'pt-2' : (view === 'details' || view === 'likes' || view === 'attendance') ? 'pt-20' : 'pt-24'}`}>
                         {view === "notifications" && <NotificationsView />}
                         {view === "comments" && <CommentsView data={data} />}
                         {view === "details" && <PostDetailsSidebarView data={data} />}
@@ -504,18 +507,18 @@ function NotificationsView() {
     });
 
     return (
-        <>
-            {/* Telegram iOS Style Search/Filter Header */}
-            <div className="sticky top-0 z-10 -mx-2 px-2 space-y-3 pb-3">
+        <div className="flex flex-col py-2">
+            {/* Telegram iOS Style Search/Filter Header - Content only (Blur provided by container) */}
+            <div className="sticky top-0 z-30 -mt-2 -mx-2 px-2 pt-4 pb-12 pointer-events-none transition-all duration-300">
                 {/* Search Bar Row */}
-                <div className="relative flex items-center gap-3">
+                <div className="relative flex items-center gap-3 mb-4 pointer-events-auto">
                     {/* Notifications Title Capsule - fades out with scale */}
                     <div className={`relative transition-all duration-500 ease-out ${isSearchExpanded ? 'absolute scale-95 pointer-events-none' : 'scale-100'
                         }`} style={{
                             transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
                             opacity: isSearchExpanded ? 0 : 1
                         }}>
-                        <div className="cc-glass-strong px-5 py-3 rounded-full border-2 border-secondary/20 shadow-sm">
+                        <div className="cc-glass-strong px-5 py-3 rounded-full border cc-header-item-stroke">
                             <span className="text-foreground font-semibold text-base whitespace-nowrap">
                                 Notifications
                             </span>
@@ -528,14 +531,14 @@ function NotificationsView() {
 
                     {/* Search Input Container - liquid glass expansion */}
                     <div className={`absolute transition-all duration-500 ease-out ${isSearchExpanded
-                            ? 'left-0 right-14 scale-100 pointer-events-auto z-20'
-                            : 'left-auto right-0 w-12 scale-95 pointer-events-none z-0'
+                        ? 'left-0 right-14 scale-100 pointer-events-auto z-20'
+                        : 'left-auto right-0 w-12 scale-95 pointer-events-none z-0'
                         }`} style={{
                             transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
                             transformOrigin: 'right center',
                             opacity: isSearchExpanded ? 1 : 0
                         }}>
-                        <div className="cc-glass-strong rounded-full border-2 border-secondary/20 shadow-sm">
+                        <div className="cc-glass-strong rounded-full border cc-header-item-stroke">
                             <div className="relative flex items-center px-5 py-3 transition-opacity duration-300"
                                 style={{
                                     transitionDelay: isSearchExpanded ? '150ms' : '0ms',
@@ -560,7 +563,7 @@ function NotificationsView() {
                         className="relative flex-shrink-0 w-12 h-12 rounded-full transition-all duration-300 active:scale-95 z-10 ml-auto"
                         style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
                     >
-                        <div className="cc-glass-strong rounded-full border-2 border-secondary/20 shadow-sm transition-all duration-500 absolute inset-0"
+                        <div className="cc-glass-strong rounded-full transition-all duration-500 absolute inset-0 border cc-header-item-stroke"
                             style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
                         </div>
 
@@ -578,11 +581,9 @@ function NotificationsView() {
                 </div>
 
                 {/* Telegram iOS Filter Picker */}
-                <div className="relative w-full">
+                <div className="relative w-full pointer-events-auto">
                     {/* Fixed background pill */}
-                    <div className="absolute inset-0 cc-glass rounded-full border-2 border-secondary/20 shadow-sm pointer-events-none">
-
-                    </div>
+                    <div className="absolute inset-0 cc-glass-strong rounded-full pointer-events-none border cc-header-item-stroke"></div>
 
                     {/* Scrollable content */}
                     <div ref={pickerRef} className="relative overflow-hidden rounded-full">
@@ -616,15 +617,9 @@ function NotificationsView() {
                                             key={tab.id}
                                             ref={(el) => { buttonRefs.current[tab.id] = el; }}
                                             onClick={() => setFilter(tab.id as any)}
-                                            role="tab"
-                                            aria-selected={isActive}
-                                            aria-controls="notifications-panel"
-                                            className={`relative ${shouldStretch ? 'flex-1 px-2' : 'flex-shrink-0 px-5'} py-2 rounded-full font-semibold text-[16px] group z-10`}
+                                            className={`relative flex-1 py-1.5 px-3 rounded-full transition-all duration-300 active:scale-95 outline-none`}
+                                            style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)" }}
                                         >
-                                            {!isActive && (
-                                                <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 rounded-full transition-all duration-200" />
-                                            )}
-
                                             <span className={`relative flex items-center justify-center whitespace-nowrap transition-all duration-400 ${isActive ? "text-foreground" : "text-secondary"}`}
                                                 style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)" }}>
                                                 {tab.label}
@@ -641,114 +636,111 @@ function NotificationsView() {
 
             {/* Notifications List */}
             <div id="notifications-panel">
-                {filteredNotifications.length === 0 ? (
-                    <div className="text-center text-sm text-neutral-500 py-10">
-                        No {filter === 'all' ? '' : filter} notifications
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-3 pb-8">
-                        {filteredNotifications.map((notif) => (
-                            <div
-                                key={notif.id}
-                                className={`flex items-start gap-3 rounded-[24px] p-3 border transition-all duration-200 cursor-pointer ${notif.isRead
-                                    ? "bg-secondary/5 border-transparent opacity-60"
-                                    : "bg-secondary/10 border-secondary/20 shadow-sm"
-                                    }`}
-                                onClick={() => {
-                                    // Mark as read
-                                    if (!notif.isRead) {
-                                        updateDoc(doc(db, "notifications", notif.id), { isRead: true }).catch(console.error);
-                                    }
+                {
+                    filteredNotifications.length === 0 ? (
+                        <div className="text-center text-sm text-neutral-500 py-10">
+                            No {filter === 'all' ? '' : filter} notifications
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-3 pb-8">
+                            {filteredNotifications.map((notif) => (
+                                <div
+                                    key={notif.id}
+                                    className={`flex items-start gap-3 rounded-[24px] p-3 border transition-all duration-200 cursor-pointer ${notif.isRead
+                                        ? "bg-secondary/5 border-transparent opacity-60"
+                                        : "bg-secondary/10 border-secondary/20 shadow-sm"
+                                        }`}
+                                    onClick={() => {
+                                        // Mark as read
+                                        if (!notif.isRead) {
+                                            updateDoc(doc(db, "notifications", notif.id), { isRead: true }).catch(console.error);
+                                        }
 
-                                    if (notif.deeplink?.params?.postId) {
-                                        window.location.href = `/posts/${notif.deeplink.params.postId}`;
-                                    } else if (notif.deeplink?.params?.clubId) {
-                                        window.location.href = `/clubs/${notif.deeplink.params.clubId}`;
-                                    }
-                                }}
-                                onContextMenu={(e) => handleContextMenu(e, notif)}
-                            >
-                                <div className="shrink-0 pt-0.5">
-                                    <div className="relative">
-                                        <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm relative">
-                                            {notif.actorPhotoURL ? (
-                                                <img
-                                                    src={notif.actorPhotoURL}
-                                                    alt=""
-                                                    className="absolute inset-0 !h-full !w-full block object-cover object-center"
-                                                />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
-                                                    {notif.actorName ? notif.actorName.charAt(0).toUpperCase() : (notif.title ? notif.title.charAt(0).toUpperCase() : "U")}
-                                                </div>
-                                            )}
+                                        if (notif.deeplink?.params?.postId) {
+                                            window.location.href = `/posts/${notif.deeplink.params.postId}`;
+                                        } else if (notif.deeplink?.params?.clubId) {
+                                            window.location.href = `/clubs/${notif.deeplink.params.clubId}`;
+                                        }
+                                    }}
+                                    onContextMenu={(e) => handleContextMenu(e, notif)}
+                                >
+                                    <div className="shrink-0 pt-0.5">
+                                        <div className="relative">
+                                            <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm relative">
+                                                {notif.actorPhotoURL ? (
+                                                    <img
+                                                        src={notif.actorPhotoURL}
+                                                        alt=""
+                                                        className="absolute inset-0 !h-full !w-full block object-cover object-center"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
+                                                        {notif.actorName ? notif.actorName.charAt(0).toUpperCase() : (notif.title ? notif.title.charAt(0).toUpperCase() : "U")}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <p className={`text-[13px] leading-snug truncate ${notif.isRead ? "text-neutral-400 font-medium" : "text-white font-semibold"}`}>
-                                            {notif.title}
-                                        </p>
-                                        <span className="text-[10px] text-neutral-500 shrink-0 font-medium whitespace-nowrap pt-0.5">
-                                            {(() => {
-                                                if (!notif.createdAt) return 'now';
-                                                const date = notif.createdAt.toDate ? notif.createdAt.toDate() : new Date(notif.createdAt);
-                                                const diffInSeconds = Math.floor((Date.now() - date.getTime()) / 1000);
-                                                if (diffInSeconds < 60) return "now";
-                                                if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-                                                if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-                                                if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-                                                return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                                            })()}
-                                        </span>
+                                    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className={`text-[13px] leading-snug truncate ${notif.isRead ? "text-neutral-400 font-medium" : "text-white font-semibold"}`}>
+                                                {notif.title}
+                                            </p>
+                                            <span className="text-[10px] text-neutral-500 shrink-0 font-medium whitespace-nowrap pt-0.5">
+                                                {(() => {
+                                                    if (!notif.createdAt) return 'now';
+                                                    const date = notif.createdAt.toDate ? notif.createdAt.toDate() : new Date(notif.createdAt);
+                                                    return formatDistanceToNow(date, { addSuffix: false }).replace('about ', '').replace('less than ', '').replace(' minute', 'm').replace(' minutes', 'm').replace(' hour', 'h').replace(' hours', 'h').replace(' day', 'd').replace(' days', 'd');
+                                                })()}
+                                            </span>
+                                        </div>
+                                        {notif.body && (
+                                            <p className={`text-[12px] line-clamp-2 leading-relaxed ${notif.isRead ? "text-neutral-500" : "text-neutral-400"}`}>{notif.body}</p>
+                                        )}
                                     </div>
-                                    {notif.body && (
-                                        <p className={`text-[12px] line-clamp-2 leading-relaxed ${notif.isRead ? "text-neutral-500" : "text-neutral-400"}`}>{notif.body}</p>
-                                    )}
                                 </div>
-                            </div>
-                        ))}
+                            ))}
 
-                        {/* Context Menu - Portal to body to avoid clipping/positioning issues */}
-                        {contextMenu && createPortal(
-                            <div
-                                className="fixed z-[99999] min-w-[210px] cc-radius-menu cc-glass-strong shadow-2xl border-2 border-secondary/30 p-1.5 animate-in fade-in zoom-in duration-100"
-                                style={{ top: contextMenu.y, left: contextMenu.x }}
-                                onClick={(e) => e.stopPropagation()}
-                                onContextMenu={(e) => e.preventDefault()}
-                            >
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleRead(contextMenu.notif.id, contextMenu.notif.isRead);
-                                        setContextMenu(null);
-                                    }}
-                                    className="flex w-full items-center justify-between rounded-full px-4 py-2.5 text-sm text-foreground hover:bg-white/10 transition-colors"
+                            {/* Context Menu - Portal to body to avoid clipping/positioning issues */}
+                            {contextMenu && createPortal(
+                                <div
+                                    className="fixed z-[99999] min-w-[210px] cc-radius-menu cc-glass-strong shadow-2xl border-2 border-secondary/30 p-1.5 animate-in fade-in zoom-in duration-100"
+                                    style={{ top: contextMenu.y, left: contextMenu.x }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onContextMenu={(e) => e.preventDefault()}
                                 >
-                                    <span className="font-medium">{contextMenu.notif.isRead ? "Mark as Unread" : "Mark as Read"}</span>
-                                </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleRead(contextMenu.notif.id, contextMenu.notif.isRead);
+                                            setContextMenu(null);
+                                        }}
+                                        className="flex w-full items-center justify-between rounded-full px-4 py-2.5 text-sm text-foreground hover:bg-white/10 transition-colors"
+                                    >
+                                        <span className="font-medium">{contextMenu.notif.isRead ? "Mark as Unread" : "Mark as Read"}</span>
+                                    </button>
 
-                                <div className="h-px bg-secondary/10 my-1 mx-1.5" />
+                                    <div className="h-px bg-secondary/10 my-1 mx-1.5" />
 
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDelete(contextMenu.notif.id);
-                                        setContextMenu(null);
-                                    }}
-                                    className="flex w-full items-center justify-between rounded-full px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
-                                >
-                                    <span className="font-medium">Delete Notification</span>
-                                    <TrashIcon className="h-4 w-4" />
-                                </button>
-                            </div>,
-                            document.body
-                        )}
-                    </div>
-                )}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(contextMenu.notif.id);
+                                            setContextMenu(null);
+                                        }}
+                                        className="flex w-full items-center justify-between rounded-full px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                                    >
+                                        <span className="font-medium">Delete Notification</span>
+                                        <TrashIcon className="h-4 w-4" />
+                                    </button>
+                                </div>,
+                                document.body
+                            )}
+                        </div>
+                    )
+                }
             </div>
-        </>
+        </div>
     );
 }
 
@@ -775,7 +767,7 @@ function PostDetailsSidebarView({ data }: { data: Post | null }) {
                 <PostDetailMainInfo post={data} />
 
                 {/* 3) Embedded Comments */}
-                <div className="mt-4 pt-4 border-t border-secondary/15 -mx-2">
+                <div className="mt-2 pt-2 border-t border-secondary/15 -mx-2">
                     <CommentsView data={data} />
                 </div>
             </div>

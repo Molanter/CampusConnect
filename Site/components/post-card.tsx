@@ -390,7 +390,7 @@ export function PostCard({
                     {/* Avatar */}
                     <div className="shrink-0 self-start">
                         {isCampusPost ? (
-                            <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm flex items-center justify-center relative">
+                            <div className="h-10 w-10 flex items-center justify-center relative flex-shrink-0">
                                 {campusAvatarUrl ? (
                                     <img src={campusAvatarUrl} alt={campusName} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                                 ) : (
@@ -399,7 +399,7 @@ export function PostCard({
                             </div>
                         ) : isClubPost ? (
                             <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()}>
-                                <div className="h-10 w-10 overflow-hidden rounded-[12px] bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm relative">
+                                <div className="h-10 w-10 flex items-center justify-center relative flex-shrink-0">
                                     {clubProfile?.avatarUrl ? (
                                         <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                                     ) : (
@@ -427,45 +427,54 @@ export function PostCard({
                     {/* Content */}
                     <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                                <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+                            <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    {/* Name - Priority 2 (high) */}
                                     {isCampusPost ? (
-                                        <>
-                                            <div className="flex items-center gap-1 min-w-0">
-                                                <span className="truncate text-sm font-semibold text-foreground">
-                                                    {campusName || "Campus"}
-                                                </span>
-                                                <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
-                                            </div>
-                                            <span className="text-xs text-muted truncate">
-                                                by @{currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, "") : "user")}
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <span className="text-sm font-semibold text-foreground whitespace-nowrap">
+                                                {campusName || "Campus"}
                                             </span>
-                                        </>
+                                            <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
+                                        </div>
                                     ) : isClubPost ? (
-                                        <>
-                                            <div className="flex items-center gap-1 min-w-0">
-                                                <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-semibold text-foreground hover:underline">
-                                                    {clubProfile?.name || "Club"}
-                                                </Link>
-                                                {isVerified && (
-                                                    <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
-                                                )}
-                                            </div>
-                                            <span className="text-xs text-muted truncate">
-                                                by @{currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, "") : "user")}
-                                            </span>
-                                        </>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()} className="text-sm font-semibold text-foreground hover:underline whitespace-nowrap">
+                                                {clubProfile?.name || "Club"}
+                                            </Link>
+                                            {isVerified && (
+                                                <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
+                                            )}
+                                        </div>
                                     ) : (
-                                        <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()} className="truncate text-sm font-semibold text-foreground hover:underline">
+                                        <Link href={`/user/${authorId}`} onClick={(e) => e.stopPropagation()} className="text-sm font-semibold text-foreground hover:underline whitespace-nowrap shrink-0">
                                             {displayedName}
-                                            {currentUsername && <span className="ml-1 text-xs text-muted">@{currentUsername}</span>}
                                         </Link>
                                     )}
 
-                                    <span className="text-xs text-muted shrink-0">•</span>
-                                    <span className="text-xs text-muted shrink-0">{timeLabel || (date ? date : "now")}</span>
+                                    {/* Username - Priority 4 (lowest, can truncate) */}
+                                    {(isCampusPost || isClubPost) && currentUsername && (
+                                        <>
+                                            <span className="text-xs text-muted shrink-0">•</span>
+                                            <span className="text-xs text-muted truncate min-w-0">
+                                                by @{currentUsername || (displayedName ? displayedName.toLowerCase().replace(/\s+/g, "") : "user")}
+                                            </span>
+                                        </>
+                                    )}
+                                    {!isCampusPost && !isClubPost && currentUsername && (
+                                        <>
+                                            <span className="text-xs text-muted shrink-0">•</span>
+                                            <span className="text-xs text-muted truncate min-w-0">@{currentUsername}</span>
+                                        </>
+                                    )}
 
-                                    {/* Announcement label - inline */}
+                                    {/* Separator */}
+                                    <span className="text-xs text-muted shrink-0">•</span>
+
+                                    {/* Time - Priority 3 */}
+                                    <span className="text-xs text-muted shrink-0 whitespace-nowrap">{timeLabel || (date ? date : "now")}</span>
+
+                                    {/* Announcement label - Priority 1 (highest, never truncates) */}
                                     {isAnnouncement && !isSeen && (
                                         <>
                                             <span className="text-xs text-muted shrink-0">•</span>
@@ -485,7 +494,7 @@ export function PostCard({
                                 <div
                                     ref={descriptionRef}
                                     onClick={onDetailsClick}
-                                    className={`whitespace-pre-wrap text-sm leading-relaxed text-foreground ${onDetailsClick ? "cursor-pointer" : ""}`}
+                                    className={`whitespace-pre-wrap text-sm leading-relaxed text-foreground break-words [overflow-wrap:anywhere] ${onDetailsClick ? "cursor-pointer" : ""}`}
                                 >
                                     {isTruncated ? (
                                         <span>

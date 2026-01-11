@@ -255,7 +255,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
             <div className="flex items-center gap-3">
                 <div className="shrink-0">
                     {isCampusPost ? (
-                        <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 border border-secondary/30 aspect-square shadow-sm flex items-center justify-center relative">
+                        <div className="h-10 w-10 flex items-center justify-center relative flex-shrink-0">
                             {campusAvatarUrl ? (
                                 <img src={campusAvatarUrl} alt={campusName} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                             ) : (
@@ -264,7 +264,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                         </div>
                     ) : isClubPost ? (
                         <Link href={`/clubs/${clubId}`}>
-                            <div className="h-10 w-10 overflow-hidden rounded-[12px] border border-secondary/30 bg-surface-2 aspect-square shadow-sm relative">
+                            <div className="h-10 w-10 flex items-center justify-center relative flex-shrink-0">
                                 {clubProfile?.avatarUrl ? (
                                     <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                                 ) : (

@@ -4,17 +4,19 @@ import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../../lib/firebase";
 import { Club, getPublicClubs, getUserClubs, getAllClubs } from "../../lib/clubs";
-import { ClubCard } from "../../components/clubs/club-card";
+import { ClubListItem } from "../../components/clubs/club-list-item";
 import Link from "next/link";
-import { PlusIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { fetchGlobalAdminEmails, isGlobalAdmin } from "../../lib/admin-utils";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { motion, AnimatePresence } from "framer-motion";
+import { PlusIcon, MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 export default function ClubsHome() {
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [myClubs, setMyClubs] = useState<Club[]>([]);
     const [publicClubs, setPublicClubs] = useState<Club[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
+    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -89,6 +91,10 @@ export default function ClubsHome() {
     });
 
     const filteredPublicClubs = publicClubs.filter(club => {
+        // Exclude clubs the user is already a member of
+        const isMember = myClubs.some(myClub => myClub.id === club.id);
+        if (isMember) return false;
+
         if (!searchQuery) return true;
         const q = searchQuery.toLowerCase();
         return club.name.toLowerCase().includes(q) || club.description?.toLowerCase().includes(q);
@@ -98,49 +104,112 @@ export default function ClubsHome() {
         <div className="cc-page min-h-screen pb-20">
             <div className="mx-auto max-w-7xl px-4 md:px-8 md:pt-4">
 
-                {/* Header */}
-                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-foreground">Clubs</h1>
-                        <p className="mt-1 text-secondary">Discover and join communities on campus.</p>
+                {/* Header Container */}
+                <div className="sticky top-0 z-30 -mt-4 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 pb-12 pointer-events-none">
+                    {/* Background Blur Layer (Sibling, so it doesn't mask the items) */}
+                    <div className="absolute inset-0 backdrop-blur-3xl bg-background/90 [mask-image:linear-gradient(to_bottom,black_0%,black_20%,transparent_100%)]" />
+
+                    <div className="relative flex items-center gap-3 h-12 pointer-events-auto">
+                        {/* Title Capsule */}
+                        <div
+                            className={`relative transition-all duration-500 ease-out ${isSearchExpanded ? 'absolute scale-95 opacity-0 pointer-events-none' : 'scale-100 opacity-100'}`}
+                            style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                        >
+                            <div className="cc-glass-strong px-5 py-3 rounded-full border cc-header-item-stroke">
+                                <h1 className="text-sm font-bold tracking-tight text-foreground uppercase whitespace-nowrap">Clubs</h1>
+                            </div>
+                        </div>
+
+                        {/* Spacer */}
+                        <div className={`transition-all duration-500 ease-out ${isSearchExpanded ? 'w-0' : 'flex-1'}`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
+
+                        {/* Expandable Search Input Container */}
+                        <div
+                            className={`absolute transition-all duration-500 ease-out ${isSearchExpanded ? 'left-0 right-14 scale-100 opacity-100 pointer-events-auto z-20' : 'left-auto right-0 w-12 scale-95 opacity-0 pointer-events-none z-0'}`}
+                            style={{
+                                transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                transformOrigin: 'right center'
+                            }}
+                        >
+                            <div className="cc-glass-strong rounded-full border cc-header-item-stroke">
+                                <div
+                                    className="relative flex items-center px-4 py-3 transition-opacity duration-300"
+                                    style={{
+                                        transitionDelay: isSearchExpanded ? '150ms' : '0ms',
+                                        opacity: isSearchExpanded ? 1 : 0
+                                    }}
+                                >
+                                    <MagnifyingGlassIcon className="w-4 h-4 text-secondary mr-3 flex-shrink-0" />
+                                    <input
+                                        autoFocus={isSearchExpanded}
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search clubs..."
+                                        className="flex-1 bg-transparent outline-none text-foreground placeholder:text-secondary text-base"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Control Buttons Container */}
+                        <div className="flex items-center gap-2 h-full z-10 ml-auto">
+                            <AnimatePresence>
+                                {!isSearchExpanded && (
+                                    <motion.div
+                                        key="plus"
+                                        initial={{ opacity: 0, scale: 0.8, x: 20 }}
+                                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                                        exit={{ opacity: 0, scale: 0.8, x: 20 }}
+                                        transition={{
+                                            duration: 0.4,
+                                            ease: [0.34, 1.56, 0.64, 1]
+                                        }}
+                                    >
+                                        <Link
+                                            href="/clubs/create"
+                                            className="
+                                              inline-flex items-center justify-center
+                                              rounded-full w-12 h-12
+                                              cc-glass-strong
+                                              text-foreground
+                                              transition-all
+                                              hover:scale-105 hover:bg-white/5
+                                              active:scale-95
+                                              border cc-header-item-stroke
+                                            "
+                                            title="Create Club"
+                                        >
+                                            <PlusIcon className="h-5 w-5 text-foreground" strokeWidth={2.5} />
+                                        </Link>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Search Toggle */}
+                            <button
+                                onClick={() => {
+                                    setIsSearchExpanded(!isSearchExpanded);
+                                    if (isSearchExpanded) setSearchQuery("");
+                                }}
+                                className="relative flex-shrink-0 w-12 h-12 rounded-full active:scale-95 transition-all duration-500"
+                                style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                            >
+                                <div className="cc-glass-strong rounded-full absolute inset-0 border cc-header-item-stroke" />
+                                <div className="relative flex items-center justify-center h-full">
+                                    <div className={`absolute transition-all duration-300 ${isSearchExpanded ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0'}`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                                        <MagnifyingGlassIcon className="h-5 w-5 text-foreground" strokeWidth={2.5} />
+                                    </div>
+                                    <div className={`absolute transition-all duration-300 ${isSearchExpanded ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'}`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                                        <XMarkIcon className="h-5 w-5 text-foreground" strokeWidth={2.5} />
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
                     </div>
-
-                    <Link
-                        href="/clubs/create"
-                        className="
-                          flex items-center justify-center gap-2
-                          rounded-full
-                          bg-brand text-brand-foreground
-                          px-5 py-2.5 text-sm font-bold
-                          cc-hover-shadow
-                          transition-transform
-                          hover:scale-105
-                          active:scale-95
-                        "
-                    >
-                        <PlusIcon className="h-5 w-5" strokeWidth={2.5} />
-                        Create Club
-                    </Link>
                 </div>
 
-                {/* Search */}
-                <div className="relative mb-10 cc-glass cc-radius-24 border border-secondary/25">
-                    <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-secondary" />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search for clubs..."
-                        className="
-                          h-12 w-full
-                          bg-transparent
-                          pl-12 pr-4
-                          text-foreground
-                          placeholder:text-secondary
-                          focus:outline-none
-                        "
-                    />
-                </div>
+
 
                 {loading ? (
                     <div className="mt-20 flex justify-center">
@@ -150,23 +219,31 @@ export default function ClubsHome() {
                     <>
                         {/* My Clubs */}
                         {filteredMyClubs.length > 0 && (
-                            <div className="mb-12">
-                                <h2 className="mb-4 text-xl font-semibold text-foreground">My Clubs</h2>
-                                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                    {filteredMyClubs.map(club => (
-                                        <ClubCard key={club.id} club={club} />
+                            <div className="mb-10">
+                                <h2 className="text-sm font-black text-foreground/50 uppercase tracking-[0.2em] ml-5 mb-3">My Clubs</h2>
+                                <div className="cc-section cc-radius-24 overflow-hidden border border-white/5 shadow-lg">
+                                    {filteredMyClubs.map((club, index) => (
+                                        <ClubListItem
+                                            key={club.id}
+                                            club={club}
+                                            isLast={index === filteredMyClubs.length - 1}
+                                        />
                                     ))}
                                 </div>
                             </div>
                         )}
 
                         {/* Discovery */}
-                        <div>
-                            <h2 className="mb-4 text-xl font-semibold text-foreground">Discover</h2>
+                        <div className="mb-10">
+                            <h2 className="text-sm font-black text-foreground/50 uppercase tracking-[0.2em] ml-5 mb-3">Discover</h2>
                             {filteredPublicClubs.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                    {filteredPublicClubs.map(club => (
-                                        <ClubCard key={club.id} club={club} />
+                                <div className="cc-section cc-radius-24 overflow-hidden border border-white/5 shadow-lg">
+                                    {filteredPublicClubs.map((club, index) => (
+                                        <ClubListItem
+                                            key={club.id}
+                                            club={club}
+                                            isLast={index === filteredPublicClubs.length - 1}
+                                        />
                                     ))}
                                 </div>
                             ) : (

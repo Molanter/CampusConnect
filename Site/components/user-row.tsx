@@ -92,7 +92,7 @@ export function UserRow({ uid, userData, subtitle, onlyAvatar = false, rightElem
                     {photoURL ? (
                         <img src={photoURL} alt={displayName} className="!h-full !w-full object-cover object-center" />
                     ) : type === "Dorm" || subtitle === "Dorm" ? (
-                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-secondary">
+                        <div className="flex h-full w-full items-center justify-center bg-secondary text-white">
                             <HomeIcon className="h-1/2 w-1/2" />
                         </div>
                     ) : (

@@ -115,12 +115,12 @@ export function MyClubsView({ userId }: { userId: string }) {
                                     className="!h-full !w-full object-cover object-center transition-transform hover:scale-105"
                                 />
                             ) : (club.category === "dorm" || (club as any).type === "dorm" || (club as any).isDorm || club.name?.toLowerCase().includes("dorm")) ? (
-                                <div className="h-full w-full flex items-center justify-center bg-secondary/10 text-secondary">
+                                <div className="h-full w-full flex items-center justify-center bg-secondary text-white">
                                     <HomeIcon className="w-7 h-7" />
                                 </div>
                             ) : (
-                                <div className="h-full w-full flex items-center justify-center bg-secondary/10">
-                                    <span className="text-xl font-bold text-secondary uppercase">{club.name.charAt(0)}</span>
+                                <div className="h-full w-full flex items-center justify-center bg-secondary">
+                                    <span className="text-xl font-bold text-white uppercase">{club.name.charAt(0)}</span>
                                 </div>
                             )}
                         </div>
