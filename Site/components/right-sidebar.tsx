@@ -570,7 +570,7 @@ function NotificationsView() {
                         <div className="relative flex items-center justify-center h-full">
                             <div className={`absolute transition-all duration-300 ${isSearchExpanded ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0'
                                 }`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-                                <MagnifyingGlassIcon className="w-5 h-5 text-secondary" strokeWidth={2.5} />
+                                <MagnifyingGlassIcon className="w-5 h-5 text-foreground" strokeWidth={2.5} />
                             </div>
                             <div className={`absolute transition-all duration-300 ${isSearchExpanded ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'
                                 }`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
@@ -583,7 +583,7 @@ function NotificationsView() {
                 {/* Telegram iOS Filter Picker */}
                 <div className="relative w-full pointer-events-auto">
                     {/* Fixed background pill */}
-                    <div className="absolute inset-0 cc-glass-strong rounded-full pointer-events-none border cc-header-item-stroke"></div>
+                    <div className="absolute inset-0 cc-glass-strong rounded-full pointer-events-none border cc-header-item-stroke cc-shadow-premium"></div>
 
                     {/* Scrollable content */}
                     <div ref={pickerRef} className="relative overflow-hidden rounded-full">
@@ -591,7 +591,7 @@ function NotificationsView() {
                             <div ref={containerRef} className={`relative flex items-center gap-1 ${shouldStretch ? 'w-full' : 'w-max min-w-full'}`}>
                                 {/* Animated sliding capsule */}
                                 <div
-                                    className="absolute bg-foreground/10 border border-secondary/20 rounded-full shadow-sm pointer-events-none"
+                                    className="absolute bg-foreground/10 rounded-full pointer-events-none shadow-sm"
                                     style={{
                                         left: `${indicatorStyle.left}px`,
                                         width: `${indicatorStyle.width}px`,

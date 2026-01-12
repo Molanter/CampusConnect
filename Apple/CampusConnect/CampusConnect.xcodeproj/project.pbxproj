@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		9E1A3CE12F136BE700E33A3D /* Campus Vibes Google Service Info (1).plist in Resources */ = {isa = PBXBuildFile; fileRef = 9E1A3CE02F136BE700E33A3D /* Campus Vibes Google Service Info (1).plist */; };
+		9E1A3CE12F136BE700E33A3D /* Campus Vibes Google Service Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 9E1A3CE02F136BE700E33A3D /* Campus Vibes Google Service Info.plist */; };
 		9E1A3CE42F136CF100E33A3D /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9E1A3CE32F136CF100E33A3D /* FirebaseAnalytics */; };
 		9E1A3CE62F136CF100E33A3D /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 9E1A3CE52F136CF100E33A3D /* FirebaseAuth */; };
 		9E1A3CE82F136CF100E33A3D /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 9E1A3CE72F136CF100E33A3D /* FirebaseFirestore */; };
@@ -18,7 +18,7 @@
 
 /* Begin PBXFileReference section */
 		9E1A3CD22F13644200E33A3D /* CampusConnect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CampusConnect.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		9E1A3CE02F136BE700E33A3D /* Campus Vibes Google Service Info (1).plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Campus Vibes Google Service Info (1).plist"; sourceTree = "<group>"; };
+		9E1A3CE02F136BE700E33A3D /* Campus Vibes Google Service Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Campus Vibes Google Service Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -49,7 +49,7 @@
 		9E1A3CC92F13644200E33A3D = {
 			isa = PBXGroup;
 			children = (
-				9E1A3CE02F136BE700E33A3D /* Campus Vibes Google Service Info (1).plist */,
+				9E1A3CE02F136BE700E33A3D /* Campus Vibes Google Service Info.plist */,
 				9E1A3CD42F13644200E33A3D /* CampusConnect */,
 				9E1A3CD32F13644200E33A3D /* Products */,
 			);
@@ -136,7 +136,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9E1A3CE12F136BE700E33A3D /* Campus Vibes Google Service Info (1).plist in Resources */,
+				9E1A3CE12F136BE700E33A3D /* Campus Vibes Google Service Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

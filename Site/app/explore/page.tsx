@@ -296,7 +296,7 @@ export default function ExplorePage() {
         return () => clearTimeout(delayDebounce);
     }, [searchQuery]);
 
-    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+    const [isSearchExpanded, setIsSearchExpanded] = useState(true);
 
     const handleSearchToggle = () => {
         if (!isSearchExpanded) {
@@ -433,7 +433,7 @@ export default function ExplorePage() {
                         {/* Search/Close button - always on right with icon transition */}
                         <button
                             onClick={handleSearchToggle}
-                            className="relative flex-shrink-0 w-12 h-12 rounded-full transition-all duration-300 active:scale-95 z-10 ml-auto"
+                            className="relative flex-shrink-0 w-12 h-12 rounded-full transition-all duration-300 active:scale-95 z-10 ml-auto pointer-events-auto"
                             style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
                         >
                             <div className="cc-glass-strong rounded-full transition-all duration-500 absolute inset-0 border cc-header-item-stroke"
@@ -443,7 +443,7 @@ export default function ExplorePage() {
                             <div className="relative flex items-center justify-center h-full">
                                 <div className={`absolute transition-all duration-300 ${isSearchExpanded ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0'
                                     }`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-                                    <MagnifyingGlassIcon className="w-5 h-5 text-secondary" strokeWidth={2.5} />
+                                    <MagnifyingGlassIcon className="w-5 h-5 text-foreground" strokeWidth={2.5} />
                                 </div>
                                 <div className={`absolute transition-all duration-300 ${isSearchExpanded ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'
                                     }`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
@@ -467,10 +467,10 @@ export default function ExplorePage() {
                                     marginBottom: { duration: 0.4 }
                                 }}
                                 style={{ transformOrigin: 'right top' }}
-                                className="relative w-full overflow-hidden"
+                                className="relative w-full"
                             >
                                 {/* Fixed background pill */}
-                                <div className="absolute inset-0 cc-glass rounded-full shadow-sm pointer-events-none !border cc-header-item-stroke" />
+                                <div className="absolute inset-0 cc-glass-strong rounded-full pointer-events-none border cc-header-item-stroke cc-shadow-premium" />
 
                                 {/* Scrollable content */}
                                 <div ref={pickerRef} className="relative overflow-hidden rounded-full">
@@ -479,7 +479,7 @@ export default function ExplorePage() {
                                             {/* Animated sliding capsule */}
                                             {isHydrated && (
                                                 <motion.div
-                                                    className="absolute bg-foreground/10 border border-secondary/20 rounded-full shadow-sm pointer-events-none"
+                                                    className="absolute bg-foreground/10 rounded-full pointer-events-none shadow-sm"
                                                     style={{
                                                         x: springX,
                                                         width: springWidth,
@@ -495,12 +495,13 @@ export default function ExplorePage() {
                                                     key={tab}
                                                     ref={(el) => { buttonRefs.current[tab] = el; }}
                                                     onClick={() => setActiveTab(tab)}
-                                                    className={`relative z-10 px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${activeTab === tab
-                                                        ? 'text-foreground font-bold'
-                                                        : 'text-secondary hover:text-foreground'
-                                                        } ${shouldStretch ? 'flex-1' : ''}`}
+                                                    className={`relative z-10 flex-1 py-1.5 px-3 rounded-full text-sm font-medium transition-all duration-300 pointer-events-auto active:scale-95 outline-none`}
+                                                    style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)" }}
                                                 >
-                                                    {tab}
+                                                    <span className={`relative flex items-center justify-center whitespace-nowrap transition-all duration-400 ${activeTab === tab ? "text-foreground font-bold" : "text-secondary hover:text-foreground"}`}
+                                                        style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)" }}>
+                                                        {tab}
+                                                    </span>
                                                 </button>
                                             ))}
                                         </div>

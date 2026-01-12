@@ -8,6 +8,8 @@ import { RightSidebar } from "@/components/right-sidebar";
 import { UserProfilesProvider } from "@/components/user-profiles-context";
 import { ClubProfilesProvider } from "@/components/club-profiles-context";
 import { AdminModeProvider } from "@/components/admin-mode-context";
+import { AppConfigProvider } from "@/components/app-config-context";
+import { CurrentUserProvider } from "@/components/current-user-context";
 import { MainLayoutMetricsProvider, useMainLayoutMetrics } from "@/components/main-layout-metrics-context";
 import { FCMInitializer } from "@/components/fcm-initializer";
 
@@ -157,14 +159,18 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
 export function LayoutShell({ children }: { children: React.ReactNode }) {
     return (
         <AdminModeProvider>
-            <UserProfilesProvider>
-                <ClubProfilesProvider>
-                    <RightSidebarProvider>
-                        <FCMInitializer />
-                        <InnerLayout>{children}</InnerLayout>
-                    </RightSidebarProvider>
-                </ClubProfilesProvider>
-            </UserProfilesProvider>
+            <CurrentUserProvider>
+                <AppConfigProvider>
+                    <UserProfilesProvider>
+                        <ClubProfilesProvider>
+                            <RightSidebarProvider>
+                                <FCMInitializer />
+                                <InnerLayout>{children}</InnerLayout>
+                            </RightSidebarProvider>
+                        </ClubProfilesProvider>
+                    </UserProfilesProvider>
+                </AppConfigProvider>
+            </CurrentUserProvider>
         </AdminModeProvider>
     );
 }

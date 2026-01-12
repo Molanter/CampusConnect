@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "../../lib/firebase";
+import { useAppConfig } from "../../components/app-config-context";
 import {
   ChevronRightIcon,
   UserCircleIcon,
@@ -50,6 +51,7 @@ const ui = {
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const { config } = useAppConfig();
   const { isGlobalAdminUser, isCampusAdminUser, adminModeOn, setAdminModeOn } = useAdminMode();
 
   useEffect(() => {
@@ -59,6 +61,8 @@ export default function SettingsPage() {
     });
     return () => unsub();
   }, []);
+
+
 
   if (authLoading) {
     return (
@@ -374,7 +378,7 @@ export default function SettingsPage() {
             <div className="flex-1">
               <p className="text-[15px] font-normal text-foreground">Version</p>
             </div>
-            <div className="text-sm cc-muted">1.0.0</div>
+            <div className="text-sm cc-muted">{config.version}</div>
           </div>
         </div>
       </section>
