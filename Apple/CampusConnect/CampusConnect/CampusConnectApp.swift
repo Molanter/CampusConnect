@@ -6,12 +6,15 @@
 //
 
 import SwiftUI
+import FirebaseCore
+import GoogleSignIn
 
 @main
 struct CampusConnectApp: App {
     // register app delegate for Firebase setup
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    
+
+
     var body: some Scene {
         WindowGroup {
             ContentView()

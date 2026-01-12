@@ -5,3 +5,10 @@
 firebase.json
 firestore.rules
 DEPLOY_FIRESTORE_RULES.md
+
+
+# App Info.plist (local / environment-specific)
+**/Info.plist
+
+# Firebase config (secrets)
+**/GoogleService-Info.plist
