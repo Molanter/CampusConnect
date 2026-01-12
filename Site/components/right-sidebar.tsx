@@ -1,8 +1,9 @@
 "use client";
 
-import { BellIcon, XMarkIcon, ChevronLeftIcon, PaperAirplaneIcon, ExclamationTriangleIcon, LockClosedIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { BellIcon, XMarkIcon, ChevronLeftIcon, PaperAirplaneIcon, ExclamationTriangleIcon, LockClosedIcon, UserGroupIcon, TrashIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useRightSidebar } from "./right-sidebar-context";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { MobileFullScreenModal } from "./mobile-full-screen-modal";
 import { UserRow } from "./user-row";
 import { auth } from "../lib/firebase";
@@ -29,6 +30,7 @@ import {
     where,
     getDocs,
     deleteDoc,
+    writeBatch
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { CommentMessage, type CommentRecord } from "./comment-message";
@@ -58,8 +60,8 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
 
     useEffect(() => {
         setMounted(true);
-        // Always reset to default width of 300px on mount
-        setSidebarWidth(300);
+        // Always reset to default width of 347px on mount (empirically tuned for 300px visible)
+        setSidebarWidth(347);
 
         // Detect mobile and tablet
         const checkViewport = () => {
@@ -78,7 +80,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
 
         const handleMouseMove = (e: MouseEvent) => {
             const MAIN_MIN_WIDTH = 500;
-            const SIDEBAR_MIN_WIDTH = 320;
+            const SIDEBAR_MIN_WIDTH = 347; // Empirically tuned to give 300px visible content
             const SIDEBAR_MAX_WIDTH = 800;
 
             const proposedWidth = window.innerWidth - e.clientX - 12; // 12px for right margin
@@ -90,21 +92,21 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
             // Apply constraints:
             // 1. Sidebar Max (800)
             // 2. Main View Safety (maxAllowedWidth)
-            // 3. Sidebar Min (320) - Applied last? 
-            // User requested "MAIN NEVEr below 450". If we apply 320 last, we might violate Main Min.
-            // However, preventing sidebar from being < 320 might be necessary for basic usability.
+            // 3. Sidebar Min (334) - Applied last? 
+            // User requested "MAIN NEVEr below 450". If we apply 324 last, we might violate Main Min.
+            // However, preventing sidebar from being < 324 might be necessary for basic usability.
             // Given tablet breakpoint is 768, 768-450 = 318. 
             // If we enforce 450 strict, sidebar becomes 318. This is acceptable.
             // So we apply standard MIN first, then Safe MAX to override it?
             // No, usually you clamp between Min and Max.
             // If Min > Max, you have to choose one. User prioritized Main View.
 
-            // Priority: Main Protection > Sidebar Min > Sidebar Max
+            // Priority: Sidebar has a HARD minimum of 300px
 
             let finalWidth = proposedWidth;
             finalWidth = Math.min(finalWidth, SIDEBAR_MAX_WIDTH);
-            finalWidth = Math.max(finalWidth, SIDEBAR_MIN_WIDTH);
-            finalWidth = Math.min(finalWidth, maxAllowedWidth); // Main protection wins
+            finalWidth = Math.min(finalWidth, maxAllowedWidth); // Main protection
+            finalWidth = Math.max(finalWidth, SIDEBAR_MIN_WIDTH); // Hard minimum - applied last
 
             setSidebarWidth(finalWidth);
         };
@@ -132,7 +134,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
         }
 
         const getTitle = () => {
-            if (view === "notifications") return "Notifications";
+            if (view === "notifications") return ""; // NotificationsView has its own header
             if (view === "comments") return "Comments";
             if (view === "attendance") return "Guest List";
             if (view === "report") return "Report Content";
@@ -143,6 +145,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
             if (view === "club-privacy-info") return "Club Privacy";
             if (view === "support-ticket-info") return "Ticket Info";
             if (view === "mapHelp") return "How to get a Map Link";
+            if (view === "details") return "";
             return "Details";
         };
 
@@ -179,7 +182,7 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
             <div className="h-full w-full flex flex-col py-4 pr-4 pl-0">
                 {/* Floating sidebar card */}
                 <div
-                    className="flex-1 flex flex-col rounded-3xl overflow-hidden cc-glass cc-shadow-floating border border-secondary/15 relative"
+                    className="flex-1 flex flex-col rounded-3xl overflow-hidden cc-glass-strong cc-shadow-floating border border-secondary/15 relative"
                 >
                     {/* Resize Handle */}
                     <div
@@ -189,35 +192,43 @@ export function RightSidebar({ headerVisible = false }: { headerVisible?: boolea
                         <div className="absolute left-1 top-0 bottom-0 w-px bg-secondary/10 group-hover:bg-secondary/20 transition-colors" />
                         <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1 h-16 bg-secondary/20 group-hover:bg-secondary/40 rounded-full transition-colors" />
                     </div>
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-secondary/10">
-                        <div className="flex items-center gap-2">
+                    {/* Header - Floating Overlay with High-Fidelity Blur */}
+                    <div className={`absolute top-0 left-0 right-0 z-30 -mt-2 -mx-2 px-2 pt-4 transition-all duration-300 pointer-events-none ${view === 'notifications' ? 'pb-14' : 'pb-8'}`}>
+                        {/* Background Blur Layer - Pure standard high-fidelity mask */}
+                        <div className="absolute inset-0 backdrop-blur-3xl bg-background/90 [mask-image:linear-gradient(to_bottom,black_0%,black_20%,transparent_100%)]" />
+
+                        <div className="relative flex items-center gap-3 pointer-events-auto px-4">
                             {view !== "notifications" && (
                                 <button
                                     onClick={showNotifications}
-                                    className="mr-1 rounded-full p-1 hover:bg-secondary/15 text-secondary hover:text-foreground transition-colors"
+                                    className="flex h-12 w-12 items-center justify-center rounded-full cc-header-btn active:scale-95 transition-all text-secondary hover:text-foreground shrink-0 shadow-sm border cc-header-item-stroke"
                                 >
                                     <ChevronLeftIcon className="h-5 w-5" />
                                 </button>
                             )}
-                            <h2 className="font-semibold text-foreground">
-                                {view === "notifications" && "Notifications"}
-                                {view === "comments" && "Comments"}
-                                {view === "attendance" && "Guest List"}
-                                {view === "report" && "Report Content"}
-                                {view === "report-details" && "Report Details"}
-                                {view === "post-history" && "Post History"}
-                                {view === "likes" && "Likes"}
-                                {view === "my-clubs" && "My Clubs"}
-                                {view === "club-privacy-info" && "Club Privacy"}
-                                {view === "support-ticket-info" && "Ticket Info"}
-                                {view === "mapHelp" && "How to get a Map Link"}
-                            </h2>
+
+                            {/* View Titles - excluding details/notifications which have complex internal headers */}
+                            {view !== "details" && view !== "notifications" && (
+                                <div className="flex items-center rounded-full cc-glass-strong px-5 py-3 border cc-header-item-stroke">
+                                    <h1 className="text-base font-semibold text-foreground whitespace-nowrap">
+                                        {view === "comments" && "Comments"}
+                                        {view === "attendance" && "Guest List"}
+                                        {view === "report" && "Report Content"}
+                                        {view === "report-details" && "Report Details"}
+                                        {view === "post-history" && "Post History"}
+                                        {view === "likes" && "Likes"}
+                                        {view === "my-clubs" && "My Clubs"}
+                                        {view === "club-privacy-info" && "Club Privacy"}
+                                        {view === "support-ticket-info" && "Ticket Info"}
+                                        {view === "mapHelp" && "How to get a Map Link"}
+                                    </h1>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-2">
+                    {/* Content Area - dynamic padding for consistent high-fidelity header interaction */}
+                    <div className={`flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide px-2 pb-2 ${view === 'notifications' ? 'pt-2' : (view === 'details' || view === 'likes' || view === 'attendance') ? 'pt-20' : 'pt-24'}`}>
                         {view === "notifications" && <NotificationsView />}
                         {view === "comments" && <CommentsView data={data} />}
                         {view === "details" && <PostDetailsSidebarView data={data} />}
@@ -241,7 +252,62 @@ function NotificationsView() {
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<any>(null);
-    const { close, view } = useRightSidebar();
+    const { close, view, isVisible } = useRightSidebar();
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, notif: any } | null>(null);
+    const [filter, setFilter] = useState<'all' | 'unread' | 'mentions' | 'comments' | 'likes'>('all');
+
+    // Reset filter to 'all' when the view is active and potentially becomes visible
+    useEffect(() => {
+        if (isVisible && view === 'notifications') {
+            setFilter('all');
+        }
+    }, [isVisible, view]);
+
+    // Refs for measuring button positions (iOS 26 glass segmented control)
+    const containerRef = useRef<HTMLDivElement>(null);
+    const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+    const pickerRef = useRef<HTMLDivElement>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+    const [shouldStretch, setShouldStretch] = useState(true);
+
+
+
+    // Update indicator position when filter changes
+    useEffect(() => {
+        const button = buttonRefs.current[filter];
+        const container = containerRef.current;
+        if (button && container) {
+            const containerRect = container.getBoundingClientRect();
+            const buttonRect = button.getBoundingClientRect();
+            setIndicatorStyle({
+                left: buttonRect.left - containerRect.left,
+                width: buttonRect.width
+            });
+        }
+    }, [filter]);
+
+    // Initialize indicator position on mount
+    useEffect(() => {
+        const button = buttonRefs.current[filter];
+        const container = containerRef.current;
+        if (button && container) {
+            const containerRect = container.getBoundingClientRect();
+            const buttonRect = button.getBoundingClientRect();
+            setIndicatorStyle({
+                left: buttonRect.left - containerRect.left,
+                width: buttonRect.width
+            });
+        }
+    }, []);
+
+    // Global click listener to close context menu
+    useEffect(() => {
+        const handleClick = () => setContextMenu(null);
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, []);
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
@@ -251,8 +317,10 @@ function NotificationsView() {
     useEffect(() => {
         if (!currentUser) return;
 
+        // Query top-level notifications collection
         const q = query(
-            collection(db, "users", currentUser.uid, "notifications"),
+            collection(db, "notifications"),
+            where("toUid", "==", currentUser.uid),
             orderBy("createdAt", "desc")
         );
 
@@ -261,20 +329,138 @@ function NotificationsView() {
             setNotifications(notifs);
             setLoading(false);
         }, (error: any) => {
-            // Handle permission denied silently or show empty
-            console.log("Notifications permission error (expected if rules are restrictive):", error);
+            console.error("Notifications fetch error:", error);
             setLoading(false);
         });
 
         return () => unsubscribe();
     }, [currentUser]);
 
-    // Auto-close sidebar when viewing notifications and there are none
+    // Automatically mark all unread notifications as read when вони showing in the view
     useEffect(() => {
-        if (!loading && view === "notifications" && notifications.length === 0) {
-            close();
+        if (!notifications || notifications.length === 0) return;
+
+        const unreadNotifs = notifications.filter(n => !n.isRead);
+        if (unreadNotifs.length === 0) return;
+
+        const markAllAsRead = async () => {
+            const batch = writeBatch(db);
+            unreadNotifs.forEach(notif => {
+                const docRef = doc(db, "notifications", notif.id);
+                batch.update(docRef, {
+                    isRead: true,
+                    readAt: serverTimestamp()
+                });
+            });
+
+            try {
+                await batch.commit();
+            } catch (e) {
+                console.error("Error marking notifications as read:", e);
+            }
+        };
+
+        // Delay slightly to ensure user actually sees them/component is stable
+        const timeoutId = setTimeout(markAllAsRead, 1000);
+        return () => clearTimeout(timeoutId);
+    }, [notifications]);
+
+
+    // Check if picker should stretch to fill width
+    const checkIfShouldStretch = useCallback(() => {
+        if (pickerRef.current && containerRef.current) {
+            const pickerWidth = pickerRef.current.offsetWidth;
+            // 5 tabs, if sidebar is wide enough to give each ~80px, stretch them
+            setShouldStretch(pickerWidth > 400);
         }
-    }, [loading, notifications.length, view, close]);
+    }, []);
+
+    // Function to calculate and update indicator position
+    const updateIndicator = useCallback(() => {
+        const button = buttonRefs.current[filter];
+        const container = containerRef.current;
+        if (button && container) {
+            const containerRect = container.getBoundingClientRect();
+            const buttonRect = button.getBoundingClientRect();
+            if (buttonRect.width > 0) {
+                setIndicatorStyle({
+                    left: buttonRect.left - containerRect.left,
+                    width: buttonRect.width
+                });
+            }
+        }
+    }, [filter]);
+
+    // Update indicator when filter or loading changes
+    useEffect(() => {
+        if (!loading) {
+            // Give a tiny bit for the browser to paint
+            const raf = requestAnimationFrame(() => {
+                checkIfShouldStretch();
+                updateIndicator();
+            });
+            return () => cancelAnimationFrame(raf);
+        }
+    }, [filter, loading, checkIfShouldStretch, updateIndicator]);
+
+    // Handle search toggle
+    const handleSearchToggle = () => {
+        setIsSearchExpanded(!isSearchExpanded);
+        if (isSearchExpanded) {
+            setSearchQuery('');
+        }
+    };
+
+    // ResizeObserver for robust layout tracking
+    useEffect(() => {
+        if (loading || !containerRef.current) return;
+
+        const observer = new ResizeObserver(() => {
+            checkIfShouldStretch();
+            updateIndicator();
+        });
+
+        observer.observe(containerRef.current);
+        if (pickerRef.current) observer.observe(pickerRef.current);
+
+        return () => observer.disconnect();
+    }, [loading, checkIfShouldStretch, updateIndicator]);
+
+    const handleContextMenu = (e: React.MouseEvent, notif: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Adjust menu position to keep it on screen
+        let x = e.clientX;
+        let y = e.clientY;
+
+        const MENU_WIDTH = 200;
+        const MENU_HEIGHT = 120;
+
+        if (x + MENU_WIDTH > window.innerWidth) x -= MENU_WIDTH;
+        if (y + MENU_HEIGHT > window.innerHeight) y -= MENU_HEIGHT;
+
+        setContextMenu({ x, y, notif });
+    };
+
+    const handleDelete = async (id: string) => {
+        try {
+            await deleteDoc(doc(db, "notifications", id));
+        } catch (e) {
+            console.error("Error deleting notification:", e);
+        }
+    };
+
+    const toggleRead = async (id: string, currentRead: boolean) => {
+        try {
+            await updateDoc(doc(db, "notifications", id), { isRead: !currentRead });
+        } catch (e) {
+            console.error("Error updating notification status:", e);
+        }
+    };
+
+    // Removed auto-close logic to keep sidebar open on desktop by default as requested
+
 
     if (loading) {
         return <div className="text-center text-sm text-neutral-500 py-10">Loading...</div>;
@@ -290,29 +476,273 @@ function NotificationsView() {
         );
     }
 
+
+
+    // Filter notifications based on selected filter and search query
+    const filteredNotifications = notifications.filter(notif => {
+        // First apply tab filter
+        let passesTabFilter = true;
+        if (filter === 'unread') passesTabFilter = !notif.isRead;
+        else if (filter === 'mentions') passesTabFilter = notif.type === 'mention' || notif.body?.includes('@');
+        else if (filter === 'comments') passesTabFilter = notif.type === 'comment' || notif.type === 'reply';
+        else if (filter === 'likes') passesTabFilter = notif.type === 'like' || notif.type === 'post_like';
+
+        if (!passesTabFilter) return false;
+
+        // Then apply search filter
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            const title = (notif.title || "").toLowerCase();
+            const body = (notif.body || "").toLowerCase();
+            const actorName = (notif.actorName || "").toLowerCase();
+
+            return (
+                title.includes(query) ||
+                body.includes(query) ||
+                actorName.includes(query)
+            );
+        }
+
+        return true;
+    });
+
     return (
-        <div className="flex flex-col gap-3">
-            {notifications.map((notif) => (
-                <div key={notif.id} className="flex items-start gap-3 rounded-2xl bg-surface-2 p-3 border border-secondary/15">
-                    <div className="shrink-0 pt-1">
-                        <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+        <div className="flex flex-col py-2">
+            {/* Telegram iOS Style Search/Filter Header - Content only (Blur provided by container) */}
+            <div className="sticky top-0 z-30 -mt-2 -mx-2 px-2 pt-4 pb-12 pointer-events-none transition-all duration-300">
+                {/* Search Bar Row */}
+                <div className="relative flex items-center gap-3 mb-4 pointer-events-auto">
+                    {/* Notifications Title Capsule - fades out with scale */}
+                    <div className={`relative transition-all duration-500 ease-out ${isSearchExpanded ? 'absolute scale-95 pointer-events-none' : 'scale-100'
+                        }`} style={{
+                            transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                            opacity: isSearchExpanded ? 0 : 1
+                        }}>
+                        <div className="cc-glass-strong px-5 py-3 rounded-full border cc-header-item-stroke">
+                            <span className="text-foreground font-semibold text-base whitespace-nowrap">
+                                Notifications
+                            </span>
+                        </div>
                     </div>
-                    <div className="flex flex-col gap-1">
-                        <p className="text-sm text-white">
-                            <span className="font-bold">{notif.fromName}</span> mentioned you in a comment:
-                        </p>
-                        <p className="text-xs text-neutral-400 line-clamp-2 italic">"{notif.text}"</p>
-                        <p className="text-[10px] text-neutral-500 mt-1">
-                            {notif.eventTitle} • {notif.createdAt?.toDate?.()?.toLocaleDateString()}
-                        </p>
+
+                    {/* Spacer - pushes button to right when search is collapsed */}
+                    <div className={`transition-all duration-500 ease-out ${isSearchExpanded ? 'w-0' : 'flex-1'
+                        }`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
+
+                    {/* Search Input Container - liquid glass expansion */}
+                    <div className={`absolute transition-all duration-500 ease-out ${isSearchExpanded
+                        ? 'left-0 right-14 scale-100 pointer-events-auto z-20'
+                        : 'left-auto right-0 w-12 scale-95 pointer-events-none z-0'
+                        }`} style={{
+                            transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                            transformOrigin: 'right center',
+                            opacity: isSearchExpanded ? 1 : 0
+                        }}>
+                        <div className="cc-glass-strong rounded-full border cc-header-item-stroke">
+                            <div className="relative flex items-center px-5 py-3 transition-opacity duration-300"
+                                style={{
+                                    transitionDelay: isSearchExpanded ? '150ms' : '0ms',
+                                    opacity: isSearchExpanded ? 1 : 0
+                                }}>
+                                <MagnifyingGlassIcon className="w-4 h-4 text-secondary mr-3 flex-shrink-0" />
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Search notifications"
+                                    className="flex-1 bg-transparent outline-none text-foreground placeholder-secondary text-base"
+                                    autoFocus={isSearchExpanded}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Search/Close button - always on right with icon transition */}
+                    <button
+                        onClick={handleSearchToggle}
+                        className="relative flex-shrink-0 w-12 h-12 rounded-full transition-all duration-300 active:scale-95 z-10 ml-auto"
+                        style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                    >
+                        <div className="cc-glass-strong rounded-full transition-all duration-500 absolute inset-0 border cc-header-item-stroke"
+                            style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                        </div>
+
+                        <div className="relative flex items-center justify-center h-full">
+                            <div className={`absolute transition-all duration-300 ${isSearchExpanded ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0'
+                                }`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                                <MagnifyingGlassIcon className="w-5 h-5 text-foreground" strokeWidth={2.5} />
+                            </div>
+                            <div className={`absolute transition-all duration-300 ${isSearchExpanded ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'
+                                }`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                                <XMarkIcon className="w-5 h-5 text-secondary" strokeWidth={2.5} />
+                            </div>
+                        </div>
+                    </button>
+                </div>
+
+                {/* Telegram iOS Filter Picker */}
+                <div className="relative w-full pointer-events-auto">
+                    {/* Fixed background pill */}
+                    <div className="absolute inset-0 cc-glass-strong rounded-full pointer-events-none border cc-header-item-stroke cc-shadow-premium"></div>
+
+                    {/* Scrollable content */}
+                    <div ref={pickerRef} className="relative overflow-hidden rounded-full">
+                        <div className="p-1 overflow-x-auto scrollbar-hide">
+                            <div ref={containerRef} className={`relative flex items-center gap-1 ${shouldStretch ? 'w-full' : 'w-max min-w-full'}`}>
+                                {/* Animated sliding capsule */}
+                                <div
+                                    className="absolute bg-foreground/10 rounded-full pointer-events-none shadow-sm"
+                                    style={{
+                                        left: `${indicatorStyle.left}px`,
+                                        width: `${indicatorStyle.width}px`,
+                                        height: 'calc(100% - 2px)',
+                                        top: '1px',
+                                        transition: 'left 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                                    }}
+                                >
+                                    <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/5 to-transparent" />
+                                </div>
+
+                                {/* Filter buttons */}
+                                {[
+                                    { id: 'all', label: 'All' },
+                                    { id: 'unread', label: 'Unread' },
+                                    { id: 'mentions', label: 'Mentions' },
+                                    { id: 'comments', label: 'Comments' },
+                                    { id: 'likes', label: 'Likes' }
+                                ].map((tab) => {
+                                    const isActive = filter === tab.id;
+                                    return (
+                                        <button
+                                            key={tab.id}
+                                            ref={(el) => { buttonRefs.current[tab.id] = el; }}
+                                            onClick={() => setFilter(tab.id as any)}
+                                            className={`relative flex-1 py-1.5 px-3 rounded-full transition-all duration-300 active:scale-95 outline-none`}
+                                            style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+                                        >
+                                            <span className={`relative flex items-center justify-center whitespace-nowrap transition-all duration-400 ${isActive ? "text-foreground" : "text-secondary"}`}
+                                                style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)" }}>
+                                                {tab.label}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </div>
-            ))}
+            </div>
+
+
+            {/* Notifications List */}
+            <div id="notifications-panel">
+                {
+                    filteredNotifications.length === 0 ? (
+                        <div className="text-center text-sm text-neutral-500 py-10">
+                            No {filter === 'all' ? '' : filter} notifications
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-3 pb-8">
+                            {filteredNotifications.map((notif) => (
+                                <div
+                                    key={notif.id}
+                                    className={`flex items-start gap-3 rounded-[24px] p-3 border transition-all duration-200 cursor-pointer ${notif.isRead
+                                        ? "bg-secondary/5 border-transparent opacity-60"
+                                        : "bg-secondary/10 border-secondary/20 shadow-sm"
+                                        }`}
+                                    onClick={() => {
+                                        // Mark as read
+                                        if (!notif.isRead) {
+                                            updateDoc(doc(db, "notifications", notif.id), { isRead: true }).catch(console.error);
+                                        }
+
+                                        if (notif.deeplink?.params?.postId) {
+                                            window.location.href = `/posts/${notif.deeplink.params.postId}`;
+                                        } else if (notif.deeplink?.params?.clubId) {
+                                            window.location.href = `/clubs/${notif.deeplink.params.clubId}`;
+                                        }
+                                    }}
+                                    onContextMenu={(e) => handleContextMenu(e, notif)}
+                                >
+                                    <div className="shrink-0 pt-0.5">
+                                        <div className="relative">
+                                            <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-2 ring-1 ring-secondary/30 aspect-square shadow-sm relative">
+                                                {notif.actorPhotoURL ? (
+                                                    <img
+                                                        src={notif.actorPhotoURL}
+                                                        alt=""
+                                                        className="absolute inset-0 !h-full !w-full block object-cover object-center"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
+                                                        {notif.actorName ? notif.actorName.charAt(0).toUpperCase() : (notif.title ? notif.title.charAt(0).toUpperCase() : "U")}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className={`text-[13px] leading-snug truncate ${notif.isRead ? "text-neutral-400 font-medium" : "text-white font-semibold"}`}>
+                                                {notif.title}
+                                            </p>
+                                            <span className="text-[10px] text-neutral-500 shrink-0 font-medium whitespace-nowrap pt-0.5">
+                                                {(() => {
+                                                    if (!notif.createdAt) return 'now';
+                                                    const date = notif.createdAt.toDate ? notif.createdAt.toDate() : new Date(notif.createdAt);
+                                                    return formatDistanceToNow(date, { addSuffix: false }).replace('about ', '').replace('less than ', '').replace(' minute', 'm').replace(' minutes', 'm').replace(' hour', 'h').replace(' hours', 'h').replace(' day', 'd').replace(' days', 'd');
+                                                })()}
+                                            </span>
+                                        </div>
+                                        {notif.body && (
+                                            <p className={`text-[12px] line-clamp-2 leading-relaxed ${notif.isRead ? "text-neutral-500" : "text-neutral-400"}`}>{notif.body}</p>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* Context Menu - Portal to body to avoid clipping/positioning issues */}
+                            {contextMenu && createPortal(
+                                <div
+                                    className="fixed z-[99999] min-w-[210px] cc-radius-menu cc-glass-strong shadow-2xl border-2 border-secondary/30 p-1.5 animate-in fade-in zoom-in duration-100"
+                                    style={{ top: contextMenu.y, left: contextMenu.x }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onContextMenu={(e) => e.preventDefault()}
+                                >
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleRead(contextMenu.notif.id, contextMenu.notif.isRead);
+                                            setContextMenu(null);
+                                        }}
+                                        className="flex w-full items-center justify-between rounded-full px-4 py-2.5 text-sm text-foreground hover:bg-white/10 transition-colors"
+                                    >
+                                        <span className="font-medium">{contextMenu.notif.isRead ? "Mark as Unread" : "Mark as Read"}</span>
+                                    </button>
+
+                                    <div className="h-px bg-secondary/10 my-1 mx-1.5" />
+
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(contextMenu.notif.id);
+                                            setContextMenu(null);
+                                        }}
+                                        className="flex w-full items-center justify-between rounded-full px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                                    >
+                                        <span className="font-medium">Delete Notification</span>
+                                        <TrashIcon className="h-4 w-4" />
+                                    </button>
+                                </div>,
+                                document.body
+                            )}
+                        </div>
+                    )
+                }
+            </div>
         </div>
     );
 }
-
-
 
 function PostDetailsSidebarView({ data }: { data: Post | null }) {
     if (!data) {
@@ -337,7 +767,7 @@ function PostDetailsSidebarView({ data }: { data: Post | null }) {
                 <PostDetailMainInfo post={data} />
 
                 {/* 3) Embedded Comments */}
-                <div className="mt-4 pt-4 border-t border-secondary/15 -mx-2">
+                <div className="mt-2 pt-2 border-t border-secondary/15 -mx-2">
                     <CommentsView data={data} />
                 </div>
             </div>
@@ -456,7 +886,7 @@ function ReportView({ data }: { data: any }) {
         textarea: "w-full resize-none rounded-2xl bg-surface-2/50 backdrop-blur-xl ring-1 ring-secondary/10 px-4 py-3 text-sm text-foreground placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-red-500/30",
         helperText: "text-xs text-secondary mt-1.5",
         errorBox: "rounded-2xl bg-surface-2/30 backdrop-blur-xl ring-1 ring-red-500/25 p-3",
-        submitBtn: "w-full rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-red-600 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+        submitBtn: "w-full rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-red-600 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
         footnote: "text-[11px] text-center text-secondary leading-relaxed",
         successWrap: "p-8 text-center flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300",
         successIconWrap: "inline-flex h-16 w-16 items-center justify-center rounded-full bg-surface-2/50 backdrop-blur-xl ring-1 ring-emerald-500/25 mb-4",
@@ -846,7 +1276,7 @@ function PostHistoryView({ data }: { data: any }) {
                                 )}
                             </div>
                             {historyData.moderationReason && (
-                                <div className="bg-black/20 rounded-[14px] p-3 border border-white/5 backdrop-blur-sm">
+                                <div className="cc-glass rounded-[14px] p-3 border border-white/5 backdrop-blur-sm">
                                     <p className="text-[10px] text-neutral-400 mb-1 font-semibold uppercase tracking-wider flex items-center gap-1.5">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-red-400">
                                             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
@@ -873,7 +1303,7 @@ function PostHistoryView({ data }: { data: any }) {
                         {historyData.reports.map((report: any, idx: number) => (
                             <div
                                 key={report.id || idx}
-                                className="p-3 rounded-lg bg-neutral-800/50 border border-white/5 space-y-2"
+                                className="p-3 rounded-lg cc-glass border border-white/5 space-y-2"
                             >
                                 <div className="text-sm text-neutral-300">
                                     <p>
@@ -916,7 +1346,7 @@ function ClubPrivacyInfoView() {
     return (
         <div className="p-4 space-y-6">
             <div className="space-y-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 shadow-lg shadow-teal-500/20">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 shadow-lg shadow-primary/20 shadow-teal-500/20">
                     <LockClosedIcon className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-white">Private Clubs</h3>
@@ -924,7 +1354,7 @@ function ClubPrivacyInfoView() {
                     Private clubs require users to request access before they can join.
                     Club admins must review and approve these requests.
                 </p>
-                <div className="rounded-xl bg-white/5 p-4 border border-white/5">
+                <div className="rounded-xl cc-glass p-4 border border-white/5">
                     <ul className="space-y-2 text-sm text-neutral-400">
                         <li className="flex items-start gap-2">
                             <span className="mt-1 block h-1 w-1 rounded-full bg-teal-500" />
@@ -941,14 +1371,14 @@ function ClubPrivacyInfoView() {
             <div className="h-px bg-white/5" />
 
             <div className="space-y-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-500/20">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-primary/20 shadow-indigo-500/20">
                     <PaperAirplaneIcon className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-white">Post Visibility</h3>
                 <p className="text-sm text-neutral-300 leading-relaxed">
                     Verified clubs can broadcast updates to the entire campus.
                 </p>
-                <div className="rounded-xl bg-white/5 p-4 border border-white/5">
+                <div className="rounded-xl cc-glass p-4 border border-white/5">
                     <ul className="space-y-3 text-sm text-neutral-400">
                         <li className="flex gap-3">
                             <UserGroupIcon className="h-5 w-5 text-indigo-400 shrink-0" />
@@ -1102,7 +1532,7 @@ function SupportTicketInfoView({ data }: { data: any }) {
                 </div>
             </div>
 
-            <div className="h-px bg-white/[0.06]" />
+            <div className="h-px cc-glass" />
 
             {/* Ticket Details */}
             <div>
@@ -1136,7 +1566,7 @@ function SupportTicketInfoView({ data }: { data: any }) {
                                     }
                                 }}
                                 disabled={updating}
-                                className="text-xs px-3 py-1 rounded-full border appearance-none cursor-pointer outline-none transition-all pr-6 bg-white/[0.05] border-white/10 text-neutral-300 hover:bg-white/[0.08] disabled:opacity-50"
+                                className="text-xs px-3 py-1 rounded-full border appearance-none cursor-pointer outline-none transition-all pr-6 cc-glass border-white/10 text-neutral-300 hover:bg-white/[0.08] disabled:opacity-50"
                             >
                                 <option value="General Inquiry" className="bg-[#1a1a1a]">General Inquiry</option>
                                 <option value="Bug Report" className="bg-[#1a1a1a]">Bug Report</option>
@@ -1276,7 +1706,7 @@ function MapHelpView() {
     return (
         <div className="space-y-4 p-3">
             {/* Google Maps Section */}
-            <div className="cc-section p-4 space-y-2">
+            <div className="cc-section cc-glass p-4 space-y-2">
                 <h4 className="font-semibold text-foreground flex items-center gap-2">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 5.42 7.72 14.73 8.06 15.13.19.23.53.23.72 0 .34-.4 8.06-9.71 8.06-15.13C20.5 3.81 16.69 0 12 0zm0 12.5c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
@@ -1286,13 +1716,13 @@ function MapHelpView() {
                 <p className="text-sm text-secondary">
                     You can copy the URL from your browser's address bar, or use the "Share" button and click "Copy Link".
                 </p>
-                <code className="block rounded bg-secondary/10 p-2 text-xs text-secondary">
+                <code className="block rounded cc-glass p-2 text-xs text-secondary">
                     maps.app.goo.gl/... or google.com/maps/...
                 </code>
             </div>
 
             {/* Apple Maps Section */}
-            <div className="cc-section p-4 space-y-2">
+            <div className="cc-section cc-glass p-4 space-y-2">
                 <h4 className="font-semibold text-foreground flex items-center gap-2">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
@@ -1302,7 +1732,7 @@ function MapHelpView() {
                 <p className="text-sm text-secondary">
                     Select a location, click the "Share" button, and choose "Copy Link". It usually looks like:
                 </p>
-                <code className="block rounded bg-secondary/10 p-2 text-xs text-secondary">
+                <code className="block rounded cc-glass p-2 text-xs text-secondary">
                     maps.apple.com/?...&ll=lat,lng...
                 </code>
             </div>

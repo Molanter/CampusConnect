@@ -178,20 +178,30 @@ export default function UserTicketsPage() {
 
                 <div className="max-w-6xl mx-auto">
                     {/* Header */}
-                    <header className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                            <Link href="/settings" className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-card border border-secondary/20 hover:bg-secondary/10 transition-colors">
-                                <ChevronLeftIcon className="h-4 w-4 text-secondary" />
+                    <header className="sticky top-0 z-40 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 pb-12 pointer-events-none transition-all duration-300">
+                        {/* Background Blur Layer */}
+                        <div className="absolute inset-0 backdrop-blur-3xl bg-background/90 [mask-image:linear-gradient(to_bottom,black_0%,black_20%,transparent_100%)]" />
+
+                        <div className="relative flex items-center justify-between pointer-events-auto">
+                            <div className="flex items-center gap-3">
+                                <Link
+                                    href="/settings"
+                                    className="flex h-12 w-12 items-center justify-center rounded-full cc-header-btn active:scale-95 transition-all shrink-0 border cc-header-item-stroke"
+                                >
+                                    <ChevronLeftIcon className="h-5 w-5 text-foreground" />
+                                </Link>
+                                <div className="flex items-center rounded-full cc-glass-strong px-6 py-3 border cc-header-item-stroke">
+                                    <h1 className="text-sm font-bold text-foreground">Support Tickets</h1>
+                                </div>
+                            </div>
+                            <Link
+                                href="/settings/help-support"
+                                className="flex items-center gap-2 bg-brand text-brand-foreground px-4 py-2.5 rounded-full font-semibold hover:bg-brand/90 transition-colors text-sm shadow-lg shadow-brand/20"
+                            >
+                                <PlusIcon className="h-4 w-4" />
+                                <span className="hidden sm:inline">New Ticket</span>
                             </Link>
-                            <h1 className="text-xl font-bold">My Support Tickets</h1>
                         </div>
-                        <Link
-                            href="/settings/help-support"
-                            className="flex items-center gap-2 bg-brand text-brand-foreground px-4 py-2.5 rounded-full font-semibold hover:bg-brand/90 transition-colors text-sm"
-                        >
-                            <PlusIcon className="h-4 w-4" />
-                            <span className="hidden sm:inline">New Ticket</span>
-                        </Link>
                     </header>
 
                     {/* Split Panel Layout */}

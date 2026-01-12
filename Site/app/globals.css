@@ -399,31 +399,55 @@ video {
     border-radius: 18px;
   }
 
+  .cc-shadow-premium {
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.03),
+      0 12px 32px rgba(0, 0, 0, 0.06),
+      0 20px 60px -8px rgba(0, 0, 0, 0.08);
+  }
+
+  .dark .cc-shadow-premium {
+    box-shadow:
+      0 10px 20px rgba(0, 0, 0, 0.25),
+      0 30px 60px -10px rgba(0, 0, 0, 0.5);
+  }
+
   /* Glass (real backdrop blur + tint; NOT element opacity) */
   .cc-glass {
     background: rgb(var(--tw-glass-tint) / 0.82);
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
-    border: 1px solid rgb(var(--tw-glass-border) / 0.12);
-    box-shadow: 0 20px 50px rgb(0 0 0 / 0.15);
+    -webkit-backdrop-filter: blur(8px) saturate(110%);
+    backdrop-filter: blur(8px) saturate(110%);
+    border: 1px solid rgb(var(--tw-glass-border) / 0.2);
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.02),
+      0 10px 20px rgba(0, 0, 0, 0.04);
   }
 
   .dark .cc-glass {
     background: rgb(var(--tw-glass-tint) / 0.75);
-    box-shadow: 0 25px 60px rgb(0 0 0 / 0.45);
+    border-color: rgb(var(--tw-glass-border) / 0.08);
+    box-shadow:
+      0 4px 10px rgba(0, 0, 0, 0.2),
+      0 15px 35px rgba(0, 0, 0, 0.3);
   }
 
   .cc-glass-strong {
-    background: rgb(var(--tw-glass-tint) / 0.86);
-    -webkit-backdrop-filter: blur(4px) saturate(102%);
-    backdrop-filter: blur(4px) saturate(102%);
-    border: 1px solid rgb(var(--tw-glass-border) / 0.15);
-    box-shadow: 0 28px 65px rgb(0 0 0 / 0.18);
+    background: rgb(var(--tw-glass-tint) / 0.88);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid rgb(var(--tw-glass-border) / 0.25);
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.03),
+      0 12px 24px -4px rgba(0, 0, 0, 0.06),
+      0 24px 48px -12px rgba(0, 0, 0, 0.08);
   }
 
   .dark .cc-glass-strong {
-    background: rgb(var(--tw-glass-tint) / 0.80);
-    box-shadow: 0 32px 80px rgb(0 0 0 / 0.60);
+    background: rgb(var(--tw-glass-tint) / 0.82);
+    border-color: rgb(var(--tw-glass-border) / 0.15);
+    box-shadow:
+      0 10px 30px rgba(0, 0, 0, 0.3),
+      0 30px 60px rgba(0, 0, 0, 0.5);
   }
 
   .cc-glass-highlight {
@@ -502,8 +526,7 @@ video {
     background: rgb(var(--tw-glass-tint) / 0.86);
     -webkit-backdrop-filter: blur(4px) saturate(102%);
     backdrop-filter: blur(4px) saturate(102%);
-    border: 1px solid rgb(var(--tw-glass-border) / 0.15);
-    box-shadow: 0 28px 65px rgb(0 0 0 / 0.18);
+    border: 1px solid rgb(var(--tw-glass-border) / 0.3);
     transition: all 150ms ease;
   }
 
@@ -513,7 +536,6 @@ video {
 
   .dark .cc-header-btn {
     background: rgb(var(--tw-glass-tint) / 0.80);
-    box-shadow: 0 32px 80px rgb(0 0 0 / 0.60);
   }
 
   .dark .cc-header-btn:hover {
@@ -625,5 +647,18 @@ video {
         rgba(255, 178, 0, 0) 0%,
         rgba(255, 178, 0, 0.35) 7.9%,
         rgba(255, 178, 0, 0) 15%);
+  }
+
+  .cc-header-item-stroke {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+  }
+
+  .dark .cc-header-item-stroke {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  /* Hide Next.js development indicator */
+  #__next-build-watcher {
+    display: none !important;
   }
 }

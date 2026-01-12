@@ -29,11 +29,11 @@ export function ClubRow({ club, showChevron = false }: ClubRowProps) {
                             className="!h-full !w-full object-cover object-center transition-transform group-hover:scale-105"
                         />
                     ) : isDorm ? (
-                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-secondary">
+                        <div className="flex h-full w-full items-center justify-center bg-secondary text-white">
                             <HomeIcon className="h-5 w-5" />
                         </div>
                     ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-secondary">
+                        <div className="flex h-full w-full items-center justify-center bg-secondary text-white">
                             <span className="text-lg font-bold uppercase">{club.name.charAt(0)}</span>
                         </div>
                     )}

@@ -1,0 +1,71 @@
+            {/* Sticky Filter Bar - iOS 18 Style Segmented Picker */}
+            <div className="sticky top-0 z-10 -mx-2 px-2 pb-3">
+                <div className="relative bg-secondary/8 backdrop-blur-md rounded-full p-1 border border-secondary/10">
+                    {/* Sliding indicator background */}
+                    <div 
+                        className="absolute top-1 bottom-1 bg-background/95 rounded-full shadow-lg shadow-black/10 transition-all duration-300 ease-out border border-secondary/20"
+                        style={{
+                            left: filter === 'all' ? '0.25rem' : 
+                                  filter === 'unread' ? 'calc(20% + 0.25rem)' :
+                                  filter === 'mentions' ? 'calc(40% + 0.25rem)' :
+                                  filter === 'comments' ? 'calc(60% + 0.25rem)' :
+                                  'calc(80% + 0.25rem)',
+                            width: 'calc(20% - 0.5rem)'
+                        }}
+                    />
+                    
+                    {/* Filter buttons */}
+                    <div className="relative flex gap-0">
+                        <button
+                            onClick={() => setFilter('all')}
+                            className={`flex-1 px-3 py-2 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap z-10 ${
+                                filter === 'all'
+                                    ? 'text-foreground'
+                                    : 'text-secondary hover:text-foreground/80'
+                            }`}
+                        >
+                            All
+                        </button>
+                        <button
+                            onClick={() => setFilter('unread')}
+                            className={`flex-1 px-3 py-2 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap z-10 ${
+                                filter === 'unread'
+                                    ? 'text-foreground'
+                                    : 'text-secondary hover:text-foreground/80'
+                            }`}
+                        >
+                            Unread
+                        </button>
+                        <button
+                            onClick={() => setFilter('mentions')}
+                            className={`flex-1 px-3 py-2 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap z-10 ${
+                                filter === 'mentions'
+                                    ? 'text-foreground'
+                                    : 'text-secondary hover:text-foreground/80'
+                            }`}
+                        >
+                            Mentions
+                        </button>
+                        <button
+                            onClick={() => setFilter('comments')}
+                            className={`flex-1 px-3 py-2 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap z-10 ${
+                                filter === 'comments'
+                                    ? 'text-foreground'
+                                    : 'text-secondary hover:text-foreground/80'
+                            }`}
+                        >
+                            Comments
+                        </button>
+                        <button
+                            onClick={() => setFilter('likes')}
+                            className={`flex-1 px-3 py-2 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap z-10 ${
+                                filter === 'likes'
+                                    ? 'text-foreground'
+                                    : 'text-secondary hover:text-foreground/80'
+                            }`}
+                        >
+                            Likes
+                        </button>
+                    </div>
+                </div>
+            </div>

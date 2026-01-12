@@ -101,11 +101,11 @@ export function ClubHeader({
                                             className="!h-full !w-full object-cover object-center"
                                         />
                                     ) : (club.category === "dorm" || (club as any).type === "dorm" || (club as any).isDorm || club.name?.toLowerCase().includes("dorm")) ? (
-                                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 border border-secondary/25 text-secondary">
+                                        <div className="flex h-full w-full items-center justify-center bg-secondary text-white">
                                             <HomeIcon className="h-8 w-8 md:h-10 md:w-10" />
                                         </div>
                                     ) : (
-                                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 text-xl font-bold text-foreground md:text-2xl">
+                                        <div className="flex h-full w-full items-center justify-center bg-secondary text-xl font-bold text-white md:text-2xl">
                                             {initials}
                                         </div>
                                     )}

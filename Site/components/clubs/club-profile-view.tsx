@@ -77,8 +77,8 @@ export function ClubProfileView({ clubId, isModerationMode = false }: ClubProfil
                 const snap = await getDocs(q);
 
                 const allItems = snap.docs.map(d => d.data());
-                const totalPosts = allItems.filter(i => !i.isEvent).length;
-                const totalEvents = allItems.filter(i => !!i.isEvent).length;
+                const totalPosts = allItems.filter(i => i.type === "post" || i.type === "announcement").length;
+                const totalEvents = allItems.filter(i => i.type === "event").length;
 
                 let rate = 0;
                 if (club?.createdAt) {
@@ -144,7 +144,6 @@ export function ClubProfileView({ clubId, isModerationMode = false }: ClubProfil
             const q = query(
                 postsRef,
                 where("clubId", "==", clubId),
-                where("isEvent", "==", false),
                 orderBy("createdAt", "desc")
             );
 

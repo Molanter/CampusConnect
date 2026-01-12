@@ -8,7 +8,10 @@ import { RightSidebar } from "@/components/right-sidebar";
 import { UserProfilesProvider } from "@/components/user-profiles-context";
 import { ClubProfilesProvider } from "@/components/club-profiles-context";
 import { AdminModeProvider } from "@/components/admin-mode-context";
+import { AppConfigProvider } from "@/components/app-config-context";
+import { CurrentUserProvider } from "@/components/current-user-context";
 import { MainLayoutMetricsProvider, useMainLayoutMetrics } from "@/components/main-layout-metrics-context";
+import { FCMInitializer } from "@/components/fcm-initializer";
 
 function InnerLayoutContent({ children }: { children: React.ReactNode }) {
     const [viewportWidth, setViewportWidth] = useState<number | null>(null);
@@ -17,6 +20,7 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
     const contentRef = useRef<HTMLDivElement>(null);
     const mainRef = useRef<HTMLElement>(null);
     const pathname = usePathname();
+    const [prevViewportWidth, setPrevViewportWidth] = useState<number | null>(null);
 
     // Reset scroll to top on route change
     useEffect(() => {
@@ -63,11 +67,22 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
     }, [isNarrow, setIsNarrow]);
 
     // Auto-hide right sidebar if we enter narrow mode and it's just showing notifications
+    // Only close if the viewport itself shrunk, not if the user is expanding the sidebar
     useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const currentWidth = window.innerWidth;
+
+        // Only close sidebar if viewport shrunk AND main content is narrow
         if (isNarrow && isRightSidebarVisible && view === "notifications") {
-            close();
+            // If we have a previous width and current width is smaller, viewport shrunk
+            if (prevViewportWidth === null || currentWidth < prevViewportWidth) {
+                close();
+            }
         }
-    }, [isNarrow, isRightSidebarVisible, view, close]);
+
+        setPrevViewportWidth(currentWidth);
+    }, [isNarrow, isRightSidebarVisible, view, close, prevViewportWidth]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -110,7 +125,7 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
                 >
                     <div
                         ref={contentRef}
-                        className={`mx-auto max-w-[1600px] w-full ${isMobile && isTabPage ? 'pt-10' : 'pt-0'} md:pt-6 px-4 md:px-6 transition-all duration-200 [@container] ${leftSidebarClass}`}
+                        className={`mx-auto max-w-[1600px] w-full ${isMobile && isTabPage ? 'pb-20' : 'pb-0'} md:pt-6 px-4 md:px-6 transition-all duration-200 [@container] ${leftSidebarClass}`}
                     >
                         {children}
                     </div>
@@ -120,7 +135,7 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
                 {!isMobile && isRightSidebarVisible && (
                     <aside
                         className="shrink-0 overflow-hidden"
-                        style={{ width: `${sidebarWidth}px` }}
+                        style={{ width: `${sidebarWidth}px`, minWidth: '347px' }}
                     >
                         <RightSidebar headerVisible={showHeader} />
                     </aside>
@@ -144,13 +159,18 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
 export function LayoutShell({ children }: { children: React.ReactNode }) {
     return (
         <AdminModeProvider>
-            <UserProfilesProvider>
-                <ClubProfilesProvider>
-                    <RightSidebarProvider>
-                        <InnerLayout>{children}</InnerLayout>
-                    </RightSidebarProvider>
-                </ClubProfilesProvider>
-            </UserProfilesProvider>
+            <CurrentUserProvider>
+                <AppConfigProvider>
+                    <UserProfilesProvider>
+                        <ClubProfilesProvider>
+                            <RightSidebarProvider>
+                                <FCMInitializer />
+                                <InnerLayout>{children}</InnerLayout>
+                            </RightSidebarProvider>
+                        </ClubProfilesProvider>
+                    </UserProfilesProvider>
+                </AppConfigProvider>
+            </CurrentUserProvider>
         </AdminModeProvider>
     );
 }

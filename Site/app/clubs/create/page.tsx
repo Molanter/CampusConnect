@@ -46,7 +46,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: any): Promise<Blob> {
 // Shared UI class definitions
 const ui = {
     page: "mx-auto min-h-screen w-full max-w-2xl px-4 py-8 pb-32",
-    headerBackBtn: "flex h-10 w-10 items-center justify-center rounded-full cc-header-btn transition-transform active:scale-95",
+    headerBackBtn: "flex h-12 w-12 items-center justify-center rounded-full cc-header-btn transition-transform active:scale-95 border cc-header-item-stroke",
     title: "text-2xl font-bold text-foreground",
     sectionLabel: "px-4 text-[13px] font-semibold uppercase tracking-wider cc-muted mb-2",
     card: "cc-section cc-radius-24 shadow-lg overflow-hidden",

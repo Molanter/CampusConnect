@@ -38,22 +38,24 @@ export default function TermsPoliciesPage() {
 
     return (
         <div className="min-h-screen bg-background pb-20">
-            {/* Header */}
-            <header className="fixed top-0 left-0 right-0 z-40 pt-4 pointer-events-none">
-                <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 pointer-events-auto">
-                    <Link
-                        href="/settings"
-                        className="flex h-10 w-10 items-center justify-center rounded-full cc-header-btn active:scale-95"
-                    >
-                        <ChevronLeftIcon className="h-5 w-5 text-foreground" />
-                    </Link>
-                    <div className="flex items-center rounded-full cc-glass px-6 py-2.5 shadow-sm">
-                        <h1 className="text-sm font-bold text-foreground">Terms & Policies</h1>
+            <main className="mx-auto max-w-2xl px-4 pb-8">
+                <div className="sticky top-0 z-40 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 pb-12 pointer-events-none transition-all duration-300">
+                    {/* Background Blur Layer */}
+                    <div className="absolute inset-0 backdrop-blur-3xl bg-background/90 [mask-image:linear-gradient(to_bottom,black_0%,black_20%,transparent_100%)]" />
+
+                    <div className="relative flex items-center gap-2 pointer-events-auto">
+                        <Link
+                            href="/settings"
+                            className="flex h-12 w-12 items-center justify-center rounded-full cc-header-btn active:scale-95 transition-all shrink-0 border cc-header-item-stroke"
+                        >
+                            <ChevronLeftIcon className="h-5 w-5 text-foreground" />
+                        </Link>
+                        <div className="flex items-center rounded-full cc-glass-strong px-6 py-3 border cc-header-item-stroke">
+                            <h1 className="text-sm font-bold text-foreground">Terms & Policies</h1>
+                        </div>
                     </div>
                 </div>
-            </header>
 
-            <main className="mx-auto max-w-2xl px-4 pt-24 pb-8">
                 <div className="space-y-8">
                     {/* Introduction */}
                     <div className="cc-section rounded-3xl p-6 md:p-8 space-y-4">

@@ -55,26 +55,13 @@ export function ProfileTabs({ tabs, value, onChange, progress }: ProfileTabsProp
 
         // We capture measurements for ALL tabs so we can interpolate if progress is present
         const measurements = tabs.map((_, i) => {
-            const labelSpan = labelRefs.current[i];
-            if (!labelSpan) return { x: 0, width: 0 };
+            const button = tabRefs.current[i];
+            if (!button) return { x: 0, width: 0 };
 
-            const labelRect = labelSpan.getBoundingClientRect();
+            const buttonRect = button.getBoundingClientRect();
+            const targetWidth = buttonRect.width;
 
-            // Per requirements: indicator width = label width + 16 (padding)
-            const targetWidth = labelRect.width + 12; // 12px looks slightly tighter/cleaner, but let's stick closer to request
-
-            // Calculate relative X
-            // labelRect.left is viewport relative. containerRect.left is viewport relative.
-            // We need position inside the container.
-            // relativeLeft = labelRect.left - containerRect.left + container.scrollLeft
-
-            // Center the indicator relative to the label span
-            // center of label = relativeLeft + labelRect.width / 2
-            // center of indicator = x + targetWidth / 2
-            // x = (relativeLeft + labelRect.width / 2) - targetWidth / 2
-
-            const relativeSpanLeft = labelRect.left - containerRect.left + scrollLeft;
-            const x = relativeSpanLeft + (labelRect.width / 2) - (targetWidth / 2);
+            const x = buttonRect.left - containerRect.left + scrollLeft;
 
             return { x, width: targetWidth };
         });
@@ -182,53 +169,61 @@ export function ProfileTabs({ tabs, value, onChange, progress }: ProfileTabsProp
     // (e.g. font weight change alters width).
 
     return (
-        <div className="w-full flex justify-center py-1">
-            <div
-                ref={containerRef}
-                className="relative inline-flex items-center justify-center gap-5 md:gap-8 overflow-x-auto scrollbar-hide px-2 md:px-4 pb-3 pt-2"
-                style={{ scrollBehavior: 'smooth' }}
-            >
-                {tabs.map((tab, idx) => {
-                    const isActive = tab.key === value;
+        <div className="w-full flex justify-center py-2">
+            <div className="relative w-max max-w-full">
+                {/* Fixed background pill */}
+                <div className="absolute inset-0 cc-glass rounded-full border-2 border-secondary/20 shadow-sm pointer-events-none" />
 
-                    return (
-                        <button
-                            key={tab.key}
-                            ref={el => { tabRefs.current[idx] = el; }}
-                            onClick={() => onChange(tab.key)}
-                            // Ensure no default padding messes up our measurement wrapper
-                            className="group relative flex flex-col items-center justify-center outline-none"
+                {/* Scrollable content container */}
+                <div className="relative overflow-hidden rounded-full">
+                    <div className="p-1 overflow-x-auto scrollbar-hide">
+                        <div
+                            ref={containerRef}
+                            className="relative flex items-center gap-1 w-max min-w-full"
+                            style={{ scrollBehavior: 'smooth' }}
                         >
-                            <span
-                                ref={el => { labelRefs.current[idx] = el; }}
-                                className={`
-                                    whitespace-nowrap text-[15px] transition-colors duration-200
-                                    ${isActive
-                                        ? "font-semibold text-foreground"
-                                        : "font-semibold cc-muted group-hover:text-foreground/80"
-                                    }
-                                `}
-                            >
-                                {tab.label}
-                            </span>
-                        </button>
-                    );
-                })}
+                            {/* Animated sliding capsule */}
+                            {isHydrated && (
+                                <motion.div
+                                    className="absolute bg-foreground/10 border border-secondary/20 rounded-full shadow-sm pointer-events-none"
+                                    style={{
+                                        x,
+                                        width,
+                                        height: 'calc(100% - 2px)',
+                                        top: '1px',
+                                        opacity: hasMeasured.current || progress ? 1 : 0
+                                    }}
+                                    initial={false}
+                                >
+                                    <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/5 to-transparent" />
+                                </motion.div>
+                            )}
 
-                {/* Indicator Pill */}
-                {/* Render only if we have metrics to avoid jumping */}
-                {isHydrated && (
-                    <motion.div
-                        className="absolute bottom-0 left-0 h-[4px] bg-brand rounded-full pointer-events-none"
-                        style={{
-                            x,
-                            width,
-                            // If we haven't measured yet, hide it
-                            opacity: hasMeasured.current || progress ? 1 : 0
-                        }}
-                        initial={false}
-                    />
-                )}
+                            {tabs.map((tab, idx) => {
+                                const isActive = tab.key === value;
+
+                                return (
+                                    <button
+                                        key={tab.key}
+                                        ref={el => { tabRefs.current[idx] = el; }}
+                                        onClick={() => onChange(tab.key)}
+                                        className="relative flex-shrink-0 px-5 py-2 rounded-full font-semibold text-[16px] group z-10 outline-none"
+                                    >
+                                        <span
+                                            ref={el => { labelRefs.current[idx] = el; }}
+                                            className={`
+                                                relative flex items-center justify-center whitespace-nowrap transition-all duration-300
+                                                ${isActive ? "text-foreground" : "text-secondary hover:text-foreground/80"}
+                                            `}
+                                        >
+                                            {tab.label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

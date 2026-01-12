@@ -26,11 +26,11 @@ export function ClubCard({ club }: ClubCardProps) {
                             className="!h-full !w-full object-cover object-center"
                         />
                     ) : (club.category === "dorm" || (club as any).type === "dorm" || (club as any).isDorm || club.name?.toLowerCase().includes("dorm")) ? (
-                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 border border-secondary/25 text-secondary">
+                        <div className="flex h-full w-full items-center justify-center bg-secondary text-white">
                             <HomeIcon className="h-6 w-6" />
                         </div>
                     ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-secondary/10 border border-secondary/25 text-secondary">
+                        <div className="flex h-full w-full items-center justify-center bg-secondary text-white">
                             <span className="text-xl font-bold uppercase">{club.name.charAt(0)}</span>
                         </div>
                     )}

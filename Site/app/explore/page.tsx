@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { motion, useSpring, AnimatePresence } from "framer-motion";
 import { MagnifyingGlassIcon, XMarkIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { PlusIcon, UserGroupIcon, BookOpenIcon, QuestionMarkCircleIcon } from "@heroicons/react/24/solid";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
@@ -35,6 +36,70 @@ export default function ExplorePage() {
     const [events, setEvents] = useState<Post[]>([]); // Separately store events for "Coming Soon"
     const [clubs, setClubs] = useState<Club[]>([]); // Separately store clubs for "All Clubs"
     const [loading, setLoading] = useState(true);
+    const pickerRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [shouldStretch, setShouldStretch] = useState(true);
+    const [isHydrated, setIsHydrated] = useState(false);
+    const hasMeasured = useRef(false);
+
+    // Springs for the indicator
+    const springX = useSpring(0, { stiffness: 700, damping: 35 });
+    const springWidth = useSpring(0, { stiffness: 700, damping: 35 });
+
+    // Function to calculate and update indicator position
+    const updateIndicator = () => {
+        const button = buttonRefs.current[activeTab];
+        const container = containerRef.current;
+        if (button && container) {
+            const containerRect = container.getBoundingClientRect();
+            const buttonRect = button.getBoundingClientRect();
+            const left = (buttonRect.left - containerRect.left) + container.scrollLeft;
+            const width = buttonRect.width;
+
+            springX.set(left);
+            springWidth.set(width);
+
+            if (!hasMeasured.current) {
+                // Snap springs on first measure
+                springX.jump(left);
+                springWidth.jump(width);
+                hasMeasured.current = true;
+                setIsHydrated(true);
+            }
+        }
+    };
+
+    useLayoutEffect(() => {
+        updateIndicator();
+        // Give it another pass after standard effect just in case of layout shifts
+        const timeout = setTimeout(updateIndicator, 100);
+        return () => clearTimeout(timeout);
+    }, [activeTab, shouldStretch, loading]);
+
+    useEffect(() => {
+        const checkStretch = () => {
+            if (pickerRef.current) {
+                // Always stretch in explore where we have more room, 
+                // but keep the logic for future flexibility
+                setShouldStretch(true);
+            }
+        };
+
+        checkStretch();
+        window.addEventListener('resize', checkStretch);
+
+        const observer = new ResizeObserver(() => {
+            checkStretch();
+            updateIndicator();
+        });
+        if (pickerRef.current) observer.observe(pickerRef.current);
+
+        return () => {
+            window.removeEventListener('resize', checkStretch);
+            observer.disconnect();
+        };
+    }, []);
 
     useEffect(() => {
         const fetchAll = async () => {
@@ -231,9 +296,23 @@ export default function ExplorePage() {
         return () => clearTimeout(delayDebounce);
     }, [searchQuery]);
 
+    const [isSearchExpanded, setIsSearchExpanded] = useState(true);
+
+    const handleSearchToggle = () => {
+        if (!isSearchExpanded) {
+            setActiveTab("All");
+        }
+        setIsSearchExpanded(!isSearchExpanded);
+        if (isSearchExpanded) {
+            setSearchQuery("");
+        }
+    };
+
     const displayResults = getFilteredResults();
     const hasQuery = searchQuery.trim().length > 0;
     const tabs: FilterTab[] = ["All", "Events", "Posts", "Clubs", "People"];
+
+
 
     const handleResultClick = (item: SearchResult) => {
         switch (item.type) {
@@ -301,64 +380,136 @@ export default function ExplorePage() {
         <div className="cc-page w-full">
             <div className="mx-auto max-w-2xl px-4 md:px-8 py-8 md:py-4">
 
-                {/* Header */}
-                <h1 className="text-3xl font-bold text-foreground mb-6">Explore</h1>
-
-                {/* Search Bar */}
-                {/* Search Section */}
-                <div className="mb-6 z-30">
-                    {/* Search Input Wrapper */}
-                    <form
-                        className="relative group"
-                        onSubmit={(e) => e.preventDefault()}
-                        role="search"
-                    >
-                        <div className="cc-glass cc-radius-24 border border-secondary/25 flex items-center h-[52px] w-full transition-all group-focus-within:border-brand/40 group-focus-within:ring-2 group-focus-within:ring-brand/20">
-                            <div className="pointer-events-none pl-4 flex items-center justify-center">
-                                <MagnifyingGlassIcon className="h-[18px] w-[18px] text-secondary transition-colors group-hover:text-foreground" />
+                {/* Sticky Header & Filter Section */}
+                <div className="sticky top-0 z-30 -mt-2 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 pb-12 pointer-events-none transition-all duration-300">
+                    {/* Background Blur Layer */}
+                    <div className="absolute inset-0 backdrop-blur-3xl bg-background/90 [mask-image:linear-gradient(to_bottom,black_0%,black_20%,transparent_100%)]" />
+                    {/* Header Row - Telegram iOS Style */}
+                    <div className="relative flex items-center gap-3 mb-4">
+                        {/* Explore Title Capsule - fades out with scale */}
+                        <div className={`relative transition-all duration-500 ease-out ${isSearchExpanded ? 'absolute scale-95 pointer-events-none' : 'scale-100'
+                            }`} style={{
+                                transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                opacity: isSearchExpanded ? 0 : 1
+                            }}>
+                            <div className="cc-glass-strong px-5 py-3 rounded-full border cc-header-item-stroke">
+                                <span className="text-foreground font-semibold text-base whitespace-nowrap">
+                                    Explore
+                                </span>
                             </div>
-                            <input
-                                type="text"
-                                name="q"
-                                id="search-input"
-                                placeholder="Search events, posts, clubs, people..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="flex-1 bg-transparent px-3 text-base text-foreground placeholder:text-secondary focus:outline-none"
-                                autoFocus
-                                autoComplete="off"
-                                autoCorrect="off"
-                                spellCheck="false"
-                            />
                         </div>
-                        {hasQuery && (
-                            <button
-                                type="button"
-                                onClick={() => setSearchQuery("")}
-                                className="absolute right-3 top-[26px] -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-secondary transition-colors hover:bg-secondary/16 hover:text-foreground"
-                            >
-                                <XMarkIcon className="h-[18px] w-[18px]" />
-                            </button>
-                        )}
-                    </form>
 
-                    {/* Filters Row */}
-                    {hasQuery && (
-                        <div className="mt-4 flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                            {tabs.map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${activeTab === tab
-                                        ? "bg-brand text-brand-foreground"
-                                        : "bg-secondary/10 text-foreground hover:bg-secondary/16"
-                                        }`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
+                        {/* Spacer - pushes button to right when search is collapsed */}
+                        <div className={`transition-all duration-500 ease-out ${isSearchExpanded ? 'w-0' : 'flex-1'
+                            }`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
+
+                        {/* Search Input Container - liquid glass expansion */}
+                        <div className={`absolute transition-all duration-500 ease-out ${isSearchExpanded
+                            ? 'left-0 right-14 scale-100 pointer-events-auto z-20 opacity-100'
+                            : 'left-auto right-0 w-12 scale-95 pointer-events-none z-0 opacity-0'
+                            }`} style={{
+                                transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                transformOrigin: 'right center',
+                            }}>
+                            <div className="cc-glass-strong rounded-full border cc-header-item-stroke">
+                                <div className="relative flex items-center px-5 py-3 transition-opacity duration-300"
+                                    style={{
+                                        transitionDelay: isSearchExpanded ? '150ms' : '0ms',
+                                        opacity: isSearchExpanded ? 1 : 0
+                                    }}>
+                                    <MagnifyingGlassIcon className="w-4 h-4 text-secondary mr-3 flex-shrink-0" />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search events, clubs, posts..."
+                                        className="flex-1 bg-transparent outline-none text-foreground placeholder-secondary text-base"
+                                        autoFocus={isSearchExpanded}
+                                    />
+                                </div>
+                            </div>
                         </div>
-                    )}
+
+                        {/* Search/Close button - always on right with icon transition */}
+                        <button
+                            onClick={handleSearchToggle}
+                            className="relative flex-shrink-0 w-12 h-12 rounded-full transition-all duration-300 active:scale-95 z-10 ml-auto pointer-events-auto"
+                            style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                        >
+                            <div className="cc-glass-strong rounded-full transition-all duration-500 absolute inset-0 border cc-header-item-stroke"
+                                style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                            </div>
+
+                            <div className="relative flex items-center justify-center h-full">
+                                <div className={`absolute transition-all duration-300 ${isSearchExpanded ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0'
+                                    }`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                                    <MagnifyingGlassIcon className="w-5 h-5 text-foreground" strokeWidth={2.5} />
+                                </div>
+                                <div className={`absolute transition-all duration-300 ${isSearchExpanded ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'
+                                    }`} style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                                    <XMarkIcon className="w-5 h-5 text-secondary" strokeWidth={2.5} />
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+
+                    {/* Telegram iOS Filter Picker Container */}
+                    <AnimatePresence initial={false}>
+                        {isSearchExpanded && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0, marginBottom: 0, scale: 0.9, x: 10 }}
+                                animate={{ opacity: 1, height: 'auto', marginBottom: 16, scale: 1, x: 0 }}
+                                exit={{ opacity: 0, height: 0, marginBottom: 0, scale: 0.9, x: 10 }}
+                                transition={{
+                                    duration: 0.5,
+                                    ease: [0.34, 1.56, 0.64, 1],
+                                    height: { duration: 0.4 },
+                                    marginBottom: { duration: 0.4 }
+                                }}
+                                style={{ transformOrigin: 'right top' }}
+                                className="relative w-full"
+                            >
+                                {/* Fixed background pill */}
+                                <div className="absolute inset-0 cc-glass-strong rounded-full pointer-events-none border cc-header-item-stroke cc-shadow-premium" />
+
+                                {/* Scrollable content */}
+                                <div ref={pickerRef} className="relative overflow-hidden rounded-full">
+                                    <div className="p-1 overflow-x-auto scrollbar-hide">
+                                        <div ref={containerRef} className={`relative flex items-center gap-1 ${shouldStretch ? 'w-full' : 'w-max min-w-full'}`}>
+                                            {/* Animated sliding capsule */}
+                                            {isHydrated && (
+                                                <motion.div
+                                                    className="absolute bg-foreground/10 rounded-full pointer-events-none shadow-sm"
+                                                    style={{
+                                                        x: springX,
+                                                        width: springWidth,
+                                                        height: 'calc(100% - 2px)',
+                                                        top: '1px',
+                                                    }}
+                                                >
+                                                    <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/5 to-transparent" />
+                                                </motion.div>
+                                            )}
+                                            {tabs.map((tab) => (
+                                                <button
+                                                    key={tab}
+                                                    ref={(el) => { buttonRefs.current[tab] = el; }}
+                                                    onClick={() => setActiveTab(tab)}
+                                                    className={`relative z-10 flex-1 py-1.5 px-3 rounded-full text-sm font-medium transition-all duration-300 pointer-events-auto active:scale-95 outline-none`}
+                                                    style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+                                                >
+                                                    <span className={`relative flex items-center justify-center whitespace-nowrap transition-all duration-400 ${activeTab === tab ? "text-foreground font-bold" : "text-secondary hover:text-foreground"}`}
+                                                        style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)" }}>
+                                                        {tab}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 {/* Inactive State Content */}

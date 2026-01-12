@@ -16,6 +16,7 @@ import { CheckCircleIcon } from "@heroicons/react/24/outline";
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [signingIn, setSigningIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   const { posts, loading: postsLoading, error: postsError, hasMore, fetchMore, refresh } = useFeed(user);
@@ -27,18 +28,28 @@ export default function HomePage() {
   const observerTarget = useRef<HTMLDivElement | null>(null);
 
   const handleSignIn = async () => {
+    if (signingIn) return;
+    setSigningIn(true);
     setAuthError(null);
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      if (result.user) {
+        // Attempt to register device for notifications immediately after sign-in
+        // This leverages the user gesture from the button click
+        const { requestNotificationPermissionAndRegister } = await import("@/lib/fcm");
+        await requestNotificationPermissionAndRegister(result.user.uid);
+      }
     } catch (err: any) {
       console.error("Sign-in error", err);
       if (err?.code === "auth/operation-not-allowed") {
         setAuthError(
           "Google sign-in is disabled for this Firebase project. Enable it in Firebase Console → Authentication → Sign-in method → Google."
         );
-      } else {
+      } else if (err?.code !== "auth/cancelled-popup-request") {
         setAuthError("Sign-in failed. Please try again.");
       }
+    } finally {
+      setSigningIn(false);
     }
   };
 
@@ -75,8 +86,12 @@ export default function HomePage() {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="cc-section w-full max-w-sm">
-          <button onClick={handleSignIn} className="cc-brand-pill w-full justify-center py-3 font-semibold">
-            Sign in with Google
+          <button
+            onClick={handleSignIn}
+            disabled={signingIn}
+            className="cc-brand-pill w-full justify-center py-3 font-semibold disabled:opacity-50"
+          >
+            {signingIn ? "Connecting..." : "Sign in with Google"}
           </button>
           {authError && <p className="mt-3 text-center text-sm text-red-600 dark:text-red-300">{authError}</p>}
         </div>

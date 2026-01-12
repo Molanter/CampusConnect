@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { onAuthStateChanged } from "firebase/auth";
 import {
     collection,
@@ -140,7 +141,7 @@ export function CommentsView({ data }: CommentsViewProps) {
             try {
                 setCommentsLoading(true);
                 const commentsRef = collection(db, "posts", data.id, "comments");
-                const q = query(commentsRef, orderBy("createdAt", "asc"), limit(PAGE_SIZE));
+                const q = query(commentsRef, orderBy("createdAt", "desc"), limit(PAGE_SIZE));
                 const snapshot = await getDocs(q);
 
                 if (snapshot.empty) {
@@ -219,7 +220,7 @@ export function CommentsView({ data }: CommentsViewProps) {
             const commentsRef = collection(db, "posts", data.id, "comments");
             const q = query(
                 commentsRef,
-                orderBy("createdAt", "asc"),
+                orderBy("createdAt", "desc"),
                 startAfter(lastDoc),
                 limit(PAGE_SIZE)
             );
@@ -289,12 +290,13 @@ export function CommentsView({ data }: CommentsViewProps) {
 
     // Scroll listener for infinite scroll
     useEffect(() => {
-        const container = scrollContainerRef.current;
+        const container = scrollContainerRef.current?.closest('.overflow-y-auto');
         if (!container) return;
 
-        const handleScroll = () => {
-            const { scrollTop, scrollHeight, clientHeight } = container;
-            if (scrollHeight - scrollTop - clientHeight < 200) {
+        const handleScroll = (e: any) => {
+            const target = e.target;
+            const { scrollTop, scrollHeight, clientHeight } = target;
+            if (scrollHeight - scrollTop - clientHeight < 300) {
                 loadMoreComments();
             }
         };
@@ -349,7 +351,7 @@ export function CommentsView({ data }: CommentsViewProps) {
         if (!data?.id) return;
         try {
             const commentsRef = collection(db, "posts", data.id, "comments");
-            const q = query(commentsRef, orderBy("createdAt", "asc"));
+            const q = query(commentsRef, orderBy("createdAt", "desc"));
             const snapshot = await getDocs(q);
 
             const topLevelComments: CommentRecord[] = await Promise.all(
@@ -569,44 +571,82 @@ export function CommentsView({ data }: CommentsViewProps) {
 
     return (
         <>
-            <div className="flex h-full flex-col">
-                {/* Composer Section - Compact Threads Style */}
-                <div className="shrink-0 space-y-2 px-1.5 pt-1 pb-3">
-                    {replyTarget && (
-                        <div className="flex items-center justify-between rounded-full border border-brand/30 bg-brand/10 px-2.5 py-1.5 text-xs text-brand">
-                            <span>Replying to {replyTarget.authorName}</span>
-                            <button
-                                type="button"
-                                className="text-brand/80 hover:text-brand"
-                                onClick={() => setReplyTarget(null)}
+            <div className="relative" ref={scrollContainerRef}>
+                {/* Composer Section - Sticky and Transparent */}
+                <div className="sticky top-0 z-20 space-y-2 pb-3 -mx-2 px-2">
+                    <AnimatePresence>
+                        {replyTarget && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="flex items-center justify-between rounded-full border border-brand/30 bg-brand/10 px-3 py-1.5 text-xs text-brand mb-2 cc-glass-strong"
                             >
-                                Clear
-                            </button>
-                        </div>
-                    )}
-                    <div className="relative flex items-center">
-                        <input
-                            type="text"
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSend())}
-                            placeholder="Write comment"
-                            className="w-full rounded-full border border-secondary/20 bg-surface-2 px-3 py-2.5 text-sm text-foreground placeholder-secondary focus:border-secondary/40 focus:bg-surface-3 focus:outline-none transition-all"
-                        />
-                        <button
-                            onClick={handleSend}
-                            disabled={!newComment.trim() || sending}
-                            className="absolute right-1.5 rounded-full p-1.5 text-brand hover:bg-secondary/15 disabled:opacity-50 transition-colors"
+                                <span>Replying to {replyTarget.authorName}</span>
+                                <button
+                                    type="button"
+                                    className="text-brand/80 hover:text-brand font-bold"
+                                    onClick={() => setReplyTarget(null)}
+                                >
+                                    Clear
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    <div className="relative flex items-center w-full h-[48px]">
+                        <motion.div
+                            layout
+                            animate={{ marginRight: newComment.trim().length > 0 ? 56 : 0 }}
+                            transition={{
+                                type: "spring",
+                                stiffness: 260,
+                                damping: 28,
+                                mass: 0.8,
+                                delay: newComment.trim().length > 0 ? 0 : 0.1 // Delayed expansion on disappear
+                            }}
+                            className="cc-glass-strong flex-1 h-full rounded-full border cc-header-item-stroke shadow-sm flex items-center"
                         >
-                            <PaperAirplaneIcon className="h-5 w-5" />
-                        </button>
+                            <div className="relative flex-1 flex items-center px-5 h-full">
+                                <input
+                                    type="text"
+                                    value={newComment}
+                                    onChange={(e) => setNewComment(e.target.value)}
+                                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSend())}
+                                    placeholder="Write comment"
+                                    className="flex-1 bg-transparent outline-none text-foreground placeholder-secondary text-base h-full"
+                                />
+                            </div>
+                        </motion.div>
+                        <AnimatePresence>
+                            {newComment.trim().length > 0 && (
+                                <motion.button
+                                    initial={{ opacity: 0, scale: 0.2 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.2 }}
+                                    whileTap={{ scale: 0.92 }}
+                                    transition={{
+                                        type: "spring",
+                                        stiffness: 260,
+                                        damping: 25,
+                                        mass: 0.8,
+                                        delay: 0.08 // Small delay for the pop
+                                    }}
+                                    onClick={handleSend}
+                                    disabled={sending}
+                                    className="absolute right-0 h-full aspect-square flex items-center justify-center rounded-full bg-brand shadow-lg text-white hover:brightness-105"
+                                >
+                                    <PaperAirplaneIcon className="h-5 w-5" />
+                                </motion.button>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
 
-                {/* Comments List - Threads Style */}
-                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
+                {/* Comments List */}
+                <div className="min-h-0">
                     {comments.some(c => c.isHidden) && (
-                        <div className="px-4 pt-3 pb-2">
+                        <div className="pt-3 pb-2">
                             <button
                                 type="button"
                                 onClick={() => setShowHidden(!showHidden)}
@@ -617,17 +657,17 @@ export function CommentsView({ data }: CommentsViewProps) {
                         </div>
                     )}
                     {commentsLoading ? (
-                        <div className="px-4 py-6 text-sm text-muted text-center">
+                        <div className="py-6 text-sm text-muted text-center">
                             Loading comments...
                         </div>
                     ) : comments.length === 0 ? (
-                        <div className="px-4 py-6 text-sm text-muted text-center">
+                        <div className="py-6 text-sm text-muted text-center">
                             No comments yet. Be the first!
                         </div>
                     ) : (
                         <div className="space-y-0 divide-y divide-secondary/10">
                             {comments.map((comment) => (
-                                <div key={comment.id} className="px-0 py-3">
+                                <div key={comment.id} className="py-3">
                                     <CommentMessage
                                         comment={comment}
                                         currentUserId={currentUser?.uid}

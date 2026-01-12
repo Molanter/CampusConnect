@@ -1,0 +1,50 @@
+            {/* Sticky Filter Bar */}
+            <div className="sticky top-0 z-10 -mx-2 px-2 pb-3">
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                    <button
+                        onClick={() => setFilter('all')}
+                        className={`px-4 py-2.5 rounded-full text-xs font-bold transition-all backdrop-blur-md whitespace-nowrap ${filter === 'all'
+                            ? 'bg-primary text-primary-foreground border-2 border-primary/50 shadow-lg shadow-primary/20 shadow-primary/20'
+                            : 'bg-secondary/5 backdrop-blur-sm border-2 border-secondary/20 text-secondary hover:bg-secondary/10 hover:border-secondary/40'
+                            }`}
+                    >
+                        All
+                    </button>
+                    <button
+                        onClick={() => setFilter('unread')}
+                        className={`px-4 py-2.5 rounded-full text-xs font-bold transition-all backdrop-blur-md whitespace-nowrap ${filter === 'unread'
+                            ? 'bg-primary text-primary-foreground border-2 border-primary/50 shadow-lg shadow-primary/20 shadow-primary/20'
+                            : 'bg-secondary/5 backdrop-blur-sm border-2 border-secondary/20 text-secondary hover:bg-secondary/10 hover:border-secondary/40'
+                            }`}
+                    >
+                        Unread
+                    </button>
+                    <button
+                        onClick={() => setFilter('mentions')}
+                        className={`px-4 py-2.5 rounded-full text-xs font-bold transition-all backdrop-blur-md whitespace-nowrap ${filter === 'mentions'
+                            ? 'bg-primary text-primary-foreground border-2 border-primary/50 shadow-lg shadow-primary/20 shadow-primary/20'
+                            : 'bg-secondary/5 backdrop-blur-sm border-2 border-secondary/20 text-secondary hover:bg-secondary/10 hover:border-secondary/40'
+                            }`}
+                    >
+                        Mentions
+                    </button>
+                    <button
+                        onClick={() => setFilter('comments')}
+                        className={`px-4 py-2.5 rounded-full text-xs font-bold transition-all backdrop-blur-md whitespace-nowrap ${filter === 'comments'
+                            ? 'bg-primary text-primary-foreground border-2 border-primary/50 shadow-lg shadow-primary/20 shadow-primary/20'
+                            : 'bg-secondary/5 backdrop-blur-sm border-2 border-secondary/20 text-secondary hover:bg-secondary/10 hover:border-secondary/40'
+                            }`}
+                    >
+                        Comments
+                    </button>
+                    <button
+                        onClick={() => setFilter('likes')}
+                        className={`px-4 py-2.5 rounded-full text-xs font-bold transition-all backdrop-blur-md whitespace-nowrap ${filter === 'likes'
+                            ? 'bg-primary text-primary-foreground border-2 border-primary/50 shadow-lg shadow-primary/20 shadow-primary/20'
+                            : 'bg-secondary/5 backdrop-blur-sm border-2 border-secondary/20 text-secondary hover:bg-secondary/10 hover:border-secondary/40'
+                            }`}
+                    >
+                        Likes
+                    </button>
+                </div>
+            </div>

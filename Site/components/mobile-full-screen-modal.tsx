@@ -31,23 +31,29 @@ export function MobileFullScreenModal({ isOpen, onClose, children, title }: Mobi
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: "100%" }}
                     transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                    className="fixed inset-0 z-50 bg-background flex flex-col"
+                    className="fixed inset-0 z-50 cc-glass-strong backdrop-blur-3xl flex flex-col"
                 >
-                    {/* Header */}
+                    {/* Close Button at Top */}
+                    <div className="absolute top-4 right-4 z-50">
+                        <button
+                            onClick={onClose}
+                            className="flex h-10 w-10 items-center justify-center rounded-full cc-glass-strong border border-secondary/20 text-foreground hover:bg-secondary/10 transition-all active:scale-95 shadow-lg"
+                        >
+                            <XMarkIcon className="h-5 w-5" strokeWidth={2.5} />
+                        </button>
+                    </div>
+
+                    {/* Title Bar - Positioned Lower */}
                     {title && (
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-secondary/15 shrink-0">
-                            <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-                            <button
-                                onClick={onClose}
-                                className="rounded-full p-2 text-secondary hover:bg-secondary/10 hover:text-foreground transition-colors"
-                            >
-                                <XMarkIcon className="h-6 w-6" />
-                            </button>
+                        <div className="pt-16 pb-4 px-5 shrink-0">
+                            <div className="flex items-center rounded-full cc-glass-strong px-5 py-3 border cc-header-item-stroke w-fit">
+                                <h2 className="text-sm font-bold text-foreground">{title}</h2>
+                            </div>
                         </div>
                     )}
 
                     {/* Content - Scrollable */}
-                    <div className="flex-1 overflow-y-auto">
+                    <div className={`flex-1 overflow-y-auto ${title ? '' : 'pt-16'}`}>
                         {children}
                     </div>
                 </motion.div>

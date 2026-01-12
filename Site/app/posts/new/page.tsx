@@ -23,6 +23,8 @@ import Toast, { ToastData } from "@/components/Toast";
 import { PostCard } from "@/components/post-card";
 import { useRightSidebar } from "@/components/right-sidebar-context";
 import { useMainLayoutMetrics } from "@/components/main-layout-metrics-context";
+import { useAdminMode } from "@/components/admin-mode-context";
+import { getCampusOrLegacy } from "@/lib/firestore-paths";
 import { CalendarIcon, ClockIcon, QuestionMarkCircleIcon, MegaphoneIcon, ChatBubbleBottomCenterTextIcon, BuildingLibraryIcon } from "@heroicons/react/24/outline";
 import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 import { PostType } from "../../../lib/posts";
@@ -66,6 +68,7 @@ export default function CreateEventPage() {
   const searchParams = useSearchParams();
   const initialClubId = searchParams.get("clubId");
   const { isMainNarrow, mainWidth } = useMainLayoutMetrics();
+  const { isGlobalAdminUser } = useAdminMode();
 
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -349,20 +352,20 @@ export default function CreateEventPage() {
       }
 
       try {
-        // Fetch the campus/university document
-        const campusRef = doc(db, "universities", profile.campusId);
-        const campusSnap = await getDoc(campusRef);
+        // Fetch the campus/university document using the consolidated helper
+        const campusData = await getCampusOrLegacy(profile.campusId);
 
-        if (campusSnap.exists()) {
-          const campusData = campusSnap.data();
-          const adminEmails = campusData.adminEmails || [];
+        if (campusData) {
+          const adminEmails = (campusData as any).adminEmails || [];
           const userEmail = user.email?.toLowerCase();
 
           // Store campus image URL
-          setCampusImageUrl(campusData.logoUrl || campusData.imageUrl || null);
+          setCampusImageUrl((campusData as any).logoUrl || (campusData as any).imageUrl || null);
 
-          // Check if user's email is in the campus adminEmails array
-          if (userEmail && adminEmails.map((e: string) => e.toLowerCase()).includes(userEmail)) {
+          // Check if user's email is in the campus adminEmails array OR if they are a Global Admin
+          const isEmailAdmin = userEmail && adminEmails.map((e: string) => e.toLowerCase()).includes(userEmail);
+
+          if (isEmailAdmin || isGlobalAdminUser) {
             setIsCampusAdmin(true);
           } else {
             setIsCampusAdmin(false);
@@ -377,7 +380,7 @@ export default function CreateEventPage() {
     };
 
     void checkCampusAdmin();
-  }, [user, profile?.campusId]);
+  }, [user, profile?.campusId, isGlobalAdminUser]);
 
   // ---- Load User's Clubs ----
   useEffect(() => {
@@ -738,10 +741,16 @@ export default function CreateEventPage() {
             {/* Left Column: Form */}
             <div className={clsx("space-y-6", mainWidth < 1024 ? "" : "col-span-7")}>
               {/* Header */}
-              <header className="space-y-1">
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">Create Post</h1>
-                <p className="text-secondary text-sm">Share what's happening on campus.</p>
-              </header>
+              <div className="sticky top-0 z-40 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 pb-12 pointer-events-none transition-all duration-300">
+                {/* Background Blur Layer */}
+                <div className="absolute inset-0 backdrop-blur-3xl bg-background/90 [mask-image:linear-gradient(to_bottom,black_0%,black_20%,transparent_100%)]" />
+
+                <div className="relative flex items-center pointer-events-auto">
+                  <div className="flex items-center rounded-full cc-glass-strong px-6 py-3 border cc-header-item-stroke">
+                    <h1 className="text-sm font-bold text-foreground">Create Post</h1>
+                  </div>
+                </div>
+              </div>
 
               <form
                 onSubmit={handleCreateEvent}
@@ -768,7 +777,7 @@ export default function CreateEventPage() {
                       {/* Display selected option */}
                       {!selectedClubId && (
                         <>
-                          <div className="h-10 w-10 rounded-full bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
+                          <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 relative">
                             {profile?.photoURL || user?.photoURL ? (
                               <img src={profile?.photoURL || user?.photoURL || ""} alt="Your avatar" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                             ) : (
@@ -784,7 +793,7 @@ export default function CreateEventPage() {
                       )}
                       {selectedClubId === "campus" && (
                         <>
-                          <div className="h-10 w-10 rounded-full overflow-hidden bg-secondary/20 ring-1 ring-secondary/30 shadow-sm flex-shrink-0 relative">
+                          <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 relative">
                             {campusImageUrl ? (
                               <img src={campusImageUrl} alt="Campus logo" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                             ) : (
@@ -800,7 +809,7 @@ export default function CreateEventPage() {
                         const selectedClub = userClubs.find(c => c.id === selectedClubId);
                         return selectedClub ? (
                           <>
-                            <div className="h-10 w-10 rounded-lg bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
+                            <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 relative">
                               {selectedClub.imageUrl ? (
                                 <img src={selectedClub.imageUrl} alt={selectedClub.name} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                               ) : isDorm(selectedClub) ? (
@@ -846,7 +855,7 @@ export default function CreateEventPage() {
                           }}
                           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors"
                         >
-                          <div className="h-10 w-10 rounded-full bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
+                          <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 relative">
                             {profile?.photoURL || user?.photoURL ? (
                               <img src={profile?.photoURL || user?.photoURL || ""} alt="Your avatar" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                             ) : (
@@ -870,7 +879,7 @@ export default function CreateEventPage() {
                             }}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors border-t border-secondary/10"
                           >
-                            <div className="h-10 w-10 rounded-full overflow-hidden bg-secondary/20 ring-1 ring-secondary/30 shadow-sm flex-shrink-0 relative">
+                            <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 relative">
                               {campusImageUrl ? (
                                 <img src={campusImageUrl} alt="Campus logo" className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                               ) : (
@@ -894,7 +903,7 @@ export default function CreateEventPage() {
                             }}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/5 transition-colors border-t border-secondary/10"
                           >
-                            <div className="h-10 w-10 rounded-lg bg-secondary/20 ring-1 ring-secondary/30 shadow-sm overflow-hidden flex-shrink-0 relative">
+                            <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 relative">
                               {club.imageUrl ? (
                                 <img src={club.imageUrl} alt={club.name} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                               ) : isDorm(club) ? (
@@ -945,7 +954,7 @@ export default function CreateEventPage() {
                         rows={4}
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="w-full resize-none bg-transparent px-4 py-3.5 pb-8 text-sm text-foreground placeholder:text-secondary focus:outline-none transition-colors"
+                        className="w-full resize-none bg-transparent px-4 py-3.5 pb-8 text-sm text-foreground placeholder:text-secondary focus:outline-none transition-colors break-words [overflow-wrap:anywhere]"
                         placeholder="What's going on?"
                       />
                       <div className={clsx(

@@ -48,14 +48,14 @@ export default function NotFound() {
     }, [mouseX, mouseY]);
 
     return (
-        <div className="fixed inset-0 h-screen w-screen text-white flex items-center justify-center overflow-hidden font-sans bg-black">
+        <div className="fixed inset-0 h-screen w-screen text-foreground flex items-center justify-center overflow-hidden font-sans bg-background">
 
             {/* Animated Stars/Dust */}
             <div className="absolute inset-0 opacity-20 pointer-events-none">
                 {stars.map((star) => (
                     <motion.div
                         key={star.id}
-                        className="absolute w-1 h-1 bg-white rounded-full"
+                        className="absolute w-1 h-1 bg-foreground rounded-full"
                         initial={{
                             left: star.left,
                             top: star.top,
@@ -95,18 +95,18 @@ export default function NotFound() {
                 >
                     <h1 className="text-[180px] md:text-[240px] font-black leading-none tracking-tighter select-none relative group">
                         {/* Glow Layer */}
-                        <span className="absolute inset-0 text-[#ffb200] blur-3xl opacity-20 group-hover:opacity-40 transition-opacity duration-500">
+                        <span className="absolute inset-0 text-brand blur-3xl opacity-20 group-hover:opacity-40 transition-opacity duration-500">
                             404
                         </span>
 
                         {/* Main Text with Gradient */}
-                        <span className="bg-gradient-to-br from-white via-white to-neutral-500 bg-clip-text text-transparent">
+                        <span className="bg-gradient-to-br from-foreground via-foreground to-secondary bg-clip-text text-transparent">
                             4
-                            <span className="text-[#ffb200] inline-block relative">
+                            <span className="text-brand inline-block relative">
                                 0
                                 {/* Subtle Planet Ring for the '0' */}
                                 <motion.div
-                                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[40%] border border-[#ffb200]/30 rounded-[100%] z-[-1]"
+                                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[40%] border border-brand/30 rounded-[100%] z-[-1]"
                                     animate={{ rotate: 360 }}
                                     transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
                                 />
@@ -124,7 +124,7 @@ export default function NotFound() {
                     className="text-center space-y-4 mb-12 relative z-30"
                 >
                     <h2 className="text-3xl md:text-4xl font-bold">Lost in Campus Orbit?</h2>
-                    <p className="text-neutral-400 text-lg md:text-xl max-w-md mx-auto leading-relaxed">
+                    <p className="text-secondary text-lg md:text-xl max-w-md mx-auto leading-relaxed">
                         The page you're searching for seems to have drifted into the digital void.
                     </p>
                 </motion.div>
@@ -138,9 +138,9 @@ export default function NotFound() {
                 >
                     <button
                         onClick={() => router.back()}
-                        className="group relative px-8 py-4 rounded-full bg-white/5 border border-white/10 hover:border-white/20 transition-all hover:bg-white/10"
+                        className="group relative px-8 py-4 rounded-full cc-glass border border-secondary/20 hover:border-secondary/30 transition-all hover:bg-secondary/10 shadow-sm"
                     >
-                        <div className="flex items-center gap-2 font-medium">
+                        <div className="flex items-center gap-2 font-medium text-foreground">
                             <ChevronLeftIcon className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
                             <span>Go Back</span>
                         </div>
@@ -148,7 +148,7 @@ export default function NotFound() {
 
                     <Link
                         href="/"
-                        className="group relative px-8 py-4 rounded-full bg-[#ffb200] text-black overflow-hidden hover:shadow-[0_0_20px_rgba(255,178,0,0.4)] transition-shadow"
+                        className="group relative px-8 py-4 rounded-full bg-brand text-brand-foreground overflow-hidden hover:shadow-[0_0_20px_rgba(255,178,0,0.4)] transition-shadow"
                     >
                         <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
                         <div className="relative flex items-center gap-2 font-bold">
