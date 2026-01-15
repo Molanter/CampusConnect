@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @EnvironmentObject private var authVM: AuthViewModel
+    @EnvironmentObject private var profileStore: ProfileStore
 
     @State private var activeTab: AppTab = .feed
     @State private var searchText: String = ""
@@ -21,11 +22,11 @@ struct MainTabView: View {
                 // System tab bar (iOS 26+)
                 TabView {
                     Tab("Feed", systemImage: "link") {
-                        FeedView()
+                        FeedView(profileStore: profileStore)
                     }
 
                     Tab("Create", systemImage: "plus") {
-                        CreateView()
+                        PostEditorView(mode: .create, initial: nil)
                     }
 
                     Tab("Profile", systemImage: "person.circle") {
@@ -38,6 +39,7 @@ struct MainTabView: View {
                             .searchable(text: $searchText)
                     }
                 }
+                .accentColor(K.Colors.primary)
             } else {
                 // Custom tab bar (below iOS 26) with separate Explore circle on the LEFT
                 ZStack(alignment: .bottom) {
@@ -65,10 +67,10 @@ struct MainTabView: View {
     private var tabContent: some View {
         switch activeTab {
         case .feed:
-            FeedView()
+            FeedView(profileStore: profileStore)
 
         case .create:
-            CreateView()
+            PostEditorView(mode: .create, initial: nil)
 
         case .profile:
             ProfileView()
@@ -79,10 +81,6 @@ struct MainTabView: View {
 
 // MARK: - Screens
 
-struct FeedView: View {
-    var body: some View { NavigationStack { Text("Feed") }.padding() }
-}
-
 struct ExploreView: View {
     let searchText: String
 
@@ -91,8 +89,4 @@ struct ExploreView: View {
             Text("Explore: \(searchText)")
         }
     }
-}
-
-struct CreateView: View {
-    var body: some View { NavigationStack { Text("Create") }.padding() }
 }

@@ -5,7 +5,6 @@
 //  Created by Edgars Yarmolatiy on 1/12/26.
 //
 
-
 import SwiftUI
 import FirebaseAuth
 import Combine
@@ -38,8 +37,9 @@ struct ProfileSetupView: View {
 
                 Section("Primary Role (required)") {
                     Picker("Role", selection: $vm.role) {
-                        ForEach(UserRole.allCases) { r in
-                            Text(r.rawValue).tag(r)
+                        ForEach(UserRole.allCases, id: \.self) { r in
+                            // nicer label, still saves rawValue via tag(r)
+                            Text(vm.roleLabel(r)).tag(r)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -94,9 +94,7 @@ struct ProfileSetupView: View {
             }
             .navigationTitle("Finish Profile")
             .navigationBarTitleDisplayMode(.inline)
-            .task {
-                await vm.loadInitial()
-            }
+            .task { await vm.loadInitial() }
         }
     }
 }
@@ -118,16 +116,27 @@ final class ProfileSetupViewModel: ObservableObject {
     private var uid: String? { Auth.auth().currentUser?.uid }
     private var previousCampusId: String?
 
-    var selectedCampus: Campus? { campuses.first(where: { $0.id == selectedCampusId }) }
+    var selectedCampus: Campus? {
+        campuses.first(where: { $0.id == selectedCampusId })
+    }
 
+    // ✅ dorm required for students on university campuses
     var shouldRequireDorm: Bool {
-        role == .student && (selectedCampus?.hasDorms ?? false)
+        role == .student && (selectedCampus?.isUniversity ?? false)
+    }
+
+    func roleLabel(_ r: UserRole) -> String {
+        switch r {
+        case .student: return "Student"
+        case .faculty: return "Faculty"
+        case .staff: return "Staff"
+        }
     }
 
     func loadInitial() async {
         errorMessage = nil
         do {
-            campuses = try await CampusService.fetchCampuses()
+            campuses = try await CampusServiceFS.fetchCampuses()
 
             guard let uid else { return }
             let profile = try await ProfileService.fetchProfile(uid: uid)
@@ -135,13 +144,22 @@ final class ProfileSetupViewModel: ObservableObject {
             username = profile?.username ?? ""
             role = profile?.role ?? .student
 
-            let existingCampusId = profile?.campusId ?? profile?.universityId ?? ""
+            let existingCampusId = profile?.campusId ?? ""
             selectedCampusId = existingCampusId
             previousCampusId = existingCampusId
 
             dorm = profile?.dorm ?? ""
             major = profile?.major ?? ""
             yearOfStudy = profile?.yearOfStudy ?? ""
+
+            // If dorm is required but current value is not in list, reset
+            if shouldRequireDorm,
+               !dorm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let dorms = selectedCampus?.dorms,
+               !dorms.isEmpty,
+               !dorms.contains(dorm) {
+                dorm = ""
+            }
         } catch {
             errorMessage = "Failed to load setup form."
         }
@@ -160,6 +178,15 @@ final class ProfileSetupViewModel: ObservableObject {
         guard let campus = selectedCampus else {
             errorMessage = ProfileSetupError.missingRequired("Campus").localizedDescription
             return
+        }
+
+        // Ensure dorm is chosen if required
+        if shouldRequireDorm {
+            let d = dorm.trimmingCharacters(in: .whitespacesAndNewlines)
+            if d.isEmpty {
+                errorMessage = ProfileSetupError.dormRequired.localizedDescription
+                return
+            }
         }
 
         do {

@@ -1,4 +1,13 @@
-private struct UnavailableView: View {
+//
+//  UnavailableView.swift
+//  CampusConnect
+//
+//  Created by Edgars Yarmolatiy on 1/13/26.
+//
+
+import SwiftUI
+
+struct UnavailableView: View {
     let title: String
     let systemImage: String
     let message: String?

@@ -1,9 +1,19 @@
+//
+//  PostCardVM.swift
+//  CampusConnect
+//
+//  Created by Edgars Yarmolatiy on 1/14/26.
+//
+
+import SwiftUI
+import Combine
+
 @MainActor
 final class PostCardVM: ObservableObject {
     @Published private(set) var ownerName: String = "Unknown"
     @Published private(set) var ownerPhotoURL: String? = nil
     @Published private(set) var ownerVerified: Bool = false
-    @Published private(set) var ownerIsDorm: Bool = false // if you later add this for clubs
+    @Published private(set) var ownerIsDorm: Bool = false
 
     @Published private(set) var authorUsername: String? = nil
     @Published private(set) var authorDisplayName: String? = nil
@@ -19,12 +29,13 @@ final class PostCardVM: ObservableObject {
         switch post.ownerType {
         case .personal:
             let a = await author
-            ownerName = a?.displayName.isEmpty == false ? a!.displayName : "Unknown"
+
+            ownerName = (a?.displayName.isEmpty == false) ? a!.displayName : "Unknown"
             ownerPhotoURL = a?.photoURL
             ownerVerified = false
             ownerIsDorm = false
 
-            authorUsername = a?.username.isEmpty == false ? a?.username : nil
+            authorUsername = (a?.username.isEmpty == false) ? a?.username : nil
             authorDisplayName = a?.displayName
             authorPhotoURL = a?.photoURL
 
@@ -34,10 +45,18 @@ final class PostCardVM: ObservableObject {
 
             ownerName = (c?.name.isEmpty == false) ? c!.name : "Club"
             ownerPhotoURL = c?.logoUrl
-            ownerVerified = c?.isVerified ?? false
-            ownerIsDorm = false // add club.isDorm later if you store it
 
-            authorUsername = a?.username.isEmpty == false ? a?.username : nil
+            // ✅ Verified logic for clubs
+            // Prefer explicit isVerified, also support verificationStatus == "approved" if present in model.
+            ownerVerified = {
+                if let isV = c?.isVerified { return isV }
+                if let status = c?.verificationStatus?.lowercased() { return status == "approved" }
+                return false
+            }()
+
+            ownerIsDorm = false
+
+            authorUsername = (a?.username.isEmpty == false) ? a?.username : nil
             authorDisplayName = a?.displayName
             authorPhotoURL = a?.photoURL
 
@@ -47,10 +66,18 @@ final class PostCardVM: ObservableObject {
 
             ownerName = (c?.name.isEmpty == false) ? c!.name : "Campus"
             ownerPhotoURL = c?.logoUrl
-            ownerVerified = c?.isUniversity ?? true
+
+            // ✅ Verified logic for campuses
+            // Do NOT default to true. Only show checkmark when verified/university.
+            ownerVerified = {
+                if let isUni = c?.isUniversity, isUni { return true }
+                // If you later add verificationStatus/isVerified into Campus model, include them here.
+                return false
+            }()
+
             ownerIsDorm = false
 
-            authorUsername = a?.username.isEmpty == false ? a?.username : nil
+            authorUsername = (a?.username.isEmpty == false) ? a?.username : nil
             authorDisplayName = a?.displayName
             authorPhotoURL = a?.photoURL
         }

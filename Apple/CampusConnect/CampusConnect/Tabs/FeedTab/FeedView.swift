@@ -2,8 +2,13 @@
 //  FeedView.swift
 //  CampusConnect
 //
-//  Infinite scroll trigger:
-//   - When last cell appears, call vm.fetchMore()
+//  Created by Edgars Yarmolatiy on 1/14/26.
+//
+
+
+//  - For .main: campusId is read from ProfileStore (defaults to "all").
+//  - Reacts to campusId changes and refreshes the feed.
+//  - Infinite scroll: when last cell appears, vm.fetchMore() (guarded by hasMore/isLoadingMore).
 //
 
 import SwiftUI
@@ -11,36 +16,24 @@ import SwiftUI
 struct FeedView: View {
     @StateObject private var vm: FeedViewModel
 
-    init(context: FeedContext) {
-        _vm = StateObject(wrappedValue: FeedViewModel(context: context))
+    // If your FeedViewModel init is now: init(profileStore:)
+    init(profileStore: ProfileStore) {
+        _vm = StateObject(wrappedValue: FeedViewModel(profileStore: profileStore))
     }
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-
                 if vm.isLoadingInitial && vm.posts.isEmpty {
                     ProgressView().padding(.vertical, 24)
                 }
 
                 ForEach(vm.posts) { post in
-                    let label = vm.ownerLabelByPostId[post.id]
-                    let photoURL = vm.ownerPhotoByPostId[post.id]
-                    let isDorm = vm.ownerIsDormByPostId[post.id] ?? false
-
-                    PostCardView(
-                        identity: post.feedIdentity(label: label, photoURL: photoURL, isDorm: isDorm),
-                        username: vm.usernameByPostId[post.id],
-                        authorUsername: vm.authorUsernameByPostId[post.id],
-                        timeText: post.feedTimeText,
-                        text: post.description,
-                        media: post.feedMedia
-                    )
-                    .onAppear {
-                        // Scroll-to-bottom trigger
-                        if post.id == vm.posts.last?.id {
-                            Task { await vm.fetchMore() }
-                        }
+                    PostCardView(post: post)
+                    .task(id: post.id) {
+                        // infinite scroll
+                        guard post.id == vm.posts.last?.id else { return }
+                        await vm.fetchMore()
                     }
                 }
 
@@ -56,8 +49,12 @@ struct FeedView: View {
             .padding(.top, 6)
         }
         .refreshable { await vm.refresh() }
-        .task {
-            if vm.posts.isEmpty { await vm.loadInitial() }
+        .task { await vm.refresh() }
+        .overlay {
+            if !vm.isLoadingInitial && vm.posts.isEmpty && vm.errorMessage == nil {
+                UnavailableView("No posts yet", systemImage: "tray")
+                    .padding(.top, 60)
+            }
         }
         .overlay(alignment: .top) {
             if let msg = vm.errorMessage {

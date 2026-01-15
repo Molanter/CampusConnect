@@ -2,6 +2,8 @@
 //  PostPreviewView.swift
 //  CampusConnect
 //
+//  Created by Edgars Yarmolatiy on 1/15/26.
+//
 
 import SwiftUI
 
@@ -22,25 +24,27 @@ struct PostPreviewView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                PostCardView(post: post, localImages: images)
-                    .padding(.vertical)
+            Form {
+                Section("Preview") {
+                    PostCardView(post: post, localImages: images)
+                        .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+
+                Section {
+                    ListCapsuleButton(action: {
+                        onConfirm()
+                        dismiss()
+                    }) {
+                        Text(actionTitle)
+                            .font(.headline)
+                    }
+                }
+                .listSectionSeparator(.hidden)
             }
             .navigationTitle("Preview")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Back") { dismiss() }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(actionTitle) {
-                        onConfirm()
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                }
-            }
         }
     }
 }

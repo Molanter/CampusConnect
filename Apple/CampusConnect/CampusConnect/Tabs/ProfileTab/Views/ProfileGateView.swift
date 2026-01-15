@@ -13,57 +13,32 @@ import FirebaseAuth
 
 struct ProfileGateView: View {
     @EnvironmentObject private var authVM: AuthViewModel
-    @StateObject private var vm = ProfileGateViewModel()
+    @EnvironmentObject private var profileStore: ProfileStore
+
     var body: some View {
         Group {
             if authVM.user == nil {
                 SignInView()
-            } else if vm.isLoading {
-                ProgressView()
-            } else if vm.requiresSetup {
+            } else if !profileStore.isReady {
+                Image(systemName: "link")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 100)
+            } else if requiresSetup {
                 ProfileSetupView()
-                    .environmentObject(authVM)
             } else {
                 MainTabView()
-                    .environmentObject(authVM)
             }
         }
-        .task {
-            await vm.refresh()
-        }
-        .onChange(of: authVM.user?.uid) { _ in
-            Task { await vm.refresh() }
-        }
     }
-}
 
+    private var requiresSetup: Bool {
+        let username = profileStore.profile?.username
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
-@MainActor
-final class ProfileGateViewModel: ObservableObject {
-    @Published var requiresSetup: Bool = false
-    @Published var isLoading: Bool = false
+        let campusId = (profileStore.profile?.campusId ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
-    func refresh() async {
-        isLoading = true
-        defer { isLoading = false }
-
-        guard let uid = Auth.auth().currentUser?.uid else {
-            requiresSetup = false
-            return
-        }
-
-        do {
-            let profile = try await ProfileService.fetchProfile(uid: uid)
-
-            let username = (profile?.username ?? "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-
-            let campusId = (profile?.campusId ?? profile?.universityId ?? "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-
-            requiresSetup = username.isEmpty || campusId.isEmpty
-        } catch {
-            requiresSetup = true
-        }
+        return username.isEmpty || campusId.isEmpty
     }
 }

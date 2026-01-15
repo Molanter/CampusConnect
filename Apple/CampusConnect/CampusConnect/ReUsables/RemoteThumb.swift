@@ -1,4 +1,13 @@
-private struct RemoteThumb: View {
+//
+//  RemoteThumb.swift
+//  CampusConnect
+//
+//  Created by Edgars Yarmolatiy on 1/13/26.
+//
+
+import SwiftUI
+
+struct RemoteThumb: View {
     let urlString: String
     var body: some View {
         AsyncImage(url: URL(string: urlString)) { phase in

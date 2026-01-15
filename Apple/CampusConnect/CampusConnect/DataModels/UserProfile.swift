@@ -6,7 +6,7 @@
 //
 
 
-import Foundation
+import SwiftUI
 
 struct UserProfile: Identifiable {
     let id: String // uid
@@ -16,7 +16,6 @@ struct UserProfile: Identifiable {
     var photoURL: String?
 
     var campusId: String?
-    var universityId: String?
     var campus: String?
 
     var role: UserRole
@@ -24,16 +23,17 @@ struct UserProfile: Identifiable {
     var major: String?
     var yearOfStudy: String?
 
+    // ✅ needed for campus adminEmails check
+    var email: String?
+
     var isCompleteBasic: Bool {
         !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        (campusId ?? "").isEmpty == false
+        ((campusId ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
     }
 }
 
-enum UserRole: String, CaseIterable, Identifiable {
-    case student = "Student"
-    case faculty = "Faculty"
-    case staff = "Staff"
-
-    var id: String { rawValue }
+enum UserRole: String, Codable, CaseIterable, Equatable {
+    case student
+    case faculty
+    case staff
 }

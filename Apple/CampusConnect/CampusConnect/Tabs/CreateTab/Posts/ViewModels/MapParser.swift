@@ -1,12 +1,12 @@
 //
-//  ParsedLocation.swift
+//  MapParser.swift
 //  CampusConnect
 //
 //  Created by Edgars Yarmolatiy on 1/13/26.
 //
 
 
-import Foundation
+import SwiftUI
 
 struct ParsedLocation {
     var label: String

@@ -1,149 +1,314 @@
 //
-//  PostEditorError.swift
+//  PostService.swift
 //  CampusConnect
 //
 //  Created by Edgars Yarmolatiy on 1/13/26.
 //
 
 
-import Foundation
+import SwiftUI
+import Combine
 import UIKit
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
 
-enum PostEditorError: LocalizedError {
-    case notSignedIn
-    case missingCampusId
-    case wordLimitExceeded
-    case noPermission
-    case unknown
-
-    var errorDescription: String? {
-        switch self {
-        case .notSignedIn: return "Not signed in."
-        case .missingCampusId: return "Missing campusId."
-        case .wordLimitExceeded: return "Description is over 300 words."
-        case .noPermission: return "You don’t have permission to edit this post."
-        case .unknown: return "Something went wrong."
-        }
-    }
+struct PostAsIdentity: Identifiable, Equatable {
+    let id: String
+    let ownerType: PostOwnerType
+    let ownerId: String
+    let label: String
+    let photoURL: String?
+    let isDorm: Bool
+    let isVerified: Bool
 }
 
-final class PostService {
-    static let db = Firestore.firestore()
-    static let storage = Storage.storage()
+@MainActor
+final class PostEditorVM: ObservableObject {
 
-    // MARK: - Create
+    enum EditorError: LocalizedError {
+        case notSignedIn
+        case missingCampusId
+        case wordLimitExceeded
+        case noPermission
 
-    static func createPost(
+        var errorDescription: String? {
+            switch self {
+            case .notSignedIn: return "Not signed in."
+            case .missingCampusId: return "Missing campusId."
+            case .wordLimitExceeded: return "Description is over 300 words."
+            case .noPermission: return "You don’t have permission to edit this post."
+            }
+        }
+    }
+
+    @Published private(set) var identities: [PostAsIdentity] = []
+    @Published private(set) var isLoadingIdentities = false
+    @Published private(set) var isSaving = false
+    @Published var errorMessage: String?
+
+    private let db = Firestore.firestore()
+    private let storage = Storage.storage()
+
+    // MARK: - Public
+
+    func loadPostAsIdentities(
+        uid: String,
+        campusId: String?
+    ) async {
+        guard !isLoadingIdentities else { return }
+        isLoadingIdentities = true
+        defer { isLoadingIdentities = false }
+
+        var out: [PostAsIdentity] = []
+
+        // 1) Fetch user (for personal identity)
+        guard let userSnap = try? await db.collection("users").document(uid).getDocument(),
+              let userData = userSnap.data()
+        else {
+            identities = []
+            return
+        }
+
+        let displayName =
+            (userData["displayName"] as? String)
+            ?? (userData["name"] as? String)
+            ?? (userData["username"] as? String)
+            ?? "Me"
+
+        let userPhoto = userData["photoURL"] as? String
+
+        // Personal identity (always)
+        out.append(
+            PostAsIdentity(
+                id: "personal:\(uid)",
+                ownerType: .personal,
+                ownerId: uid,
+                label: displayName,
+                photoURL: userPhoto,
+                isDorm: false,
+                isVerified: false
+            )
+        )
+
+        // 2) Campus identity (if campusId exists)
+        let campusId = (campusId ?? "").trimmed
+        if !campusId.isEmpty,
+           let campusSnap = try? await db.collection("campuses").document(campusId).getDocument(),
+           let campus = campusSnap.data()
+        {
+            let campusName = (campus["name"] as? String) ?? "Campus"
+            let campusLogo =
+                (campus["logoUrl"] as? String)
+                ?? (campus["avatarUrl"] as? String)
+
+            let isVerified =
+                (campus["verificationStatus"] as? String) == "approved"
+                || (campus["isVerified"] as? Bool) == true
+                || (campus["isUniversity"] as? Bool) == true
+
+            out.append(
+                PostAsIdentity(
+                    id: "campus:\(campusId)",
+                    ownerType: .campus,
+                    ownerId: campusId,
+                    label: campusName,
+                    photoURL: campusLogo,
+                    isDorm: false,
+                    isVerified: isVerified
+                )
+            )
+        }
+
+        // 3) Clubs user can post as (owner/admin OR allowMemberPosts)
+        let emailLower = (userData["email"] as? String ?? "").trimmed.lowercased()
+
+        let clubSnaps = try? await db.collection("clubs")
+            .whereField("memberIds", arrayContains: uid)
+            .getDocuments()
+
+        for doc in clubSnaps?.documents ?? [] {
+            let clubId = doc.documentID
+            let club = doc.data()
+
+            // 🔑 Resolve membership flexibly
+            guard let member = await fetchMemberDataByDocId(
+                clubId: clubId,
+                uid: uid,
+                emailLower: emailLower
+            ) else { continue }
+
+            // Status check
+            let status = ((member["status"] as? String) ?? "").lowercased()
+            let approved = status.isEmpty || status == "approved" || status == "active"
+            guard approved else { continue }
+
+            let role = ((member["role"] as? String) ?? "member").lowercased()
+            let allowMemberPosts = (club["allowMemberPosts"] as? Bool) == true
+
+            // ✅ FINAL RULE
+            let canPost =
+                role == "owner"
+                || role == "admin"
+                || allowMemberPosts
+
+            guard canPost else { continue }
+
+            out.append(
+                PostAsIdentity(
+                    id: "club:\(clubId)",
+                    ownerType: .club,
+                    ownerId: clubId,
+                    label: (club["name"] as? String) ?? "Club",
+                    photoURL:
+                        (club["logoUrl"] as? String)
+                        ?? (club["avatarUrl"] as? String),
+                    isDorm: false,
+                    isVerified:
+                        (club["verificationStatus"] as? String) == "approved"
+                        || (club["isVerified"] as? Bool) == true
+                )
+            )
+        }
+
+        // Sort: personal → campus → clubs (A–Z)
+        out.sort {
+            let ra = rank($0.ownerType)
+            let rb = rank($1.ownerType)
+            if ra != rb { return ra < rb }
+            return $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending
+        }
+
+        identities = out
+    }
+    // MARK: - create/update unchanged
+
+    func createPost(
         description: String,
-        identity: PostIdentity,
+        ownerType: PostOwnerType,
+        ownerId: String,
         campusId: String,
         type: PostType,
-        existingImageUrls: [String] = [],
         newImages: [UIImage],
         event: PostEventLogistics?
     ) async throws -> String {
-        guard let uid = Auth.auth().currentUser?.uid else { throw PostEditorError.notSignedIn }
+        guard !isSaving else { throw EditorError.noPermission }
+        isSaving = true
+        defer { isSaving = false }
 
-        let words = Self.wordCount(description)
-        if words > 300 { throw PostEditorError.wordLimitExceeded }
-        if campusId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { throw PostEditorError.missingCampusId }
+        guard let uid = Auth.auth().currentUser?.uid else { throw EditorError.notSignedIn }
+        try validate(description: description, campusId: campusId)
 
-        // Upload images sequentially (like web)
         let uploaded = try await uploadImages(newImages, pathPrefix: "post-images/\(uid)")
 
         var payload: [String: Any] = [
-            "description": description.trimmingCharacters(in: .whitespacesAndNewlines),
+            "description": description.trimmed,
             "authorId": uid,
-            "ownerType": identity.ownerType.rawValue,
-            "ownerId": identity.id,
+            "ownerType": ownerType.rawValue,
+            "ownerId": ownerId,
             "type": type.rawValue,
-            "imageUrls": existingImageUrls + uploaded,
-            "campusId": campusId,
+            "imageUrls": uploaded,
+            "campusId": campusId.trimmed,
             "createdAt": FieldValue.serverTimestamp(),
             "visibility": "visible"
         ]
 
         if type == .event, let event {
-            payload["startsAt"] = Timestamp(date: event.startsAt)
-            payload["locationLabel"] = event.locationLabel
-            payload["locationUrl"] = event.locationUrl
-            if let lat = event.lat, let lng = event.lng {
-                payload["lat"] = lat
-                payload["lng"] = lng
-            }
+            payload["event"] = eventMap(event)
+            payload["date"] = yyyyMMdd(from: event.startsAt)
         }
 
         let ref = try await db.collection("posts").addDocument(data: payload)
         return ref.documentID
     }
 
-    // MARK: - Update (editCount + editedAt + image diffing)
-
-    static func updatePost(
+    func updatePost(
         postId: String,
         description: String,
         type: PostType,
-        identity: PostIdentity,
+        ownerType: PostOwnerType,
+        ownerId: String,
         campusId: String,
         retainedExistingUrls: [String],
         newImages: [UIImage],
         event: PostEventLogistics?
     ) async throws {
-        guard let uid = Auth.auth().currentUser?.uid else { throw PostEditorError.notSignedIn }
+        guard !isSaving else { throw EditorError.noPermission }
+        isSaving = true
+        defer { isSaving = false }
 
-        let words = Self.wordCount(description)
-        if words > 300 { throw PostEditorError.wordLimitExceeded }
+        guard let uid = Auth.auth().currentUser?.uid else { throw EditorError.notSignedIn }
+        try validate(description: description, campusId: campusId)
 
-        // Ownership check hook (implement properly to match your rules)
-        let allowed = try await canEditPost(postId: postId, currentUid: uid, identity: identity)
-        if !allowed { throw PostEditorError.noPermission }
+        let allowed = try await canEditPost(postId: postId, currentUid: uid)
+        guard allowed else { throw EditorError.noPermission }
 
         let uploaded = try await uploadImages(newImages, pathPrefix: "post-images/\(uid)")
         let finalUrls = retainedExistingUrls + uploaded
 
         var update: [String: Any] = [
-            "description": description.trimmingCharacters(in: .whitespacesAndNewlines),
+            "description": description.trimmed,
             "type": type.rawValue,
-            "ownerType": identity.ownerType.rawValue,
-            "ownerId": identity.id,
-            "campusId": campusId,
+            "ownerType": ownerType.rawValue,
+            "ownerId": ownerId,
+            "campusId": campusId.trimmed,
             "imageUrls": finalUrls,
             "editCount": FieldValue.increment(Int64(1)),
             "editedAt": FieldValue.serverTimestamp()
         ]
 
         if type == .event, let event {
-            update["startsAt"] = Timestamp(date: event.startsAt)
-            update["locationLabel"] = event.locationLabel
-            update["locationUrl"] = event.locationUrl
-            if let lat = event.lat, let lng = event.lng {
-                update["lat"] = lat
-                update["lng"] = lng
-            } else {
-                update["lat"] = FieldValue.delete()
-                update["lng"] = FieldValue.delete()
-            }
+            update["event"] = eventMap(event)
+            update["date"] = yyyyMMdd(from: event.startsAt)
         } else {
-            // remove event fields if not event anymore
-            update["startsAt"] = FieldValue.delete()
-            update["locationLabel"] = FieldValue.delete()
-            update["locationUrl"] = FieldValue.delete()
-            update["lat"] = FieldValue.delete()
-            update["lng"] = FieldValue.delete()
+            update["event"] = FieldValue.delete()
+            update["date"] = FieldValue.delete()
         }
 
         try await db.collection("posts").document(postId).updateData(update)
     }
 
-    // MARK: - Upload
+    // MARK: - Helpers (private)
 
-    static func uploadImages(_ images: [UIImage], pathPrefix: String) async throws -> [String] {
+    private func fetchMemberDataByDocId(clubId: String, uid: String, emailLower: String) async -> [String: Any]? {
+        // A) members/{uid}
+        do {
+            let d1 = try await db.collection("clubs").document(clubId)
+                .collection("members").document(uid)
+                .getDocument()
+            if d1.exists { return d1.data() }
+        } catch { }
+
+        // B) members/{emailLower}
+        if !emailLower.isEmpty {
+            do {
+                let d2 = try await db.collection("clubs").document(clubId)
+                    .collection("members").document(emailLower)
+                    .getDocument()
+                if d2.exists { return d2.data() }
+            } catch { }
+        }
+
+        return nil
+    }
+
+    private func validate(description: String, campusId: String) throws {
+        if campusId.trimmed.isEmpty { throw EditorError.missingCampusId }
+        if wordCount(description) > 300 { throw EditorError.wordLimitExceeded }
+    }
+
+    private func canEditPost(postId: String, currentUid: String) async throws -> Bool {
+        let snap = try await db.collection("posts").document(postId).getDocument()
+        let authorId = snap.data()?["authorId"] as? String
+        return authorId == currentUid
+    }
+
+    private func uploadImages(_ images: [UIImage], pathPrefix: String) async throws -> [String] {
         guard !images.isEmpty else { return [] }
 
         var urls: [String] = []
+        urls.reserveCapacity(images.count)
+
         for (i, img) in images.enumerated() {
             guard let data = img.jpegData(compressionQuality: 0.9) else { continue }
             let name = "\(Int(Date().timeIntervalSince1970))-\(i).jpg"
@@ -152,21 +317,55 @@ final class PostService {
             let url = try await ref.downloadURL()
             urls.append(url.absoluteString)
         }
+
         return urls
     }
 
-    // MARK: - Permission hook (stub)
-
-    static func canEditPost(postId: String, currentUid: String, identity: PostIdentity) async throws -> Bool {
-        // Implement: allow if currentUid == authorId OR currentUid is admin of the identity club/campus.
-        // For now: author-only (safe default).
-        let snap = try await db.collection("posts").document(postId).getDocument()
-        let authorId = snap.data()?["authorId"] as? String
-        return authorId == currentUid
+    private func eventMap(_ event: PostEventLogistics) -> [String: Any] {
+        var map: [String: Any] = [
+            "startsAt": Timestamp(date: event.startsAt),
+            "locationLabel": event.locationLabel
+        ]
+        if let lat = event.lat { map["lat"] = lat }
+        if let lng = event.lng { map["lng"] = lng }
+        return map
     }
 
-    static func wordCount(_ text: String) -> Int {
-        let parts = text.split { $0.isWhitespace || $0.isNewline }
-        return parts.count
+    private func yyyyMMdd(from date: Date) -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = .current
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date)
+    }
+
+    private func rank(_ t: PostOwnerType) -> Int {
+        switch t {
+        case .personal: return 0
+        case .campus:   return 1
+        case .club:     return 2
+        }
+    }
+
+    private func wordCount(_ text: String) -> Int {
+        text.split { $0.isWhitespace || $0.isNewline }.count
+    }
+}
+
+private extension String {
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
+}
+
+private extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0 else { return [self] }
+        var result: [[Element]] = []
+        var i = 0
+        while i < count {
+            result.append(Array(self[i..<Swift.min(i + size, count)]))
+            i += size
+        }
+        return result
     }
 }

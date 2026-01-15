@@ -7,21 +7,18 @@
 
 import SwiftUI
 
-enum PostMediaSource: Equatable {
-    case none
-    case remote(urls: [String])          // existing post (edit/feed)
-    case local(images: [UIImage])        // new picks (create)
-    case mixed(remote: [String], local: [UIImage]) // edit: existing + new
-}
-
 struct PostCardView: View {
-    let identity: PostIdentity?
-    let username: String?
-    let authorUsername: String?
-    let timeText: String
-    let text: String
-    let media: PostMediaSource
+    let post: PostDoc
 
+    private let media: Media
+
+    enum Media: Equatable {
+        case none
+        case remote(urls: [String])
+        case local(images: [UIImage])
+    }
+
+    @StateObject private var vm = PostCardVM()
     @Environment(\.colorScheme) private var colorScheme
 
     private let avatarSize: CGFloat = 34
@@ -29,32 +26,40 @@ struct PostCardView: View {
     private var leadingIndent: CGFloat { avatarSize + 10 }
 
     private var metaColor: Color { .secondary }
-    private var dividerColor: Color {
-        Color.secondary.opacity(colorScheme == .dark ? 0.25 : 0.35)
-    }
-    private var strokeColor: Color {
-        Color.secondary.opacity(colorScheme == .dark ? 0.22 : 0.30)
-    }
+    private var dividerColor: Color { Color.secondary.opacity(colorScheme == .dark ? 0.25 : 0.35) }
+    private var strokeColor: Color { Color.secondary.opacity(colorScheme == .dark ? 0.22 : 0.30) }
     private var mediaBg: Color { Color(.secondarySystemBackground) }
 
-    private var trimmedText: String {
-        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    init(post: PostDoc) {
+        self.post = post
+        self.media = post.imageUrls.isEmpty ? .none : .remote(urls: post.imageUrls)
     }
 
-    private var displayHandle: String? {
-        switch identity?.ownerType {
-        case .club, .campus: return authorUsername
-        default: return username
+    init(post: PostDoc, localImages: [UIImage]) {
+        self.post = post
+        self.media = localImages.isEmpty ? .none : .local(images: localImages)
+    }
+
+    private var isEntityPost: Bool { post.ownerType == .club || post.ownerType == .campus }
+    private var secondaryHandle: String? {
+        isEntityPost ? vm.authorUsername : vm.authorUsername // for personal: author is the owner anyway
+    }
+
+    private var trimmedText: String { post.description.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private var hasMedia: Bool {
+        switch media {
+        case .none: return false
+        case .remote(let urls): return !urls.isEmpty
+        case .local(let imgs): return !imgs.isEmpty
         }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-
-            // MARK: Header + Text (grouped)
             HStack(alignment: .top, spacing: 10) {
                 AvatarView(
-                    urlString: identity?.photoURL,
+                    urlString: vm.ownerPhotoURL,
                     size: avatarSize,
                     kind: avatarKind
                 )
@@ -69,60 +74,68 @@ struct PostCardView: View {
                     }
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
             }
 
-            // MARK: Media (indented)
-            if hasMedia {
-                mediaStrip
-                    .padding(.leading, leadingIndent)
-            }
+            if hasMedia { mediaStrip }
 
-            // MARK: Actions (indented)
             actions
                 .padding(.leading, leadingIndent)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 14)
         .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(dividerColor)
-                .frame(height: 0.5)
+            Rectangle().fill(dividerColor).frame(height: 0.5)
+        }
+        .task(id: post.id) {
+            await vm.load(post: post)
         }
     }
 
-    // MARK: Header line
+    // MARK: Header
 
     private var headerLine: some View {
         HStack(spacing: 6) {
-            Text(identity?.label ?? "Unknown")
-                .font(.subheadline.weight(.semibold))
+            HStack(spacing: 6) {
+                Text(vm.ownerName)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                if isEntityPost, vm.ownerVerified {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.footnote)
+                        .foregroundStyle(K.Colors.primary)
+                        .accessibilityLabel("Verified")
+                }
+            }
+            .layoutPriority(2)
 
             Text("•").foregroundStyle(metaColor)
 
-            if identity?.ownerType == .club || identity?.ownerType == .campus {
-                Text("by").foregroundStyle(metaColor)
-            }
+            if isEntityPost { Text("by").foregroundStyle(metaColor) }
 
-            if let handle = displayHandle {
-                Text("@\(handle)").foregroundStyle(metaColor)
+            if let handle = secondaryHandle, !handle.isEmpty {
+                Text("@\(handle)")
+                    .foregroundStyle(metaColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(minWidth: 0, alignment: .leading)
+                    .layoutPriority(0)
             }
 
             Text("•").foregroundStyle(metaColor)
-            Text(timeText).foregroundStyle(metaColor)
+
+            Text(feedTimeText())
+                .foregroundStyle(metaColor)
+                .lineLimit(1)
+                .layoutPriority(1)
         }
         .font(.footnote)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Media
-    private var hasMedia: Bool {
-        switch media {
-        case .none: return false
-        case .remote(let urls): return !urls.isEmpty
-        case .local(let images): return !images.isEmpty
-        case .mixed(let remote, let local): return !remote.isEmpty || !local.isEmpty
-        }
-    }
 
     private var mediaStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -130,39 +143,23 @@ struct PostCardView: View {
                 switch media {
                 case .none:
                     EmptyView()
-
-                case .local(let images):
-                    ForEach(Array(images.prefix(10).enumerated()), id: \.offset) { index, img in
-                        mediaTileLocal(img, index: index)
-                    }
-
                 case .remote(let urls):
                     ForEach(Array(urls.prefix(10).enumerated()), id: \.offset) { index, urlString in
                         mediaTileRemote(urlString, index: index)
                     }
-
-                case .mixed(let remote, let local):
-                    // remote first, then local (or swap order if you want)
-                    ForEach(Array(remote.prefix(10).enumerated()), id: \.offset) { index, urlString in
-                        mediaTileRemote(urlString, index: index)
-                    }
-                    let offset = min(remote.count, 10)
-                    if offset < 10 {
-                        ForEach(Array(local.prefix(10 - offset).enumerated()), id: \.offset) { i, img in
-                            mediaTileLocal(img, index: offset + i)
-                        }
+                case .local(let images):
+                    ForEach(Array(images.prefix(10).enumerated()), id: \.offset) { index, img in
+                        mediaTileLocal(img, index: index)
                     }
                 }
             }
-            .padding(.vertical, 2)
         }
-        .padding(.leading, 0)
+        .cornerRadius(K.Layout.cornerRadius / 2)
     }
-    
+
     private func mediaTileRemote(_ urlString: String, index: Int) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(mediaBg)
+            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(mediaBg)
 
             if let url = URL(string: urlString.trimmingCharacters(in: .whitespacesAndNewlines)) {
                 AsyncImage(url: url) { phase in
@@ -190,11 +187,10 @@ struct PostCardView: View {
         )
         .padding(.leading, index == 0 ? leadingIndent : 0)
     }
-    
+
     private func mediaTileLocal(_ img: UIImage, index: Int) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(mediaBg)
+            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(mediaBg)
 
             Image(uiImage: img)
                 .resizable()
@@ -206,7 +202,7 @@ struct PostCardView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(strokeColor, lineWidth: 1)
         )
-        .padding(.leading, index == 0 ? leadingIndent : 0) // first tile lines up with text column
+        .padding(.leading, index == 0 ? leadingIndent : 0)
     }
 
     // MARK: Actions
@@ -222,17 +218,16 @@ struct PostCardView: View {
         .padding(.top, 2)
     }
 
-    // MARK: Avatar kind
+    // MARK: Avatar kind (no PostIdentity)
 
     private var avatarKind: AvatarKind {
-        guard let identity else { return .profile }
-        switch identity.ownerType {
+        switch post.ownerType {
         case .personal:
             return .profile
         case .club:
-            return .club(name: identity.label, isDorm: identity.isDorm)
+            return .club(name: vm.ownerName, isDorm: vm.ownerIsDorm)
         case .campus:
-            return .campus(shortName: initials(identity.label))
+            return .campus(shortName: initials(vm.ownerName))
         }
     }
 
@@ -242,65 +237,41 @@ struct PostCardView: View {
         let second = parts.dropFirst().first?.prefix(1) ?? ""
         return (first + second).uppercased()
     }
-}
+    
+    private func feedTimeText() -> String {
+        let now = Date()
 
+        // EVENT → countdown to start
+        if post.type == .event, let startsAt = post.event?.startsAt {
+            let seconds = Int(startsAt.timeIntervalSince(now))
 
-#Preview("PostCardView – Text + Media") {
-    ScrollView {
-            PostCardView(
-                identity: mockCampusIdentity,
-                username: nil,
-                authorUsername: "molanter",
-                timeText: "1h",
-                text: "Campus-wide update. This post includes text and media and uses the same layout as the feed.",
-                media: .remote(urls: mockRemoteImageURLs)
-            )
-        PostCardView(
-            identity: mockClubIdentity,
-            username: nil,
-            authorUsername: "molanter",
-            timeText: "5m",
-            text: "", // ✅ media only
-            media: .remote(urls: mockRemoteImageURLs)
-        )
-        PostCardView(
-            identity: mockPersonalIdentity,
-            username: "molanter",
-            authorUsername: nil,
-            timeText: "now",
-            text: "Text-only post. No media attached. This should collapse the media section completely and keep spacing tight between header and text.",
-            media: .none
-        )
+            if seconds <= 60 { return "rn" }
+            if seconds < 3600 { return "\(seconds / 60)m" }
+            if seconds < 86_400 { return "\(seconds / 3600)h" }
+            if seconds < 604_800 { return "\(seconds / 86_400)d" }
 
+            return formatDate(startsAt)
+        }
+
+        // NORMAL POST → time since created
+        guard let createdAt = post.createdAt else { return "" }
+
+        let seconds = Int(now.timeIntervalSince(createdAt))
+
+        if seconds < 60 { return "rn" }
+        if seconds < 3600 { return "\(seconds / 60)m" }
+        if seconds < 86_400 { return "\(seconds / 3600)h" }
+        if seconds < 604_800 { return "\(seconds / 86_400)d" }
+        if seconds < 15_552_000 { return "\(seconds / 604_800)w" } // ~6 months
+
+        return formatDate(createdAt)
     }
-    .background(Color(.systemBackground))
+
+    private func formatDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = .current
+        f.dateFormat = "MM/dd/yyyy"
+        return f.string(from: date)
+    }
 }
-
-private let mockCampusIdentity = PostIdentity(
-    id: "campus_bethel",
-    label: "Bethel University",
-    ownerType: .campus,
-    photoURL: nil,
-    isDorm: false
-)
-
-private let mockClubIdentity = PostIdentity(
-    id: "club_commuter",
-    label: "Commuter Students",
-    ownerType: .club,
-    photoURL: nil,
-    isDorm: false
-)
-
-private let mockPersonalIdentity = PostIdentity(
-    id: "user_me",
-    label: "Edgars Yarmolatiy",
-    ownerType: .personal,
-    photoURL: nil,
-    isDorm: false
-)
-
-private let mockRemoteImageURLs: [String] = [
-    "https://images.unsplash.com/photo-1522199710521-72d69614c702",
-    "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"
-]
