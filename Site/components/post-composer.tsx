@@ -19,6 +19,8 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
     const [content, setContent] = useState("");
     const [loading, setLoading] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.photoURL || null);
+    const [userDisplayName, setUserDisplayName] = useState<string | null>(user?.displayName || null);
+    const [userUsername, setUserUsername] = useState<string | null>(null);
 
     const [selectedImages, setSelectedImages] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -34,22 +36,24 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
         el.style.height = `${el.scrollHeight}px`;
     }, [content]);
 
-    // Fetch avatar from Firestore to ensure it's up to date
+    // Fetch user profile data from Firestore to ensure it's up to date
     useEffect(() => {
-        const fetchAvatar = async () => {
+        const fetchUserProfile = async () => {
             if (!user) return;
             try {
                 const userDoc = await getDoc(doc(db, "users", user.uid));
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
                     if (userData.photoURL) setAvatarUrl(userData.photoURL);
+                    if (userData.displayName) setUserDisplayName(userData.displayName);
+                    if (userData.username) setUserUsername(userData.username);
                 }
             } catch (error) {
-                console.error("Error fetching user avatar:", error);
+                console.error("Error fetching user profile:", error);
             }
         };
 
-        fetchAvatar();
+        fetchUserProfile();
     }, [user]);
 
     // Cleanup object URLs on unmount
@@ -104,13 +108,19 @@ export function PostComposer({ user, onPostCreated }: PostComposerProps) {
 
             const docData: any = {
                 authorId: user.uid,
+                authorDisplayName: userDisplayName || user.displayName || "User",
+                authorPhotoURL: avatarUrl || user.photoURL || null,
+                authorUsername: userUsername || null,
+                ownerName: userDisplayName || user.displayName || "User",
+                ownerPhotoURL: avatarUrl || user.photoURL || null,
                 description: content.trim(),
                 createdAt: serverTimestamp(),
                 type: "post",
                 isEvent: false,
-                likes: [],
+                likedBy: [],
                 visibility: "visible",
                 reportCount: 0,
+                ownerType: "personal",
             };
 
             if (uploadedImageUrls.length > 0) {

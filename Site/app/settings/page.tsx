@@ -37,7 +37,7 @@ const ui = {
   headerKicker: "text-[11px] font-semibold uppercase tracking-[0.2em] cc-muted",
   headerTitle: "text-sm font-bold text-foreground",
   section: "space-y-3",
-  sectionLabel: "pl-[60px] pr-4 text-[13px] font-semibold uppercase tracking-wider cc-muted",
+  sectionLabel: "pl-4 pr-4 text-[13px] font-semibold uppercase tracking-wider cc-muted",
   card: "cc-section overflow-hidden shadow-sm",
   capsuleCard: "cc-section overflow-hidden shadow-sm !rounded-full",
   row: "flex items-center gap-3 px-4 py-3 hover:bg-secondary/10 transition-colors",

@@ -31,9 +31,7 @@ import { Post } from "@/lib/posts";
 import { format, formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { getDoc } from "firebase/firestore";
-import { CalendarIcon, MapPinIcon, BuildingLibraryIcon, MegaphoneIcon } from "@heroicons/react/24/outline";
-import { useUserProfile } from "@/components/user-profiles-context";
-import { useClubProfile } from "@/components/club-profiles-context";
+import { CalendarIcon, MapPinIcon, BuildingLibraryIcon, MegaphoneIcon, UserGroupIcon, UserIcon } from "@heroicons/react/24/outline";
 import { useRightSidebar } from "@/components/right-sidebar-context";
 
 interface PostDetailMainInfoProps {
@@ -70,7 +68,10 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
         mood = [],
         priceLevel,
         clubId,
+        clubName,
+        clubAvatarUrl,
         editCount = 0,
+        campusId,
         campusName,
         campusAvatarUrl,
         ownerType,
@@ -83,16 +84,16 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
 
     const description = postDescription || postContent || "";
 
-    const profile = useUserProfile(authorId);
-    const clubProfile = useClubProfile(clubId && clubId !== "" ? clubId : undefined);
-
     const effectiveOwnerType = ownerType || (clubId ? "club" : campusName ? "campus" : "personal");
     const isClubPost = effectiveOwnerType === "club";
     const isCampusPost = effectiveOwnerType === "campus";
 
-    const displayedName = profile?.displayName || "User";
-    const displayedPhotoUrl = profile?.photoURL || null;
-    const currentUsername = profile?.username;
+    // Use ownerName/ownerPhotoURL as primary source for display
+    const displayedName = post.ownerName || post.authorDisplayName || post.authorName ||
+        (isCampusPost ? post.campusName : isClubPost ? post.clubName : "User");
+    const displayedPhotoUrl = post.ownerPhotoURL || post.authorPhotoURL || post.authorAvatarUrl ||
+        (isCampusPost ? post.campusAvatarUrl : isClubPost ? post.clubAvatarUrl : null);
+    const currentUsername = post.authorUsername;
 
     // Helper function: full-text announcement highlight (Option A)
     const getHighlightedText = (text: string, shouldHighlight: boolean) => {
@@ -105,9 +106,9 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
     const [status, setStatus] = useState<AttendanceStatus>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [stats, setStats] = useState({
-        going: post.goingUids?.length || 0,
-        maybe: post.maybeUids?.length || 0,
-        notGoing: post.notGoingUids?.length || 0,
+        going: post.event?.goingUids?.length || post.goingUids?.length || 0,
+        maybe: post.event?.maybeUids?.length || post.maybeUids?.length || 0,
+        notGoing: post.event?.notGoingUids?.length || post.notGoingUids?.length || 0,
         comments: (post.commentsCount || 0) + (post.repliesCommentsCount || 0)
     });
     const [isLiked, setIsLiked] = useState(false);
@@ -117,18 +118,17 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
     const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
     const [locationMenuOpen, setLocationMenuOpen] = useState(false);
 
-    // CRITICAL: We enter club branding mode if we have a clubId,
-    // regardless of whether the profile is loaded yet.
+    // CRITICAL: We enter club branding mode if we have a clubId
     // const isClubPost = !!(clubId && clubId !== ""); // This line is now redundant due to effectiveOwnerType
 
     useEffect(() => {
         if (clubId && clubId !== "") {
             console.log(`%c[PostDetail Debug] Post ${post.id} has clubId: ${clubId}`, 'background: #222; color: #ffb200; font-weight: bold');
-            console.log(`[PostDetail Debug] Post ${post.id} clubProfile:`, clubProfile);
+            console.log(`[PostDetail Debug] Post ${post.id} clubName:`, clubName);
             console.log(`[PostDetail Debug] Post ${post.id} isClubPost: ${isClubPost}`);
             console.log(`[PostDetail Debug] Full Post Object:`, post);
         }
-    }, [post.id, clubId, clubProfile, isClubPost, post]);
+    }, [post.id, clubId, clubName, isClubPost, post]);
 
     // Final display values with fallbacks - strict "no-stale" policy
     // const displayedName = profile?.displayName || "User"; // Redundant
@@ -154,10 +154,10 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                     notGoing: data.notGoingUids?.length || 0,
                     comments: (data.commentsCount || 0) + (data.repliesCommentsCount || 0)
                 });
-                setLikesCount(data.likes?.length || 0);
+                setLikesCount((data.likedBy || data.likes)?.length || 0);
                 setLiveSeenCount(data.seenCount || 0);
                 if (currentUser) {
-                    setIsLiked(data.likes?.includes(currentUser.uid));
+                    setIsLiked((data.likedBy || data.likes)?.includes(currentUser.uid));
                     if (data.goingUids?.includes(currentUser.uid)) setStatus("going");
                     else if (data.maybeUids?.includes(currentUser.uid)) setStatus("maybe");
                     else if (data.notGoingUids?.includes(currentUser.uid)) setStatus("not_going");
@@ -176,11 +176,11 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
         try {
             if (isLiked) {
                 await updateDoc(postRef, {
-                    likes: arrayRemove(currentUser.uid)
+                    likedBy: arrayRemove(currentUser.uid)
                 });
             } else {
                 await updateDoc(postRef, {
-                    likes: arrayUnion(currentUser.uid)
+                    likedBy: arrayUnion(currentUser.uid)
                 });
             }
         } catch (err) {
@@ -256,8 +256,8 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                 <div className="shrink-0">
                     {isCampusPost ? (
                         <div className="h-10 w-10 flex items-center justify-center relative flex-shrink-0">
-                            {campusAvatarUrl ? (
-                                <img src={campusAvatarUrl} alt={campusName} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
+                            {displayedPhotoUrl ? (
+                                <img src={displayedPhotoUrl} alt={displayedName} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                             ) : (
                                 <BuildingLibraryIcon className="h-6 w-6 text-secondary" />
                             )}
@@ -265,11 +265,11 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                     ) : isClubPost ? (
                         <Link href={`/clubs/${clubId}`}>
                             <div className="h-10 w-10 flex items-center justify-center relative flex-shrink-0">
-                                {clubProfile?.avatarUrl ? (
-                                    <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
+                                {displayedPhotoUrl ? (
+                                    <img src={displayedPhotoUrl} alt={displayedName} className="absolute inset-0 !h-full !w-full block object-cover object-center rounded-xl" />
                                 ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
-                                        {clubProfile?.name ? clubProfile.name.charAt(0).toUpperCase() : "C"}
+                                    <div className="flex h-full w-full items-center justify-center bg-foreground/10 rounded-xl">
+                                        <UserGroupIcon className="h-5 w-5 text-foreground" />
                                     </div>
                                 )}
                             </div>
@@ -284,8 +284,8 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                                         className="absolute inset-0 !h-full !w-full block object-cover object-center"
                                     />
                                 ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-surface-3 text-sm font-bold text-foreground">
-                                        {displayedName.charAt(0).toUpperCase()}
+                                    <div className="flex h-full w-full items-center justify-center bg-foreground/10">
+                                        <UserIcon className="h-5 w-5 text-foreground" />
                                     </div>
                                 )}
                             </div>
@@ -300,7 +300,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                             <>
                                 <div className="flex items-center gap-1 min-w-0">
                                     <span className="text-[14px] font-bold text-foreground truncate">
-                                        {campusName || "Campus"}
+                                        {displayedName}
                                     </span>
                                     <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
                                 </div>
@@ -311,7 +311,7 @@ export function PostDetailMainInfo({ post }: PostDetailMainInfoProps) {
                         ) : isClubPost ? (
                             <>
                                 <Link href={`/clubs/${clubId}`} className="text-sm font-bold text-foreground hover:underline decoration-secondary/30 flex items-center gap-1">
-                                    {clubProfile?.name || "Club"}
+                                    {displayedName}
                                     {isVerified && (
                                         <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
                                     )}

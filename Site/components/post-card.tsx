@@ -20,6 +20,8 @@ import {
     TrashIcon,
     FlagIcon,
     MegaphoneIcon,
+    UserGroupIcon,
+    UserIcon,
 } from "@heroicons/react/24/outline";
 
 import { onAuthStateChanged } from "firebase/auth";
@@ -28,8 +30,6 @@ import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, onSnapsho
 import { auth, db } from "../lib/firebase";
 import { Post } from "../lib/posts";
 import { useRightSidebar } from "./right-sidebar-context";
-import { useUserProfile } from "./user-profiles-context";
-import { useClubProfile } from "./club-profiles-context";
 import { useSeenTracker } from "../lib/hooks/useSeenTracker";
 import { formatDistanceToNow } from "date-fns";
 import { MediaHorizontalScroll } from "./post-detail/media-horizontal-scroll";
@@ -82,8 +82,11 @@ export function PostCard({
         type,
         createdAt,
         clubId,
+        clubName,
+        clubAvatarUrl,
         editCount = 0,
         isVerified,
+        campusId,
         campusName,
         campusAvatarUrl,
         ownerType,
@@ -116,24 +119,24 @@ export function PostCard({
     const [commentsCount, setCommentsCount] = useState((post.commentsCount || 0) + (post.repliesCommentsCount || 0));
 
     // Live going count
-    const [goingCount, setGoingCount] = useState((post.goingUids || []).length);
-    const [maybeCount, setMaybeCount] = useState((post.maybeUids || []).length);
+    const [goingCount, setGoingCount] = useState((post.event?.goingUids || post.goingUids || []).length);
+    const [maybeCount, setMaybeCount] = useState((post.event?.maybeUids || post.maybeUids || []).length);
 
     const descriptionRef = useRef<HTMLDivElement>(null);
     const [displayText, setDisplayText] = useState(description);
     const [isTruncated, setIsTruncated] = useState(false);
-
-    const profile = useUserProfile(authorId);
-    const clubProfile = useClubProfile(clubId && clubId !== "" ? clubId : undefined);
 
     // Refactored ownership logic
     const effectiveOwnerType = ownerType || (clubId ? "club" : campusName ? "campus" : "personal");
     const isClubPost = effectiveOwnerType === "club";
     const isCampusPost = effectiveOwnerType === "campus";
 
-    const displayedName = profile?.displayName || "User";
-    const displayedPhotoUrl = profile?.photoURL || null;
-    const currentUsername = profile?.username;
+    // Use ownerName/ownerPhotoURL as primary source for display
+    const displayedName = post.ownerName || post.authorDisplayName || post.authorName ||
+        (isCampusPost ? post.campusName : isClubPost ? post.clubName : "User");
+    const displayedPhotoUrl = post.ownerPhotoURL || post.authorPhotoURL || post.authorAvatarUrl ||
+        (isCampusPost ? post.campusAvatarUrl : isClubPost ? post.clubAvatarUrl : null);
+    const currentUsername = post.authorUsername;
 
     const hasMedia = images.length > 0;
     const lineLimit = hasMedia ? 3 : 5;
@@ -162,7 +165,7 @@ export function PostCard({
         const unsubscribe = onSnapshot(postRef, (snap) => {
             if (!snap.exists()) return;
             const data = snap.data();
-            const nextLikes: string[] = data.likes || [];
+            const nextLikes: string[] = data.likedBy || data.likes || [];
             setLikesCount(nextLikes.length);
             if (currentUser) setIsLiked(nextLikes.includes(currentUser.uid));
 
@@ -183,9 +186,9 @@ export function PostCard({
             if (!snap.exists()) return;
             const data = snap.data();
 
-            const going: string[] = data.goingUids || [];
-            const maybe: string[] = data.maybeUids || [];
-            const notGoing: string[] = data.notGoingUids || [];
+            const going: string[] = data.event?.goingUids || data.goingUids || [];
+            const maybe: string[] = data.event?.maybeUids || data.maybeUids || [];
+            const notGoing: string[] = data.event?.notGoingUids || data.notGoingUids || [];
 
             setGoingCount(going.length);
             setMaybeCount(maybe.length);
@@ -272,7 +275,7 @@ export function PostCard({
     const containerRef = useSeenTracker({
         postId: id || "",
         uid: currentUser?.uid || null,
-        campusId: profile?.campus || null,
+        campusId: campusId || null,
         isPreview: previewMode,
         threshold: 0.5,
         debounceMs: 600,
@@ -333,7 +336,7 @@ export function PostCard({
 
         try {
             await updateDoc(doc(db, "posts", id), {
-                likes: isLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+                likedBy: isLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
             });
         } catch (e) {
             console.error("Error toggling like:", e);
@@ -391,8 +394,8 @@ export function PostCard({
                     <div className="shrink-0 self-start">
                         {isCampusPost ? (
                             <div className="h-10 w-10 flex items-center justify-center relative flex-shrink-0">
-                                {campusAvatarUrl ? (
-                                    <img src={campusAvatarUrl} alt={campusName} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
+                                {displayedPhotoUrl ? (
+                                    <img src={displayedPhotoUrl} alt={displayedName} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                                 ) : (
                                     <BuildingLibraryIcon className="h-6 w-6 text-secondary" />
                                 )}
@@ -400,11 +403,11 @@ export function PostCard({
                         ) : isClubPost ? (
                             <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()}>
                                 <div className="h-10 w-10 flex items-center justify-center relative flex-shrink-0">
-                                    {clubProfile?.avatarUrl ? (
-                                        <img src={clubProfile.avatarUrl} alt={clubProfile.name || "Club"} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
+                                    {displayedPhotoUrl ? (
+                                        <img src={displayedPhotoUrl} alt={displayedName} className="absolute inset-0 !h-full !w-full block object-cover object-center rounded-xl" />
                                     ) : (
-                                        <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
-                                            {clubProfile?.name ? clubProfile.name.charAt(0).toUpperCase() : "C"}
+                                        <div className="flex h-full w-full items-center justify-center bg-foreground/10 rounded-xl">
+                                            <UserGroupIcon className="h-5 w-5 text-foreground" />
                                         </div>
                                     )}
                                 </div>
@@ -415,8 +418,8 @@ export function PostCard({
                                     {displayedPhotoUrl ? (
                                         <img src={displayedPhotoUrl} alt={displayedName} className="absolute inset-0 !h-full !w-full block object-cover object-center" />
                                     ) : (
-                                        <div className="flex h-full w-full items-center justify-center bg-foreground/10 text-sm font-bold text-foreground">
-                                            {displayedName ? displayedName.charAt(0).toUpperCase() : "U"}
+                                        <div className="flex h-full w-full items-center justify-center bg-foreground/10">
+                                            <UserIcon className="h-5 w-5 text-foreground" />
                                         </div>
                                     )}
                                 </div>
@@ -433,14 +436,14 @@ export function PostCard({
                                     {isCampusPost ? (
                                         <div className="flex items-center gap-1 shrink-0">
                                             <span className="text-sm font-semibold text-foreground whitespace-nowrap">
-                                                {campusName || "Campus"}
+                                                {displayedName}
                                             </span>
                                             <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />
                                         </div>
                                     ) : isClubPost ? (
                                         <div className="flex items-center gap-1 shrink-0">
                                             <Link href={`/clubs/${clubId}`} onClick={(e) => e.stopPropagation()} className="text-sm font-semibold text-foreground hover:underline whitespace-nowrap">
-                                                {clubProfile?.name || "Club"}
+                                                {displayedName}
                                             </Link>
                                             {isVerified && (
                                                 <CheckBadgeIcon className="h-3.5 w-3.5 text-brand shrink-0" />

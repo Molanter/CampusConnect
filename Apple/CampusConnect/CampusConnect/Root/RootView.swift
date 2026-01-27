@@ -13,6 +13,9 @@ import FirebaseAuth
 struct RootView: View {
     @StateObject private var authVM = AuthViewModel()
     @StateObject private var profileStore = ProfileStore()
+    @StateObject private var appState = AppState()
+
+    @State private var pendingURL: URL? = nil
 
     var body: some View {
         Group {
@@ -29,8 +32,13 @@ struct RootView: View {
         }
         .environmentObject(authVM)
         .environmentObject(profileStore)
-        .onAppear { authVM.startListening() }
-        .onChange(of: authVM.user?.uid) { _ in
+        .environmentObject(appState)
+        .onAppear {
+            authVM.startListening()
+        }
+        .onChange(of: authVM.isAuthReady) { _, _ in
+        }
+        .onChange(of: authVM.user?.uid) { _, _ in
             profileStore.bindToAuth(authVM: authVM)
         }
         .task {

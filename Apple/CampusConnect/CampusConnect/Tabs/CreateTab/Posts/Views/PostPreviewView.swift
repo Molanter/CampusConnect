@@ -8,18 +8,18 @@
 import SwiftUI
 
 struct PostPreviewView: View {
+    @EnvironmentObject private var appState: AppState
+
     let post: PostDoc
     let images: [UIImage]
-    let mode: PostEditorMode
+    let isEditing: Bool
     let onConfirm: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @State private var isSubmitting = false
 
     private var actionTitle: String {
-        switch mode {
-        case .create: return "Create Post"
-        case .edit:   return "Update Post"
-        }
+        isEditing ? "Update Post" : "Create Post"
     }
 
     var body: some View {
@@ -34,12 +34,22 @@ struct PostPreviewView: View {
 
                 Section {
                     ListCapsuleButton(action: {
+                        guard !isSubmitting else { return }
+                        isSubmitting = true
                         onConfirm()
+                        appState.appTab = .feed
                         dismiss()
                     }) {
-                        Text(actionTitle)
-                            .font(.headline)
+                        HStack(spacing: 10) {
+                            if isSubmitting {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                            Text(isSubmitting ? "Saving..." : actionTitle)
+                                .font(.headline)
+                        }
                     }
+                    .disabled(isSubmitting)
                 }
                 .listSectionSeparator(.hidden)
             }

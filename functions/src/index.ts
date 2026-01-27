@@ -19,19 +19,20 @@ export {
 // Export seen post tracking
 export { onSeenPostCreated } from './onSeenPostCreated';
 
-// --- REFACSORED NOTIFICATION TRIGGERS (v2) ---
+// --- NOTIFICATION TRIGGERS (v1) ---
 export {
     onPostLiked,
     onCommentCreated,
     onReplyCreated,
     onCommentLiked,
+    onReplyLiked,
     onFollowCreated,
     onClubInviteCreated,
     onClubJoinRequestCreated
 } from './notifications/triggers';
 
-// Fallback Push Sender (v2)
+// Fallback Push Sender (v1)
 export { sendPushNotification } from './pushSender';
 
-// Test Notification (v2)
+// Test Notification (v1)
 export { sendTestNotification } from './testNotification';

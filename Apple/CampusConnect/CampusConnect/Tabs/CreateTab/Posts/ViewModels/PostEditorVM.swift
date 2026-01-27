@@ -1,5 +1,5 @@
 //
-//  PostService.swift
+//  PostEditorVM.swift
 //  CampusConnect
 //
 //  Created by Edgars Yarmolatiy on 1/13/26.
@@ -16,7 +16,11 @@ import FirebaseStorage
 struct PostAsIdentity: Identifiable, Equatable {
     let id: String
     let ownerType: PostOwnerType
-    let ownerId: String
+
+    // new model fields
+    let campusId: String
+    let clubId: String?   // nil unless ownerType == .club
+
     let label: String
     let photoURL: String?
     let isDorm: Bool
@@ -29,6 +33,7 @@ final class PostEditorVM: ObservableObject {
     enum EditorError: LocalizedError {
         case notSignedIn
         case missingCampusId
+        case missingClubId
         case wordLimitExceeded
         case noPermission
 
@@ -36,6 +41,7 @@ final class PostEditorVM: ObservableObject {
             switch self {
             case .notSignedIn: return "Not signed in."
             case .missingCampusId: return "Missing campusId."
+            case .missingClubId: return "Missing clubId."
             case .wordLimitExceeded: return "Description is over 300 words."
             case .noPermission: return "You don’t have permission to edit this post."
             }
@@ -60,6 +66,7 @@ final class PostEditorVM: ObservableObject {
         isLoadingIdentities = true
         defer { isLoadingIdentities = false }
 
+        let campusIdTrimmed = (campusId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         var out: [PostAsIdentity] = []
 
         // 1) Fetch user (for personal identity)
@@ -83,7 +90,8 @@ final class PostEditorVM: ObservableObject {
             PostAsIdentity(
                 id: "personal:\(uid)",
                 ownerType: .personal,
-                ownerId: uid,
+                campusId: campusIdTrimmed,
+                clubId: nil,
                 label: displayName,
                 photoURL: userPhoto,
                 isDorm: false,
@@ -92,9 +100,8 @@ final class PostEditorVM: ObservableObject {
         )
 
         // 2) Campus identity (if campusId exists)
-        let campusId = (campusId ?? "").trimmed
-        if !campusId.isEmpty,
-           let campusSnap = try? await db.collection("campuses").document(campusId).getDocument(),
+        if !campusIdTrimmed.isEmpty,
+           let campusSnap = try? await db.collection("campuses").document(campusIdTrimmed).getDocument(),
            let campus = campusSnap.data()
         {
             let campusName = (campus["name"] as? String) ?? "Campus"
@@ -109,9 +116,10 @@ final class PostEditorVM: ObservableObject {
 
             out.append(
                 PostAsIdentity(
-                    id: "campus:\(campusId)",
+                    id: "campus:\(campusIdTrimmed)",
                     ownerType: .campus,
-                    ownerId: campusId,
+                    campusId: campusIdTrimmed,
+                    clubId: nil,
                     label: campusName,
                     photoURL: campusLogo,
                     isDorm: false,
@@ -121,7 +129,7 @@ final class PostEditorVM: ObservableObject {
         }
 
         // 3) Clubs user can post as (owner/admin OR allowMemberPosts)
-        let emailLower = (userData["email"] as? String ?? "").trimmed.lowercased()
+        let emailLower = (userData["email"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         let clubSnaps = try? await db.collection("clubs")
             .whereField("memberIds", arrayContains: uid)
@@ -131,7 +139,7 @@ final class PostEditorVM: ObservableObject {
             let clubId = doc.documentID
             let club = doc.data()
 
-            // 🔑 Resolve membership flexibly
+            // Resolve membership flexibly
             guard let member = await fetchMemberDataByDocId(
                 clubId: clubId,
                 uid: uid,
@@ -146,7 +154,7 @@ final class PostEditorVM: ObservableObject {
             let role = ((member["role"] as? String) ?? "member").lowercased()
             let allowMemberPosts = (club["allowMemberPosts"] as? Bool) == true
 
-            // ✅ FINAL RULE
+            // Final rule
             let canPost =
                 role == "owner"
                 || role == "admin"
@@ -158,11 +166,10 @@ final class PostEditorVM: ObservableObject {
                 PostAsIdentity(
                     id: "club:\(clubId)",
                     ownerType: .club,
-                    ownerId: clubId,
+                    campusId: campusIdTrimmed,
+                    clubId: clubId,
                     label: (club["name"] as? String) ?? "Club",
-                    photoURL:
-                        (club["logoUrl"] as? String)
-                        ?? (club["avatarUrl"] as? String),
+                    photoURL: (club["logoUrl"] as? String) ?? (club["avatarUrl"] as? String),
                     isDorm: false,
                     isVerified:
                         (club["verificationStatus"] as? String) == "approved"
@@ -181,16 +188,24 @@ final class PostEditorVM: ObservableObject {
 
         identities = out
     }
-    // MARK: - create/update unchanged
+
+    // MARK: - Create / Update
 
     func createPost(
         description: String,
         ownerType: PostOwnerType,
-        ownerId: String,
+        clubId: String?,
         campusId: String,
         type: PostType,
         newImages: [UIImage],
-        event: PostEventLogistics?
+        event: PostEventLogistics?,
+
+        // ✅ NEW snapshot fields
+        ownerName: String?,
+        ownerPhotoURL: String?,
+        authorUsername: String?,
+        authorDisplayName: String?,
+        authorPhotoURL: String?
     ) async throws -> String {
         guard !isSaving else { throw EditorError.noPermission }
         isSaving = true
@@ -199,19 +214,39 @@ final class PostEditorVM: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else { throw EditorError.notSignedIn }
         try validate(description: description, campusId: campusId)
 
+        let clubIdTrimmed = (clubId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if ownerType == .club, clubIdTrimmed.isEmpty {
+            throw EditorError.missingClubId
+        }
+
         let uploaded = try await uploadImages(newImages, pathPrefix: "post-images/\(uid)")
 
         var payload: [String: Any] = [
-            "description": description.trimmed,
+            "description": description.trimmingCharacters(in: .whitespacesAndNewlines),
             "authorId": uid,
             "ownerType": ownerType.rawValue,
-            "ownerId": ownerId,
             "type": type.rawValue,
             "imageUrls": uploaded,
-            "campusId": campusId.trimmed,
+            "campusId": campusId.trimmingCharacters(in: .whitespacesAndNewlines),
             "createdAt": FieldValue.serverTimestamp(),
             "visibility": "visible"
         ]
+
+        // ✅ write snapshots only if non-empty (avoid NSNull)
+        func put(_ key: String, _ value: String?) {
+            let v = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !v.isEmpty { payload[key] = v }
+        }
+
+        put("ownerName", ownerName)
+        put("ownerPhotoURL", ownerPhotoURL)
+        put("authorUsername", authorUsername)
+        put("authorDisplayName", authorDisplayName)
+        put("authorPhotoURL", authorPhotoURL)
+
+        if ownerType == .club {
+            payload["clubId"] = clubIdTrimmed
+        }
 
         if type == .event, let event {
             payload["event"] = eventMap(event)
@@ -221,17 +256,25 @@ final class PostEditorVM: ObservableObject {
         let ref = try await db.collection("posts").addDocument(data: payload)
         return ref.documentID
     }
+    
 
     func updatePost(
         postId: String,
         description: String,
         type: PostType,
         ownerType: PostOwnerType,
-        ownerId: String,
+        clubId: String?,
         campusId: String,
         retainedExistingUrls: [String],
         newImages: [UIImage],
-        event: PostEventLogistics?
+        event: PostEventLogistics?,
+
+        // ✅ NEW snapshot fields
+        ownerName: String?,
+        ownerPhotoURL: String?,
+        authorUsername: String?,
+        authorDisplayName: String?,
+        authorPhotoURL: String?
     ) async throws {
         guard !isSaving else { throw EditorError.noPermission }
         isSaving = true
@@ -243,19 +286,42 @@ final class PostEditorVM: ObservableObject {
         let allowed = try await canEditPost(postId: postId, currentUid: uid)
         guard allowed else { throw EditorError.noPermission }
 
+        let clubIdTrimmed = (clubId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if ownerType == .club, clubIdTrimmed.isEmpty {
+            throw EditorError.missingClubId
+        }
+
         let uploaded = try await uploadImages(newImages, pathPrefix: "post-images/\(uid)")
         let finalUrls = retainedExistingUrls + uploaded
 
         var update: [String: Any] = [
-            "description": description.trimmed,
+            "description": description.trimmingCharacters(in: .whitespacesAndNewlines),
             "type": type.rawValue,
             "ownerType": ownerType.rawValue,
-            "ownerId": ownerId,
-            "campusId": campusId.trimmed,
+            "campusId": campusId.trimmingCharacters(in: .whitespacesAndNewlines),
             "imageUrls": finalUrls,
             "editCount": FieldValue.increment(Int64(1)),
             "editedAt": FieldValue.serverTimestamp()
         ]
+
+        // ✅ snapshot update helper: set if non-empty else delete
+        func setOrDelete(_ key: String, _ value: String?) {
+            let v = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            update[key] = v.isEmpty ? FieldValue.delete() : v
+        }
+
+        setOrDelete("ownerName", ownerName)
+        setOrDelete("ownerPhotoURL", ownerPhotoURL)
+        setOrDelete("authorUsername", authorUsername)
+        setOrDelete("authorDisplayName", authorDisplayName)
+        setOrDelete("authorPhotoURL", authorPhotoURL)
+
+        // clubId is only valid for club posts; delete otherwise
+        if ownerType == .club {
+            update["clubId"] = clubIdTrimmed
+        } else {
+            update["clubId"] = FieldValue.delete()
+        }
 
         if type == .event, let event {
             update["event"] = eventMap(event)
@@ -293,7 +359,7 @@ final class PostEditorVM: ObservableObject {
     }
 
     private func validate(description: String, campusId: String) throws {
-        if campusId.trimmed.isEmpty { throw EditorError.missingCampusId }
+        if campusId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { throw EditorError.missingCampusId }
         if wordCount(description) > 300 { throw EditorError.wordLimitExceeded }
     }
 
@@ -328,6 +394,7 @@ final class PostEditorVM: ObservableObject {
         ]
         if let lat = event.lat { map["lat"] = lat }
         if let lng = event.lng { map["lng"] = lng }
+        if !event.locationUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { map["locationUrl"] = event.locationUrl.trimmingCharacters(in: .whitespacesAndNewlines) }
         return map
     }
 
@@ -353,12 +420,8 @@ final class PostEditorVM: ObservableObject {
     }
 }
 
-private extension String {
-    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
-}
-
 private extension Array {
-    func chunked(into size: Int) -> [[Element]] {
+    func chunkedForProfile(into size: Int) -> [[Element]] {
         guard size > 0 else { return [self] }
         var result: [[Element]] = []
         var i = 0

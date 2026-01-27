@@ -249,7 +249,7 @@ extension ProfileStore {
         let uid = p.id
         let emailLower = (p.email ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
-        // 1) Primary: clubs where memberIds contains uid
+        // 1) Fetch clubs user is a member of (prefer memberIds)
         var clubCache: [String: [String: Any]] = [:]
 
         do {
@@ -267,7 +267,7 @@ extension ProfileStore {
             return
         }
 
-        // 1b) Fallback: collectionGroup("members") if memberIds is incomplete
+        // 1b) Fallback if memberIds is incomplete
         if clubCache.isEmpty {
             do {
                 let mSnap = try await db.collectionGroup("members")
@@ -296,28 +296,33 @@ extension ProfileStore {
             }
         }
 
-        // 2) Determine admin clubs via membership doc (approved + role owner/admin)
+        // 2) Determine admin clubs via membership doc:
+        //    - status approved/active/empty
+        //    - role owner/admin
+        // NOTE: announcementClubIds must ONLY include admin/owner clubs (NOT allowMemberPosts)
         var adminIds = Set<String>()
         var announcementIds = Set<String>()
 
         for (clubId, _) in clubCache {
-            guard let memberData = await fetchMemberDataRelaxed(clubId: clubId, uid: uid, emailLower: emailLower) else {
-                continue
-            }
+            guard let memberData = await fetchMemberDataRelaxed(
+                clubId: clubId,
+                uid: uid,
+                emailLower: emailLower
+            ) else { continue }
 
             let status = ((memberData["status"] as? String) ?? "").lowercased()
-            if !status.isEmpty && status != "approved" { continue }
+            let isApprovedOrActive = status.isEmpty || status == "approved" || status == "active"
+            guard isApprovedOrActive else { continue }
 
             let role = ((memberData["role"] as? String) ?? "").lowercased()
             let isAdminOrOwner = (role == "owner" || role == "admin")
+            guard isAdminOrOwner else { continue }
 
-            if isAdminOrOwner {
-                adminIds.insert(clubId)
-                announcementIds.insert(clubId)
-            }
+            adminIds.insert(clubId)
+            announcementIds.insert(clubId)
         }
 
-        // Sort admin clubs by name (better UX) if data is present
+        // 3) Sort admin clubs by name (UX)
         let sortedAdminIds: [String] = adminIds.sorted { a, b in
             let an = ((clubCache[a]?["name"] as? String) ?? (clubCache[a]?["title"] as? String) ?? a).lowercased()
             let bn = ((clubCache[b]?["name"] as? String) ?? (clubCache[b]?["title"] as? String) ?? b).lowercased()
@@ -325,9 +330,9 @@ extension ProfileStore {
         }
 
         adminClubIds = sortedAdminIds
-        announcementClubIds = announcementIds
+        announcementClubIds = announcementIds // <- keep it [String] if your property is [String]
     }
-
+    
     private func fetchMemberDataRelaxed(clubId: String, uid: String, emailLower: String) async -> [String: Any]? {
         // A) members/{uid}
         do {

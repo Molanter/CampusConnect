@@ -52,7 +52,7 @@ struct FeedView: View {
         .task { await vm.refresh() }
         .overlay {
             if !vm.isLoadingInitial && vm.posts.isEmpty && vm.errorMessage == nil {
-                UnavailableView("No posts yet", systemImage: "tray")
+                ContentUnavailableView("No posts yet", systemImage: "tray")
                     .padding(.top, 60)
             }
         }
@@ -69,3 +69,4 @@ struct FeedView: View {
         }
     }
 }
+

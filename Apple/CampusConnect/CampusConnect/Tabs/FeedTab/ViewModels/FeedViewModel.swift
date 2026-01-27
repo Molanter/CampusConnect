@@ -57,7 +57,7 @@ final class FeedViewModel: ObservableObject {
             // 1) Today's events (pinned)
             let todays = try await fetchTodaysEvents(today: today, campusId: campusId)
 
-            // 2) Main timeline (first page) — keep current query: orderBy(createdAt desc) + limit + cursor
+            // 2) Main timeline (first page)
             let (batch, newLast) = try await fetchChronologicalBatch(
                 campusId: campusId,
                 startAfter: nil
@@ -128,7 +128,6 @@ final class FeedViewModel: ObservableObject {
     private func postsCol() -> CollectionReference { db.collection("posts") }
 
     private func fetchTodaysEvents(today: String, campusId: String) async throws -> [PostDoc] {
-        // NOTE: still filtering by campusId; this is your feed scope field
         var q: Query = postsCol()
             .whereField("campusId", isEqualTo: campusId)
             .whereField("type", isEqualTo: PostType.event.rawValue)
@@ -140,8 +139,8 @@ final class FeedViewModel: ObservableObject {
         return mapped.sorted(by: Self.sortNewestFirst)
     }
 
-    /// KEEP CURRENT QUERY: orderBy createdAt desc + limit + cursor
-    /// Campus scoping stays on campusId (feed scope), ownerId is only ownership.
+    /// orderBy createdAt desc + limit + cursor
+    /// Feed scope field remains campusId.
     private func fetchChronologicalBatch(
         campusId: String,
         startAfter: DocumentSnapshot?
@@ -186,10 +185,24 @@ final class FeedViewModel: ObservableObject {
         return f.string(from: Date())
     }
 
-    // MARK: - Firestore -> PostDoc (updated to new PostDoc + ownerType/ownerId)
+    // MARK: - Firestore -> PostDoc (updated to new PostDoc model: campusId + clubId)
+
+    // MARK: - Firestore -> PostDoc (updated to include denormalized fields)
 
     private func mapDocToPost(_ doc: QueryDocumentSnapshot) -> PostDoc? {
         let d = doc.data()
+
+        func nonEmptyString(_ v: Any?) -> String? {
+            let s = (v as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (s?.isEmpty == false) ? s : nil
+        }
+
+        func pickString(_ keys: [String]) -> String? {
+            for k in keys {
+                if let s = nonEmptyString(d[k]) { return s }
+            }
+            return nil
+        }
 
         let description =
             (d["description"] as? String)
@@ -213,28 +226,27 @@ final class FeedViewModel: ObservableObject {
             return .post
         }()
 
-        // feed scoping stays on campusId
+        // required in current PostDoc model
         let campusId = (d["campusId"] as? String) ?? ""
+        if campusId.isEmpty { return nil }
 
-        // ownerType + ownerId
+        // ownerType
         let ownerType: PostOwnerType = {
             if let raw = d["ownerType"] as? String, let t = PostOwnerType(rawValue: raw) { return t }
-
-            // legacy inference:
             if let raw = d["ownerKind"] as? String, let t = PostOwnerType(rawValue: raw) { return t }
-            if d["clubId"] != nil { return .club }
-            if d["campusId"] != nil, d["clubId"] == nil, (d["isCampusPost"] as? Bool) == true { return .campus }
+            if let s = d["clubId"] as? String, !s.isEmpty { return .club }
+            if (d["isCampusPost"] as? Bool) == true { return .campus }
             return .personal
         }()
 
-        let ownerId: String = {
-            if let s = d["ownerId"] as? String, !s.isEmpty { return s }
-
-            // legacy fallbacks:
-            if ownerType == .club, let s = d["clubId"] as? String, !s.isEmpty { return s }
-            if ownerType == .campus, !campusId.isEmpty { return campusId } // campus owner defaults to campusId
-            return authorId // personal owner defaults to author
+        // clubId (only meaningful for club posts)
+        let clubId: String? = {
+            guard ownerType == .club else { return nil }
+            if let s = d["clubId"] as? String, !s.isEmpty { return s }
+            return nil
         }()
+
+        if ownerType == .club, clubId == nil { return nil }
 
         let imageUrls: [String] = {
             if let arr = d["imageUrls"] as? [String] { return arr }
@@ -268,17 +280,25 @@ final class FeedViewModel: ObservableObject {
         let repliesCommentsCount = intOpt("repliesCommentsCount")
         let seenCount = intOpt("seenCount")
 
-        let likes = d["likes"] as? [String]
-        let seenBy = d["seenBy"] as? [String]
+        // ✅ likes array is optional (field may not exist)
+        let likedBy = d["likedBy"] as? [String]
+
+        // ✅ denormalized snapshots (new)
+        let ownerName = pickString(["ownerName", "ownerDisplayName", "ownerLabel", "ownerTitle", "owner"])
+        let ownerPhotoURL = pickString(["ownerPhotoURL", "ownerPhotoUrl", "ownerAvatarUrl", "ownerLogoUrl", "ownerImageUrl"])
+
+        let authorUsername = pickString(["authorUsername", "username", "authorHandle"])
+        let authorDisplayName = pickString(["authorDisplayName", "authorName", "displayName", "name"])
+        let authorPhotoURL = pickString(["authorPhotoURL", "authorPhotoUrl", "authorAvatarUrl", "photoURL", "avatarUrl"])
 
         let event: PostEventLogistics? = {
             guard type == .event else { return nil }
 
-            // either nested map `event` or top-level `startsAt` etc.
             if let eventDict = d["event"] as? [String: Any] {
                 var e = PostEventLogistics()
                 if let ts = eventDict["startsAt"] as? Timestamp { e.startsAt = ts.dateValue() }
-                e.locationLabel = eventDict["locationLabel"] as? String ?? ""
+                e.locationLabel = (eventDict["locationLabel"] as? String) ?? ""
+                e.locationUrl = (eventDict["locationUrl"] as? String) ?? ""
                 e.lat = eventDict["lat"] as? Double
                 e.lng = eventDict["lng"] as? Double
                 return e
@@ -287,6 +307,7 @@ final class FeedViewModel: ObservableObject {
             var e = PostEventLogistics()
             if let ts = d["startsAt"] as? Timestamp { e.startsAt = ts.dateValue() }
             e.locationLabel = d["locationLabel"] as? String ?? ""
+            e.locationUrl = d["locationUrl"] as? String ?? ""
             e.lat = d["lat"] as? Double
             e.lng = d["lng"] as? Double
             return e
@@ -294,21 +315,33 @@ final class FeedViewModel: ObservableObject {
 
         return PostDoc(
             id: doc.documentID,
+
             ownerType: ownerType,
-            ownerId: ownerId,
+            campusId: campusId,
+            clubId: clubId,
+
             description: description,
             authorId: authorId,
             type: type,
             imageUrls: imageUrls,
+
+            ownerName: ownerName,
+            ownerPhotoURL: ownerPhotoURL,
+
+            authorUsername: authorUsername,
+            authorDisplayName: authorDisplayName,
+            authorPhotoURL: authorPhotoURL,
+
             createdAt: createdAt,
             editedAt: editedAt,
             editCount: editCount,
+
             commentsCount: commentsCount,
             repliesCommentsCount: repliesCommentsCount,
             seenCount: seenCount,
-            likes: likes,
-            seenBy: seenBy,
+
+            likedBy: likedBy,
+
             event: event
         )
-    }
-}
+    }}

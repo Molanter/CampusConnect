@@ -7,6 +7,7 @@ import { RightSidebarProvider, useRightSidebar } from "@/components/right-sideba
 import { RightSidebar } from "@/components/right-sidebar";
 import { UserProfilesProvider } from "@/components/user-profiles-context";
 import { ClubProfilesProvider } from "@/components/club-profiles-context";
+import { CampusProfilesProvider } from "@/components/campus-profiles-context";
 import { AdminModeProvider } from "@/components/admin-mode-context";
 import { AppConfigProvider } from "@/components/app-config-context";
 import { CurrentUserProvider } from "@/components/current-user-context";
@@ -163,10 +164,12 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
                 <AppConfigProvider>
                     <UserProfilesProvider>
                         <ClubProfilesProvider>
-                            <RightSidebarProvider>
-                                <FCMInitializer />
-                                <InnerLayout>{children}</InnerLayout>
-                            </RightSidebarProvider>
+                            <CampusProfilesProvider>
+                                <RightSidebarProvider>
+                                    <FCMInitializer />
+                                    <InnerLayout>{children}</InnerLayout>
+                                </RightSidebarProvider>
+                            </CampusProfilesProvider>
                         </ClubProfilesProvider>
                     </UserProfilesProvider>
                 </AppConfigProvider>
