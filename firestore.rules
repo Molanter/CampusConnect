@@ -62,7 +62,7 @@ service cloud.firestore {
     }
 
     match /config/app_info {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if isGlobalAdmin();
     }
 

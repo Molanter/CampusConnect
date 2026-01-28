@@ -151,6 +151,14 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
     );
 }
 
+export function LayoutShell({ children }: { children: React.ReactNode }) {
+    return (
+        <CurrentUserProvider>
+            <InnerLayout>{children}</InnerLayout>
+        </CurrentUserProvider>
+    );
+}
+
 function InnerLayout({ children }: { children: React.ReactNode }) {
     const { firebaseUser, loading } = useCurrentUser();
 
@@ -171,29 +179,21 @@ function InnerLayout({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <MainLayoutMetricsProvider>
-            <InnerLayoutContent>{children}</InnerLayoutContent>
-        </MainLayoutMetricsProvider>
-    );
-}
-
-export function LayoutShell({ children }: { children: React.ReactNode }) {
-    return (
         <AdminModeProvider>
-            <CurrentUserProvider>
-                <AppConfigProvider>
-                    <UserProfilesProvider>
-                        <ClubProfilesProvider>
-                            <CampusProfilesProvider>
-                                <RightSidebarProvider>
+            <AppConfigProvider>
+                <UserProfilesProvider>
+                    <ClubProfilesProvider>
+                        <CampusProfilesProvider>
+                            <RightSidebarProvider>
+                                <MainLayoutMetricsProvider>
                                     <FCMInitializer />
-                                    <InnerLayout>{children}</InnerLayout>
-                                </RightSidebarProvider>
-                            </CampusProfilesProvider>
-                        </ClubProfilesProvider>
-                    </UserProfilesProvider>
-                </AppConfigProvider>
-            </CurrentUserProvider>
+                                    <InnerLayoutContent>{children}</InnerLayoutContent>
+                                </MainLayoutMetricsProvider>
+                            </RightSidebarProvider>
+                        </CampusProfilesProvider>
+                    </ClubProfilesProvider>
+                </UserProfilesProvider>
+            </AppConfigProvider>
         </AdminModeProvider>
     );
 }
