@@ -13,6 +13,8 @@ import { AppConfigProvider } from "@/components/app-config-context";
 import { CurrentUserProvider } from "@/components/current-user-context";
 import { MainLayoutMetricsProvider, useMainLayoutMetrics } from "@/components/main-layout-metrics-context";
 import { FCMInitializer } from "@/components/fcm-initializer";
+import { useCurrentUser } from "@/components/current-user-context";
+import { LoginView } from "@/components/login-view";
 
 function InnerLayoutContent({ children }: { children: React.ReactNode }) {
     const [viewportWidth, setViewportWidth] = useState<number | null>(null);
@@ -150,6 +152,24 @@ function InnerLayoutContent({ children }: { children: React.ReactNode }) {
 }
 
 function InnerLayout({ children }: { children: React.ReactNode }) {
+    const { firebaseUser, loading } = useCurrentUser();
+
+    if (loading) {
+        return (
+            <div className="fixed inset-0 flex items-center justify-center bg-black z-[101]">
+                {/* Minimal pulse loader */}
+                <div className="relative w-16 h-16">
+                    <div className="absolute inset-0 rounded-2xl bg-white/10 animate-pulse" />
+                    <div className="absolute inset-2 rounded-xl bg-white/20 animate-pulse [animation-delay:200ms]" />
+                </div>
+            </div>
+        );
+    }
+
+    if (!firebaseUser) {
+        return <LoginView />;
+    }
+
     return (
         <MainLayoutMetricsProvider>
             <InnerLayoutContent>{children}</InnerLayoutContent>
