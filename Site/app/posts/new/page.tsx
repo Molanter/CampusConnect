@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import {
@@ -61,7 +61,7 @@ const hexToRgba = (hex: string, alpha: number) => {
 
 
 
-export default function CreateEventPage() {
+function CreateEventPageContent() {
   const MEDIA_LIMIT = 10;
   const WORD_LIMIT = 300;
   const router = useRouter();
@@ -1305,5 +1305,13 @@ export default function CreateEventPage() {
         </div >
       </div >
     </>
+  );
+}
+
+export default function CreateEventPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+      <CreateEventPageContent />
+    </Suspense>
   );
 }
