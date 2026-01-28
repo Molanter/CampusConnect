@@ -134,6 +134,8 @@ export default function EventsPage() {
             maybeUids: data.maybeUids || [],
             notGoingUids: data.notGoingUids || [],
             editCount: data.editCount ?? 0,
+            ownerType: data.ownerType,
+            campusId: data.campusId,
           };
         });
 

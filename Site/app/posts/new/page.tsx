@@ -618,13 +618,17 @@ export default function CreateEventPage() {
         }
       }
 
-      // 2. Create post document in \"events\" collection (keeping collection name for data continuity)
       // 2. Create post document in "posts" collection
       const baseData: any = {
         description: description.trim(),
         authorId: user.uid,
+        authorDisplayName: profile?.preferredName || user.displayName || "User",
+        authorPhotoURL: profile?.photoURL || user.photoURL || null,
+        authorUsername: profile?.username || null,
+        ownerName: profile?.preferredName || user.displayName || "User",
+        ownerPhotoURL: profile?.photoURL || user.photoURL || null,
         createdAt: serverTimestamp(),
-        likes: [],
+        likedBy: [],
         seenCount: 0,
         type,
         isEvent: isEvent,
@@ -1247,6 +1251,7 @@ export default function CreateEventPage() {
                     post={{
                       id: "preview",
                       title: description || "New Post",
+                      description: description || "New Post",
                       content: description, // Old field
                       imageUrls: previewUrls,
                       date: eventDate,
@@ -1268,13 +1273,14 @@ export default function CreateEventPage() {
                       coordinates: isEvent && showMapPreview && coordinates ? coordinates : undefined,
                       type: type,
                       isEvent: isEvent,
-                      likes: [],
+                      likedBy: [],
                       goingUids: [],
                       maybeUids: [],
                       notGoingUids: [],
                       commentsCount: 0,
                       repliesCommentsCount: 0,
-                      clubId: (selectedClubId && selectedClubId !== "campus") ? selectedClubId : undefined,
+                      campusId: profile?.campusId || "",
+                      clubId: (selectedClubId && selectedClubId !== "campus") ? selectedClubId : "",
                       createdAt: new Date() as any, // Mock timestamp
                       isVerified: selectedClubId && selectedClubId !== "campus"
                         ? userClubs.find(c => c.id === selectedClubId)?.isVerified

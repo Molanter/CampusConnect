@@ -9,16 +9,24 @@ import SwiftUI
 
 
 /// CampusConnect Tabs (main capsule tabs)
-enum AppTab: String, CaseIterable {
-    case feed = "Feed"
-    case create = "Create"
-    case profile = "Profile"
+enum AppTab: String, CaseIterable, AnimatedTabSelectionProtocol{
+    case feed, create, profile, search
 
-    var symbol: String {
+    var symbolImage: String {
         switch self {
         case .feed: return "link"
         case .create: return "plus"
         case .profile: return "person.circle"
+        case .search: return "magnifyingglass"
+        }
+    }
+    
+    var title: String {
+        switch self {
+        case .feed: return "Feed"
+        case .create: return "Create"
+        case .profile: return "Profile"
+        case .search: return "Search"
         }
     }
 
@@ -141,17 +149,17 @@ struct CustomTabBarApp: View {
         let tabCount = tabs.count - 1
 
         VStack(spacing: 0) {
-            Image(systemName: tab.symbol)
+            Image(systemName: tab.symbolImage)
                 .font(.title2)
                 .symbolVariant(.fill)
 
             if !isSearchExpanded {
-                Text(tab.rawValue)
+                Text(tab.title)
                     .font(.caption2)
                     .lineLimit(1)
             }
         }
-        .foregroundStyle(activeTab == tab && !isSearchExpanded ? accentColor : Color.primary)
+        .foregroundStyle(activeTab == tab && !isSearchExpanded ? K.Colors.primary : Color.primary)
         .frame(width: width, height: height)
         .contentShape(.capsule)
         .simultaneousGesture(

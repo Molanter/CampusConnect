@@ -15,6 +15,7 @@
 		9E1A3CEE2F136CF100E33A3D /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 9E1A3CED2F136CF100E33A3D /* FirebaseStorage */; };
 		9E1A3D222F14A17500E33A3D /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 9E1A3D212F14A17500E33A3D /* GoogleSignIn */; };
 		9E1A3D242F14A17500E33A3D /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 9E1A3D232F14A17500E33A3D /* GoogleSignInSwift */; };
+		9EF4B5542F1C775B00E781BE /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 9EF4B5532F1C775B00E781BE /* MarkdownUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +51,7 @@
 				9E1A3CE42F136CF100E33A3D /* FirebaseAnalytics in Frameworks */,
 				9E1A3CE62F136CF100E33A3D /* FirebaseAuth in Frameworks */,
 				9E1A3CEC2F136CF100E33A3D /* FirebaseMessaging in Frameworks */,
+				9EF4B5542F1C775B00E781BE /* MarkdownUI in Frameworks */,
 				9E1A3D242F14A17500E33A3D /* GoogleSignInSwift in Frameworks */,
 				9E1A3CE82F136CF100E33A3D /* FirebaseFirestore in Frameworks */,
 				9E1A3CEA2F136CF100E33A3D /* FirebaseFunctions in Frameworks */,
@@ -105,6 +107,7 @@
 				9E1A3CED2F136CF100E33A3D /* FirebaseStorage */,
 				9E1A3D212F14A17500E33A3D /* GoogleSignIn */,
 				9E1A3D232F14A17500E33A3D /* GoogleSignInSwift */,
+				9EF4B5532F1C775B00E781BE /* MarkdownUI */,
 			);
 			productName = CampusConnect;
 			productReference = 9E1A3CD22F13644200E33A3D /* CampusConnect.app */;
@@ -137,6 +140,7 @@
 			packageReferences = (
 				9E1A3CE22F136CF100E33A3D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				9E1A3D202F14A17400E33A3D /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				9EF4B5522F1C775A00E781BE /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9E1A3CD32F13644200E33A3D /* Products */;
@@ -313,7 +317,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.1;
@@ -363,7 +367,7 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.1;
@@ -425,6 +429,14 @@
 				minimumVersion = 9.1.0;
 			};
 		};
+		9EF4B5522F1C775A00E781BE /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -467,6 +479,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9E1A3D202F14A17400E33A3D /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
+		};
+		9EF4B5532F1C775B00E781BE /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9EF4B5522F1C775A00E781BE /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

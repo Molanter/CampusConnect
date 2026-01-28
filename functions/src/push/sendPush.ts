@@ -1,5 +1,4 @@
 import * as admin from 'firebase-admin';
-import { logger } from 'firebase-functions/v2';
 import { PushSettings } from '../notifications/types';
 
 const db = admin.firestore();
@@ -16,7 +15,7 @@ async function getAppIcon(): Promise<string> {
             return icon;
         }
     } catch (e) {
-        logger.error('[sendPush] Error fetching app icon:', e);
+        console.error('[sendPush] Error fetching app icon:', e);
     }
     // Hardcoded fallback if Firestore fails
     return 'https://firebasestorage.googleapis.com/v0/b/campus-vibes-e34f0.firebasestorage.app/o/config%2Fapp%2Fmac1024.png?alt=media&token=fcdcb54c-3962-4ae9-a596-f567dcdc3a47';
@@ -48,7 +47,7 @@ export async function disableInvalidToken(uid: string, token: string) {
         batch.delete(doc.ref);
     });
     await batch.commit();
-    logger.info(`[sendPush] Disabled ${devicesSnap.docs.length} invalid tokens for user ${uid}`);
+    console.info(`[sendPush] Disabled ${devicesSnap.docs.length} invalid tokens for user ${uid}`);
 }
 
 interface SendPushResult {
@@ -85,7 +84,7 @@ export async function sendPushUpdateStatus(notificationId: string, notificationD
         // Cap tokens to prevent abuse
         const finalTokens = tokens.slice(0, 500); // For now, keep it simple with one batch of 500 max per user
         if (tokens.length > 500) {
-            logger.warn(`[sendPush] User ${toUid} has ${tokens.length} tokens. Capping to 500.`);
+            console.warn(`[sendPush] User ${toUid} has ${tokens.length} tokens. Capping to 500.`);
         }
 
         // 3. Build Payload
@@ -152,7 +151,7 @@ export async function sendPushUpdateStatus(notificationId: string, notificationD
         return finishUpdate(notificationId, result);
 
     } catch (error: any) {
-        logger.error(`[sendPush] Fatal error for ${notificationId}:`, error);
+        console.error(`[sendPush] Fatal error for ${notificationId}:`, error);
         return finishUpdate(notificationId, {
             status: 'failed',
             sentCount: 0,
@@ -172,6 +171,6 @@ async function finishUpdate(notificationId: string, result: SendPushResult): Pro
         'push.tokenCount': result.sentCount + result.failCount
     });
 
-    logger.info(`[sendPush] Finished ${notificationId} toUid=${notificationId} type=${result.status} duration=${result.durationMs}ms`);
+    console.info(`[sendPush] Finished ${notificationId} toUid=${notificationId} type=${result.status} duration=${result.durationMs}ms`);
     return result;
 }

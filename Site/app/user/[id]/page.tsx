@@ -146,6 +146,7 @@ export default function UserProfilePage() {
             maybeUids: data.maybeUids || [],
             notGoingUids: data.notGoingUids || [],
             editCount: data.editCount ?? 0,
+            campusId: data.campusId,
             clubId: data.clubId,
             clubName: data.clubName,
             clubAvatarUrl: data.clubAvatarUrl,

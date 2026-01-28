@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: 'export',
+  // For GitHub Pages deployment
+  // basePath: '/CampusConnect', // Uncomment if deploying to github.io/CampusConnect
+  images: {
+    unoptimized: true, // Required for static export
+  },
   reactStrictMode: false,
   devIndicators: false,
   async redirects() {

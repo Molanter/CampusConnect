@@ -29,46 +29,105 @@ export const mapDocToPost = (doc: QueryDocumentSnapshot<DocumentData>): Post => 
         });
     }
 
+    // Convert flat lat/lng to coordinates object if needed
+    let coordinates = data.coordinates;
+    if (!coordinates && data.lat !== undefined && data.lng !== undefined) {
+        coordinates = { lat: data.lat, lng: data.lng };
+    }
+
+    // Handle startsAt timestamp conversion to date/startTime
+    let date = data.date;
+    let startTime = data.startTime;
+    if (data.startsAt && !date) {
+        try {
+            const startsAtDate = data.startsAt.toDate ? data.startsAt.toDate() : new Date(data.startsAt);
+            // Format as YYYY-MM-DD
+            const year = startsAtDate.getFullYear();
+            const month = String(startsAtDate.getMonth() + 1).padStart(2, '0');
+            const day = String(startsAtDate.getDate()).padStart(2, '0');
+            date = `${year}-${month}-${day}`;
+
+            // Format as HH:MM
+            const hours = String(startsAtDate.getHours()).padStart(2, '0');
+            const minutes = String(startsAtDate.getMinutes()).padStart(2, '0');
+            startTime = `${hours}:${minutes}`;
+        } catch (e) {
+            console.warn('Error parsing startsAt:', e);
+        }
+    }
+
     return {
+        // === CORE FIELDS (match iOS PostDoc) ===
         id: doc.id,
-        title: data.title,
-        description: data.description,
-        content: data.content ?? data.description ?? "",
+
+        // Scope / Ownership
+        ownerType: data.ownerType ?? (data.clubId ? "club" : data.campusId ? "campus" : "personal"),
+        campusId: data.campusId ?? "",
+        clubId: data.clubId,
+
+        // Main Content
+        description: data.description ?? data.content ?? "",
+        authorId: data.authorId ?? data.hostUserId ?? "",
+        type: data.type ?? (data.isEvent ? "event" : "post"),
         imageUrls: (Array.isArray(data.imageUrls) ? data.imageUrls : null) ?? (data.imageUrl ? [data.imageUrl] : []),
 
-        // Handle new type field with legacy isEvent fallback
-        type: data.type ?? (data.isEvent ? "event" : "post"),
-        isEvent: data.isEvent ?? (data.type === "event"),
-
-        date: data.date ?? undefined,
-        startTime: data.startTime ?? undefined,
-        endTime: data.endTime ?? undefined,
-        locationLabel: data.locationLabel ?? undefined,
-        coordinates: data.coordinates ?? undefined,
-        authorId: data.authorId ?? data.hostUserId ?? "",
-        authorName: data.authorName ?? data.hostDisplayName ?? "Unknown",
+        // ✅ Denormalized display fields (snapshots)
+        ownerName: data.ownerName,
+        ownerPhotoURL: data.ownerPhotoURL,
         authorUsername: data.authorUsername ?? data.hostUsername,
-        authorAvatarUrl: data.authorAvatarUrl ?? data.hostPhotoURL,
-        likes: data.likes ?? [],
+        authorDisplayName: data.authorDisplayName,
+        authorPhotoURL: data.authorPhotoURL,
+
+        // Timestamps / Edits
         createdAt: data.createdAt,
+        editedAt: data.editedAt,
         editCount: data.editCount ?? 0,
 
-        // Pass other fields if strictly needed by Post type
-        goingUids: data.goingUids,
-        maybeUids: data.maybeUids,
-        notGoingUids: data.notGoingUids,
+        // Counters
+        commentsCount: data.commentsCount,
+        repliesCommentsCount: data.repliesCommentsCount,
+        seenCount: data.seenCount ?? 0,
 
-        // Club info
-        clubId: data.clubId,
+        // Arrays
+        likedBy: data.likedBy ?? data.likes ?? [],
+
+        // Event-only (nested object)
+        event: (data.type === "event" || data.isEvent) ? {
+            startsAt: data.event?.startsAt ?? data.startsAt,
+            locationLabel: data.event?.locationLabel ?? data.locationLabel ?? data.venue,
+            locationUrl: data.event?.locationUrl ?? data.locationUrl,
+            lat: data.event?.lat ?? data.lat ?? data.coordinates?.lat,
+            lng: data.event?.lng ?? data.lng ?? data.coordinates?.lng,
+            goingUids: data.event?.goingUids ?? data.goingUids,
+            maybeUids: data.event?.maybeUids ?? data.maybeUids,
+            notGoingUids: data.event?.notGoingUids ?? data.notGoingUids,
+        } : undefined,
+
+        // === LEGACY FIELDS (for backward compatibility) ===
+        authorName: data.authorName ?? data.hostDisplayName,
+        authorAvatarUrl: data.authorAvatarUrl ?? data.hostPhotoURL,
         clubName: data.clubName,
         clubAvatarUrl: data.clubAvatarUrl,
         isVerified: data.isVerified,
-
-        // New fields
-        seenCount: data.seenCount ?? 0,
-        ownerType: data.ownerType,
         campusName: data.campusName,
         campusAvatarUrl: data.campusAvatarUrl,
+        content: data.content,
+        title: data.title,
+        likes: data.likes,
+        isEvent: data.isEvent ?? (data.type === "event"),
+        venue: data.venue,
+        locationLabel: data.locationLabel,
+        locationUrl: data.locationUrl,
+        coordinates: coordinates,
+        lat: data.lat,
+        lng: data.lng,
+        startsAt: data.startsAt,
+        date: date,
+        startTime: startTime,
+        endTime: data.endTime,
+        goingUids: data.goingUids,
+        maybeUids: data.maybeUids,
+        notGoingUids: data.notGoingUids,
 
         // Moderation fields
         visibility: data.visibility,
