@@ -5,6 +5,18 @@ const nextConfig: NextConfig = {
   // No need for static export - API routes and dynamic pages work!
   reactStrictMode: false,
   devIndicators: false,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "firebasestorage.googleapis.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.googleusercontent.com",
+      },
+    ],
+  },
   async redirects() {
     return [
       {
