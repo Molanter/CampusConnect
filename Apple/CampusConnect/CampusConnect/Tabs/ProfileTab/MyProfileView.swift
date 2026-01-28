@@ -88,7 +88,9 @@ struct MyProfileView: View {
                 .background(Color(.systemGroupedBackground))
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink(value: ProfileRoute.settings(nil)) {
+                        NavigationLink {
+                            SettingsView().hideTabBar()
+                        } label: {
                             Label("Settings", systemImage: "gearshape")
                         }
 
@@ -101,26 +103,6 @@ struct MyProfileView: View {
                         }
                     }
                 }
-            }
-            .navigationDestination(for: ProfileRoute.self) { route in
-                switch route {
-                case .settings(let initial):
-                    SettingsFlowView(initialDestination: initial)
-                }
-            }
-            .onChange(of: appState.pendingLink) { _, newValue in
-                guard let newValue else { return }
-                
-                switch newValue {
-                case .settings(let dest):
-                    // Deep link trigger:
-                    // 1) We are already on Profile tab (AppState set it)
-                    // 2) Push Settings, then optionally push inside Settings
-                    path.removeAll()
-                    path.append(.settings(dest))
-                }
-                
-                appState.pendingLink = nil
             }
         }
     }

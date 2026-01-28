@@ -58,7 +58,7 @@ export default function UserTicketChatPage() {
         const unsubTicket = onSnapshot(ticketRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data() as TicketData;
-                setTicket({ id: docSnap.id, ...data });
+                setTicket({ ...data, id: docSnap.id });
 
                 // Security: If loaded but not owner, redirect (double check client side)
                 if (auth.currentUser && data.uid !== auth.currentUser.uid) {

@@ -1251,6 +1251,7 @@ export default function CreateEventPage() {
                     post={{
                       id: "preview",
                       title: description || "New Post",
+                      description: description || "New Post",
                       content: description, // Old field
                       imageUrls: previewUrls,
                       date: eventDate,
@@ -1278,7 +1279,8 @@ export default function CreateEventPage() {
                       notGoingUids: [],
                       commentsCount: 0,
                       repliesCommentsCount: 0,
-                      clubId: (selectedClubId && selectedClubId !== "campus") ? selectedClubId : undefined,
+                      campusId: profile?.campusId || "",
+                      clubId: (selectedClubId && selectedClubId !== "campus") ? selectedClubId : "",
                       createdAt: new Date() as any, // Mock timestamp
                       isVerified: selectedClubId && selectedClubId !== "campus"
                         ? userClubs.find(c => c.id === selectedClubId)?.isVerified

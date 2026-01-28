@@ -62,6 +62,7 @@ export default function PostDetailPage() {
                         mood: data.mood || [],
                         priceLevel: data.priceLevel,
                         createdAt: data.createdAt,
+                        campusId: data.campusId,
                         clubId: data.clubId,
                         clubName: data.clubName,
                         clubAvatarUrl: data.clubAvatarUrl,
