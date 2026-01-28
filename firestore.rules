@@ -1,0 +1,482 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper: check if user is a global admin
+    function isGlobalAdmin() {
+      return request.auth != null && 
+             request.auth.token.email != null &&
+             exists(/databases/$(database)/documents/config/admin) &&
+             'globalAdminEmails' in get(/databases/$(database)/documents/config/admin).data &&
+             get(/databases/$(database)/documents/config/admin).data.globalAdminEmails.hasAny([
+                request.auth.token.email, 
+                request.auth.token.email.lower()
+             ]);
+    }
+
+    // Users collection
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+
+      // Device tokens for push notifications (FCM)
+      match /devices/{deviceId} {
+        allow read, create, update, delete: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // Notification settings (preferences)
+      match /settings/notifications {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // Seen Posts subcollection (for tracking viewed posts)
+      match /seenPosts/{postId} {
+        // Users can only read their own seen posts
+        allow read: if request.auth != null && request.auth.uid == uid;
+        
+        // Users can create their own seen post records
+        // Must include seenAt timestamp and campusId
+        allow create: if request.auth != null 
+                      && request.auth.uid == uid
+                      && request.resource.data.keys().hasAll(['seenAt', 'campusId'])
+                      && request.resource.data.seenAt is timestamp
+                      && request.resource.data.campusId is string;
+        
+        // Prevent updates (once seen, always seen)
+        allow update: if false;
+        
+        // Allow delete if user wants to "unsee"
+        allow delete: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Global config, including admin emails
+    match /config/admin {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /config/community_guidelines {
+      allow read: if true;
+      allow write: if isGlobalAdmin();
+    }
+
+    match /config/app_info {
+      allow read: if request.auth != null;
+      allow write: if isGlobalAdmin();
+    }
+
+    // Universities collection
+    match /universities/{universityId} {
+      allow read: if request.auth != null;
+      allow write: if isGlobalAdmin() || (
+        request.auth != null && 
+        request.auth.token.email != null &&
+        universityId in get(/databases/$(database)/documents/config/admin).data.globalAdminEmails == false &&
+        resource != null && 
+        resource.data.adminEmails.hasAny([request.auth.token.email, request.auth.token.email.lower()])
+      );
+
+      match /dorms/{dormId} {
+        allow read: if request.auth != null;
+        allow write: if isGlobalAdmin() || (
+          request.auth != null && 
+          request.auth.token.email != null &&
+          get(/databases/$(database)/documents/universities/$(universityId)).data.adminEmails.hasAny([request.auth.token.email, request.auth.token.email.lower()])
+        );
+      }
+    }
+
+    // Campuses collection (New)
+    match /campuses/{campusId} {
+      allow read: if request.auth != null;
+      allow write: if isGlobalAdmin() || (
+        request.auth != null && 
+        request.auth.token.email != null &&
+        resource != null && 
+        resource.data.adminEmails.hasAny([request.auth.token.email, request.auth.token.email.lower()])
+      );
+
+      match /dorms/{dormId} {
+        allow read: if request.auth != null;
+        allow write: if isGlobalAdmin() || (
+          request.auth != null && 
+          request.auth.token.email != null &&
+          get(/databases/$(database)/documents/campuses/$(campusId)).data.adminEmails.hasAny([request.auth.token.email, request.auth.token.email.lower()])
+        );
+      }
+    }
+
+    // Clubs collection
+    match /clubs/{clubId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      // Allow updates for admins/owners OR for users joining a club OR campus admins for default clubs
+      allow update: if request.auth != null && (
+        isGlobalAdmin() ||
+        resource.data.createdBy == request.auth.uid || 
+        (exists(/databases/$(database)/documents/clubs/$(clubId)/members/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/clubs/$(clubId)/members/$(request.auth.uid)).data.role in ['owner', 'admin']) ||
+        // Allow campus admins to update default clubs or dorm clubs associated with their campus
+        (resource.data.campusId != null && (
+          (exists(/databases/$(database)/documents/campuses/$(resource.data.campusId)) &&
+           get(/databases/$(database)/documents/campuses/$(resource.data.campusId)).data.adminEmails.hasAny([request.auth.token.email, request.auth.token.email.lower()])) ||
+          (exists(/databases/$(database)/documents/universities/$(resource.data.campusId)) &&
+           get(/databases/$(database)/documents/universities/$(resource.data.campusId)).data.adminEmails.hasAny([request.auth.token.email, request.auth.token.email.lower()]))
+        )) ||
+        // Allow adding oneself to memberIds if the club is not private (public join)
+        (!resource.data.isPrivate && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']) &&
+         request.resource.data.memberIds.hasAll(resource.data.memberIds) &&
+         request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1)
+      );
+      allow delete: if request.auth != null && (
+          isGlobalAdmin() || 
+          resource.data.createdBy == request.auth.uid
+      );
+
+      // Club Members subcollection
+      match /members/{memberId} {
+        allow read: if request.auth != null;
+        // Anyone can create a join request (status pending), but only admins can approve
+        allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+        allow delete: if request.auth != null && (
+           request.auth.uid == resource.data.uid ||
+           isGlobalAdmin() ||
+           get(/databases/$(database)/documents/clubs/$(clubId)).data.createdBy == request.auth.uid ||
+           (exists(/databases/$(database)/documents/clubs/$(clubId)/members/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/clubs/$(clubId)/members/$(request.auth.uid)).data.role in ['owner', 'admin'])
+        );
+        
+        allow update: if request.auth != null && (
+           isGlobalAdmin() ||
+           get(/databases/$(database)/documents/clubs/$(clubId)).data.createdBy == request.auth.uid ||
+           (exists(/databases/$(database)/documents/clubs/$(clubId)/members/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/clubs/$(clubId)/members/$(request.auth.uid)).data.role in ['owner', 'admin'])
+        );
+      }
+    }
+
+    // Mention tracking
+    match /mentionTracking/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Moderation Queue - Admin only access
+    match /moderationQueue/{queueItemId} {
+      // Only admins can read moderation queue items
+      allow read: if isGlobalAdmin();
+      // Only admins and Cloud Functions can write
+      // Cloud Functions have elevated privileges and bypass these rules
+      allow write: if isGlobalAdmin();
+    }
+
+    // Audit Logs - Append-only, admin read access
+    match /auditLogs/{logId} {
+      // Only admins can read audit logs
+      allow read: if isGlobalAdmin();
+      // No direct writes allowed from clients
+      // Cloud Functions will create these logs
+      allow write: if false;
+    }
+
+   // Posts collection
+    match /posts/{postId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && (
+        !('clubId' in request.resource.data) ||
+        request.resource.data.clubId == null ||
+        (exists(/databases/$(database)/documents/clubs/$(request.resource.data.clubId)/members/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/clubs/$(request.resource.data.clubId)/members/$(request.auth.uid)).data.role in ['owner', 'admin']) ||
+        // Allow club creator/owner to post even if member record is missing/mismatched
+        (exists(/databases/$(database)/documents/clubs/$(request.resource.data.clubId)) &&
+         get(/databases/$(database)/documents/clubs/$(request.resource.data.clubId)).data.createdBy == request.auth.uid) ||
+        (exists(/databases/$(database)/documents/clubs/$(request.resource.data.clubId)) &&
+         get(/databases/$(database)/documents/clubs/$(request.resource.data.clubId)).data.allowMemberPosts && 
+         exists(/databases/$(database)/documents/clubs/$(request.resource.data.clubId)/members/$(request.auth.uid)))
+      );
+      // Only host/author can update/delete, OR any authenticated user can update interaction fields
+      // Also allow club admins/owners to delete posts in their club
+      allow update: if
+        request.auth != null && (
+          request.auth.uid == resource.data.authorId ||
+          request.auth.uid == resource.data.authorUid ||
+          request.auth.uid == resource.data.hostUserId ||
+          request.auth.uid == resource.data.createdBy ||
+          isGlobalAdmin() ||
+          // Allow updating only interaction fields
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedByUids', 'goingUids', 'maybeUids', 'notGoingUids']))
+        );
+
+      allow delete: if
+        request.auth != null && (
+          request.auth.uid == resource.data.authorId ||
+          request.auth.uid == resource.data.authorUid ||
+          request.auth.uid == resource.data.hostUserId ||
+          request.auth.uid == resource.data.createdBy ||
+          isGlobalAdmin() ||
+          (resource.data.clubId != null && 
+           exists(/databases/$(database)/documents/clubs/$(resource.data.clubId)/members/$(request.auth.uid)) &&
+           get(/databases/$(database)/documents/clubs/$(resource.data.clubId)/members/$(request.auth.uid)).data.role in ['owner', 'admin'])
+        );
+
+      // Nested comments for each post
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        // Support both authorUid and authorId for backward compatibility
+        allow create: if request.auth != null && (
+          request.resource.data.authorUid == request.auth.uid ||
+          request.resource.data.authorId == request.auth.uid
+        );
+        
+        // Only comment author can update their own comment, restricted to specific fields
+        allow update: if request.auth != null && (
+          ((request.auth.uid == resource.data.authorUid || request.auth.uid == resource.data.authorId) && 
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt', 'editCount', 'updatedAt'])) ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+        );
+
+        // Only comment author or admin can delete
+        allow delete: if request.auth != null && (
+          request.auth.uid == resource.data.authorUid ||
+          request.auth.uid == resource.data.authorId ||
+          isGlobalAdmin()
+        );
+
+        // Replies subcollection
+        match /replies/{replyId} {
+          allow read: if request.auth != null;
+          allow create: if request.auth != null && (
+            request.resource.data.authorUid == request.auth.uid ||
+            request.resource.data.authorId == request.auth.uid
+          );
+          
+          allow update: if request.auth != null && (
+            ((request.auth.uid == resource.data.authorUid || request.auth.uid == resource.data.authorId) && 
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt', 'editCount', 'updatedAt'])) ||
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+          );
+
+          allow delete: if request.auth != null && (
+            request.auth.uid == resource.data.authorUid ||
+            request.auth.uid == resource.data.authorId ||
+            isGlobalAdmin()
+          );
+
+          // Reports for replies
+          match /reports/{reportId} {
+            allow create: if request.auth != null;
+            allow read: if isGlobalAdmin();
+          }
+        }
+
+        // Reports for comments
+        match /reports/{reportId} {
+          allow create: if request.auth != null;
+          allow read: if isGlobalAdmin();
+        }
+      }
+
+      // Reports subcollection for posts (for post reporting/moderation)
+      // Reports subcollection for posts (for post reporting/moderation)
+      match /reports/{reportId} {
+        // ALLOW TESTING: Any document ID is allowed (for multiple reports per user)
+        // But we still enforce that the reporterUid in the data matches the authenticated user
+        allow create: if request.auth != null && 
+                         request.resource.data.reporterUid == request.auth.uid;
+        // Only admins can read reports
+        allow read: if isGlobalAdmin();
+        // No updates or deletes allowed
+        allow update, delete: if false;
+      }
+    }
+
+    // Events collection (same structure as posts for comments)
+    match /events/{eventId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.authorId ||
+        request.auth.uid == resource.data.authorUid ||
+        request.auth.uid == resource.data.hostUserId ||
+        request.auth.uid == resource.data.createdBy ||
+        isGlobalAdmin() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedByUids', 'goingUids', 'maybeUids', 'notGoingUids'])
+      );
+      allow delete: if request.auth != null && (
+        request.auth.uid == resource.data.authorId ||
+        request.auth.uid == resource.data.authorUid ||
+        request.auth.uid == resource.data.hostUserId ||
+        request.auth.uid == resource.data.createdBy ||
+        isGlobalAdmin()
+      );
+
+      // Comments for events (Mirroring posts logic)
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        // Support both authorUid and authorId for backward compatibility
+        allow create: if request.auth != null && (
+          request.resource.data.authorUid == request.auth.uid ||
+          request.resource.data.authorId == request.auth.uid
+        );
+        allow update: if request.auth != null && (
+          ((request.auth.uid == resource.data.authorUid || request.auth.uid == resource.data.authorId) && 
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt', 'editCount', 'updatedAt'])) ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+        );
+        allow delete: if request.auth != null && (
+          request.auth.uid == resource.data.authorUid ||
+          request.auth.uid == resource.data.authorId ||
+          isGlobalAdmin()
+        );
+
+        match /replies/{replyId} {
+          allow read: if request.auth != null;
+          allow create: if request.auth != null && (
+            request.resource.data.authorUid == request.auth.uid ||
+            request.resource.data.authorId == request.auth.uid
+          );
+          allow update: if request.auth != null && (
+            ((request.auth.uid == resource.data.authorUid || request.auth.uid == resource.data.authorId) && 
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt', 'editCount', 'updatedAt'])) ||
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+          );
+          allow delete: if request.auth != null && (
+            request.auth.uid == resource.data.authorUid ||
+            request.auth.uid == resource.data.authorId ||
+            isGlobalAdmin()
+          );
+
+          match /reports/{reportId} {
+            allow create: if request.auth != null;
+            allow read: if isGlobalAdmin();
+          }
+        }
+
+        match /reports/{reportId} {
+          allow create: if request.auth != null;
+          allow read: if isGlobalAdmin();
+        }
+      }
+    }
+
+    // Support Tickets
+    match /supportTickets/{ticketId} {
+        // Authenticated users can create tickets
+        allow create: if request.auth != null;
+        
+        // Global admins can do everything
+        allow read, write: if isGlobalAdmin();
+        
+        // Users can read/update their own tickets
+        // We split read into get and list for better security handling in queries
+        allow get: if isGlobalAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+        allow list: if isGlobalAdmin() || (request.auth != null && request.auth.uid == (resource == null ? null : resource.data.uid));
+        allow update: if isGlobalAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+        allow delete: if isGlobalAdmin();
+
+        // Messages subcollection for chat
+        match /messages/{messageId} {
+            // Global admins can read/write all messages
+            allow read, write: if isGlobalAdmin();
+            
+            // Ticket owner can read/write their own ticket's messages
+            allow read, create: if request.auth != null && 
+                exists(/databases/$(database)/documents/supportTickets/$(ticketId)) &&
+                get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.uid == request.auth.uid;
+        }
+    }
+
+    // Reports collection (Top-level)
+    match /reports/{reportId} {
+      allow create: if request.auth != null;
+      allow read: if isGlobalAdmin();
+    }
+
+    // Comment reports collection (legacy/top-level if used)
+    match /commentReports/{reportId} {
+      // Any authenticated user can create a report
+      allow create: if request.auth != null;
+      // No one can read, update, or delete (admin only via console)
+      allow read, update, delete: if false;
+    }
+
+    // Collection group query for comments (for user's comment history)
+    // Note: The query itself filters by authorId, so we allow authenticated reads
+    match /{path=**}/comments/{commentId} {
+      allow read: if request.auth != null;
+    }
+
+    // Collection group query for replies (for nested comment counts)
+    match /{path=**}/replies/{replyId} {
+      allow read: if request.auth != null;
+    }
+
+    // Collection group query for seenPosts (for Reach analytics)
+    match /{path=**}/seenPosts/{postId} {
+      allow read: if request.auth != null && (
+        isGlobalAdmin() || 
+        request.auth.uid == path[1] ||
+        (resource != null && resource.data.campusId != null && (
+          exists(/databases/$(database)/documents/campuses/$(resource.data.campusId)) &&
+          get(/databases/$(database)/documents/campuses/$(resource.data.campusId)).data.adminEmails.hasAny([request.auth.token.email, request.auth.token.email.lower()])
+        )) ||
+        (resource != null && resource.data.campusId != null && (
+          exists(/databases/$(database)/documents/universities/$(resource.data.campusId)) &&
+          get(/databases/$(database)/documents/universities/$(resource.data.campusId)).data.adminEmails.hasAny([request.auth.token.email, request.auth.token.email.lower()])
+        ))
+      );
+    }
+
+    // Campus Stats collection (New: Pre-aggregated dashboard metrics)
+    match /campusStats/{campusId} {
+      // Helper to check if a user is an admin of this specific campus
+      function isCampusAdmin(cid) {
+        return request.auth != null && 
+               request.auth.token.email != null && (
+                 (exists(/databases/$(database)/documents/campuses/$(cid)) &&
+                  get(/databases/$(database)/documents/campuses/$(cid)).data.adminEmails.hasAny([request.auth.token.email, request.auth.token.email.lower()])) ||
+                 (exists(/databases/$(database)/documents/universities/$(cid)) &&
+                  get(/databases/$(database)/documents/universities/$(cid)).data.adminEmails.hasAny([request.auth.token.email, request.auth.token.email.lower()]))
+               );
+      }
+
+      // Root access logic
+      allow read: if isGlobalAdmin() || (campusId != "global" && isCampusAdmin(campusId));
+      allow write: if isGlobalAdmin(); // Allow Global Admins to initialize/backfill
+
+      // Subcollection access logic (daily buckets, meta, markers)
+      match /{allSubcollections=**} {
+        allow read: if isGlobalAdmin() || (campusId != "global" && isCampusAdmin(campusId));
+        allow write: if isGlobalAdmin();
+      }
+    }
+
+    // Top-level Notifications collection
+    match /notifications/{notificationId} {
+      // Only the recipient can read their notification
+      allow read: if request.auth != null && request.auth.uid == resource.data.toUid;
+      
+      // Only Cloud Functions can create notifications
+      allow create: if false;
+
+      // Users can delete their own notifications
+      allow delete: if request.auth != null && request.auth.uid == resource.data.toUid;
+      
+      // Users can only update read/seen/archive fields on their own notifications
+      allow update: if request.auth != null 
+        && request.auth.uid == resource.data.toUid
+        && (
+          request.resource.data.diff(resource.data)
+            .changedKeys()
+            .hasOnly(['isRead', 'readAt', 'seenAt', 'isArchived'])
+        );
+    }
+
+    // Everything else locked down
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

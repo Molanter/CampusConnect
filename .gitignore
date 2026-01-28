@@ -2,13 +2,18 @@
 .DS_Store
 
 # Firebase config / rules (if you do not want them tracked)
-firebase.json
-firestore.rules
+# firebase.json
+# firestore.rules
 DEPLOY_FIRESTORE_RULES.md
-
 
 # App Info.plist (local / environment-specific)
 **/Info.plist
 
 # Firebase config (secrets)
 **/GoogleService-Info.plist
+
+# Build artifacts
+.firebase/
+node_modules/
+.next/
+out/

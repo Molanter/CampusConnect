@@ -1,61 +1,114 @@
-# GitHub Pages Deployment
+# Firebase Hosting Deployment - Quick Start
 
-This directory contains the configuration for deploying CampusConnect to GitHub Pages.
+## ✅ Setup Complete!
 
-## Quick Start
+Your CampusConnect app is now configured for Firebase Hosting with full Next.js support.
 
-1. **Run the setup script**:
-   ```bash
-   ./setup-github-pages.sh
-   ```
+## 🚀 Deploy Now
 
-2. **Push to GitHub**:
-   ```bash
-   git add .
-   git commit -m "Setup GitHub Pages deployment"
-   git push origin main
-   ```
+### Step 1: Verify Blaze Plan
 
-3. **Enable GitHub Pages**:
-   - Go to your repository on GitHub
-   - Navigate to **Settings** → **Pages**
-   - Under "Build and deployment", select **GitHub Actions**
-   - Click **Save**
+Firebase Frameworks requires the Blaze (pay-as-you-go) plan.
 
-4. **Wait for deployment** (1-2 minutes)
-   - Check the **Actions** tab for deployment status
-   - Your site will be live at `https://username.github.io/repo-name`
+**Check your plan:**
+1. Go to: https://console.firebase.google.com/project/campus-vibes-e34f0/usage
+2. Look for "Blaze" or "Spark" plan indicator
 
-## Files
+**If you're on Spark (free) plan:**
+1. Click "Upgrade" in Firebase Console
+2. Select "Blaze" plan
+3. **Don't worry**: Free tier still applies, you only pay for usage beyond limits
 
-- `.github/workflows/deploy.yml` - GitHub Actions workflow for automatic deployment
-- `Site/public/404.html` - Handles client-side routing on GitHub Pages
-- `Site/next.config.ts` - Configured for static export with `output: 'export'`
-- `setup-github-pages.sh` - Setup helper script
+### Step 2: Deploy
 
-## Important Notes
+```bash
+firebase deploy --only hosting
+```
 
-### API Routes
-GitHub Pages only serves static files. Your API routes (`/api/expand-map-url`, `/api/suggest`) will **not work**. Consider:
-- Moving them to Firebase Functions
-- Using a separate backend service
-- Implementing client-side alternatives
+**First deployment takes ~5-10 minutes**
+- Installs dependencies
+- Builds Next.js app
+- Creates Cloud Functions
+- Sets up hosting
 
-### Environment Variables
-- Only `NEXT_PUBLIC_*` variables work in static builds
-- Add them as **Repository Secrets** in GitHub Settings → Secrets and variables → Actions
+### Step 3: Test Your Site
 
-### basePath Configuration
-If deploying to `username.github.io/repo-name`:
-1. Edit `Site/next.config.ts`
-2. Uncomment: `basePath: '/CampusConnect'` (replace with your repo name)
+After deployment, Firebase will give you a URL:
+- **Live URL**: https://campus-vibes-e34f0.web.app
+- **Custom domain**: https://campus-vibes-e34f0.firebaseapp.com
 
-If deploying to a custom domain or `username.github.io` (root), leave it commented out.
+Test these features to confirm everything works:
+- ✅ Home page loads
+- ✅ Login/authentication
+- ✅ Create a post
+- ✅ Admin panel (`/admin/campuses`)
+- ✅ API routes work (map URL expansion)
 
-## Troubleshooting
+## 📊 What's Deployed
 
-See the full deployment guide: `.agent/workflows/deploy-hosting.md`
+### ✅ Full Next.js Support
+- API routes (`/api/expand-map-url`, `/api/suggest`)
+- Dynamic routes (`/admin/campuses/[id]`)
+- Server-side rendering
+- Image optimization
+- All features working!
 
-## Manual Deployment
+### 🔧 Configuration Files
+- `firebase.json` - Hosting config with `"source": "Site"`
+- `Site/next.config.ts` - Removed static export
+- `.firebaserc` - Project ID: `campus-vibes-e34f0`
 
-Trigger manually from the **Actions** tab → **Deploy to GitHub Pages** → **Run workflow**
+## 💰 Cost Estimate
+
+### Free Tier (Monthly)
+- 10 GB hosting storage
+- 10 GB bandwidth
+- 2M function invocations
+- 400,000 GB-seconds compute
+
+### Expected Costs
+- **0-10k users**: $0-25/month (mostly free tier)
+- **10k-100k users**: $150-300/month
+- **100k+ users**: Scale with usage
+
+**You only pay for what you use beyond free tier!**
+
+## 🔍 Monitoring
+
+### View Logs
+```bash
+firebase functions:log
+```
+
+### Firebase Console
+- **Hosting**: https://console.firebase.google.com/project/campus-vibes-e34f0/hosting
+- **Functions**: https://console.firebase.google.com/project/campus-vibes-e34f0/functions
+- **Usage & Billing**: https://console.firebase.google.com/project/campus-vibes-e34f0/usage
+
+## 🚨 Troubleshooting
+
+### "Requires Blaze plan"
+→ Upgrade to Blaze plan in Firebase Console
+
+### Build fails
+→ Check `firebase functions:log` for errors
+→ Ensure `Site/package.json` has all dependencies
+
+### 404 errors
+→ Wait 2-3 minutes after deployment
+→ Clear browser cache
+→ Check Firebase Console → Hosting for deployment status
+
+## 📚 Full Documentation
+
+See `.agent/workflows/deploy-hosting.md` for complete guide.
+
+---
+
+## 🎯 Quick Deploy Command
+
+```bash
+firebase deploy --only hosting
+```
+
+**That's it!** Your site will be live in ~5-10 minutes with ALL features working! 🚀
