@@ -22,7 +22,7 @@ import {
 import { UserRow } from "./user-row";
 import { useAdminMode } from "./admin-mode-context";
 import { Menu, Transition } from "@headlessui/react";
-import { ThemeToggle } from "./theme-toggle";
+
 import { motion, AnimatePresence } from "framer-motion";
 
 function SidebarIcon(props: SVGProps<SVGSVGElement>) {
@@ -240,10 +240,7 @@ export function Navbar({
             </Link>
           </nav>
 
-          {/* Theme Toggle at bottom */}
-          <div className="mt-4 w-full px-2">
-            <ThemeToggle />
-          </div>
+
         </aside>
       )}
 
