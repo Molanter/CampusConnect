@@ -1,165 +1,281 @@
 ---
-description: Deploy the Next.js app to GitHub Pages
+description: Deploy the Next.js app to Firebase Hosting with Cloud Functions
 ---
 
-# GitHub Pages Deployment Workflow
+# Firebase Hosting Deployment with Next.js (Full SSR Support)
 
-This workflow deploys the CampusConnect Next.js application to GitHub Pages using static export.
+This workflow deploys CampusConnect to Firebase Hosting using Firebase Frameworks, which provides full Next.js support including API routes, dynamic pages, and server-side rendering.
+
+## ✅ What Works
+
+- ✅ All Next.js features (SSR, ISR, API routes)
+- ✅ Dynamic routes (`/admin/campuses/[id]`)
+- ✅ API routes (`/api/expand-map-url`, `/api/suggest`)
+- ✅ Image optimization
+- ✅ Middleware
+- ✅ Everything in your app!
 
 ## Prerequisites
 
-1. **GitHub Repository**
-   - Your code must be in a GitHub repository
-   - You need write access to the repository
+1. **Firebase CLI** (already installed)
+   ```bash
+   firebase --version  # Should be 13.0.0 or higher
+   ```
 
-2. **GitHub Pages Enabled**
-   - Go to your repository Settings → Pages
-   - Under "Build and deployment", select "GitHub Actions" as the source
+2. **Firebase Project** (already set up)
+   - Project ID: `campus-vibes-e34f0`
+   - Blaze (pay-as-you-go) plan required for Cloud Functions
+
+3. **Node.js 18+**
+   ```bash
+   node --version
+   ```
 
 ## One-Time Setup
 
-### 1. Enable GitHub Pages
+### 1. Verify Firebase Plan
 
-1. Go to your GitHub repository
-2. Click **Settings** → **Pages**
-3. Under "Build and deployment":
-   - **Source**: Select "GitHub Actions"
-4. Click **Save**
+Firebase Frameworks requires the **Blaze (pay-as-you-go) plan** because it uses Cloud Functions.
 
-### 2. Add Environment Variables (if needed)
+Check your plan:
+```bash
+firebase projects:list
+```
 
-If your app uses environment variables (like Google Maps API key):
+If you're on the Spark (free) plan, upgrade:
+1. Go to https://console.firebase.google.com/project/campus-vibes-e34f0/overview
+2. Click "Upgrade" in the bottom left
+3. Select "Blaze" plan
+4. **Don't worry**: You still get free tier limits, only pay for usage beyond that
 
-1. Go to **Settings** → **Secrets and variables** → **Actions**
-2. Click **New repository secret**
-3. Add secrets like:
-   - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
-   - Any other `NEXT_PUBLIC_*` variables
+### 2. Initialize Firebase Frameworks (Already Done)
 
-### 3. Configure basePath (if using username.github.io/repo-name)
+The `firebase.json` is already configured with:
+```json
+{
+  "hosting": {
+    "source": "Site"
+  }
+}
+```
 
-If deploying to `https://username.github.io/CampusConnect`:
-
-1. Edit `Site/next.config.ts`
-2. Uncomment the `basePath` line:
-   ```typescript
-   basePath: '/CampusConnect',
-   ```
-
-**Note**: If deploying to a custom domain or `username.github.io` (root), leave `basePath` commented out.
+This tells Firebase to use the Next.js app in the `Site/` directory.
 
 ## Deployment
 
-### Automatic Deployment
+### Quick Deploy
 
-Every time you push to the `main` branch, GitHub Actions will automatically:
-1. Build your Next.js app
-2. Export it as static files
-3. Deploy to GitHub Pages
+From the project root:
 
 ```bash
-git add .
-git commit -m "Deploy to GitHub Pages"
-git push origin main
+firebase deploy --only hosting
 ```
 
-### Manual Deployment
+That's it! Firebase will:
+1. Detect your Next.js app
+2. Build it automatically
+3. Deploy to Cloud Functions
+4. Set up hosting
+5. Give you a live URL
 
-You can also trigger deployment manually:
+### First Deployment
 
-1. Go to your repository on GitHub
-2. Click **Actions** tab
-3. Select "Deploy to GitHub Pages" workflow
-4. Click **Run workflow** → **Run workflow**
+The first deployment takes ~5-10 minutes because it:
+- Installs dependencies
+- Builds the Next.js app
+- Creates Cloud Functions
+- Sets up hosting
+
+Subsequent deployments are faster (~2-3 minutes).
+
+### Deploy Specific Components
+
+```bash
+# Deploy only hosting
+firebase deploy --only hosting
+
+# Deploy only functions
+firebase deploy --only functions
+
+# Deploy everything
+firebase deploy
+```
+
+## Environment Variables
+
+### Add Environment Variables
+
+Firebase Frameworks automatically uses your `.env.local` file, but for production:
+
+1. Go to Firebase Console → Functions
+2. Click "Environment variables"
+3. Add your variables:
+   - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
+   - Any other `NEXT_PUBLIC_*` variables
+
+Or use the CLI:
+```bash
+firebase functions:config:set google.maps_key="YOUR_API_KEY"
+```
 
 ## Viewing Your Site
 
-After deployment completes (usually 1-2 minutes):
+After deployment:
 
-- **Repository Pages**: `https://username.github.io/CampusConnect`
-- **Custom Domain**: Configure in Settings → Pages → Custom domain
+- **Live URL**: https://campus-vibes-e34f0.web.app
+- **Custom domain**: Configure in Firebase Console → Hosting
 
 ## Local Testing
 
-Before deploying, test the static export locally:
+Test the Firebase Frameworks setup locally:
 
 ```bash
+# Install dependencies
 cd Site
-npm run build
-npx serve out
+npm install
+
+# Run Firebase emulators
+cd ..
+firebase emulators:start
 ```
 
-Visit `http://localhost:3000` to preview.
+This runs your Next.js app exactly as it will run on Firebase.
 
-## Important Notes
+## Monitoring & Logs
 
-### API Routes Not Supported
+### View Deployment Logs
 
-GitHub Pages only serves static files. The following API routes will NOT work:
-- `/api/expand-map-url`
-- `/api/suggest`
+```bash
+firebase functions:log
+```
 
-**Solutions**:
-1. **Move to Firebase Functions**: Keep these as serverless functions
-2. **Use External API**: Call a separate backend service
-3. **Client-side only**: Remove server-side API dependencies
+### Firebase Console
 
-### Environment Variables
+- **Hosting**: https://console.firebase.google.com/project/campus-vibes-e34f0/hosting
+- **Functions**: https://console.firebase.google.com/project/campus-vibes-e34f0/functions
+- **Analytics**: Built-in performance monitoring
 
-- Only `NEXT_PUBLIC_*` variables work in static export
-- Server-side environment variables won't be available
-- Add secrets in GitHub repository settings
+## Cost Optimization
 
-### Image Optimization
+### Free Tier Limits (Monthly)
 
-- Next.js Image optimization is disabled (`unoptimized: true`)
-- Images are served as-is without automatic optimization
-- Consider optimizing images before adding them to the project
+**Hosting:**
+- 10 GB storage
+- 360 MB/day bandwidth (~10 GB/month)
+
+**Cloud Functions:**
+- 2M invocations
+- 400,000 GB-seconds compute time
+- 200,000 CPU-seconds
+
+**Typical Usage:**
+- 10k users: Well within free tier
+- 100k users: ~$150-200/month
+- 1M users: ~$2,000-2,500/month
+
+### Optimization Tips
+
+1. **Enable Caching**
+   - Firebase automatically caches static assets
+   - Configure cache headers in `firebase.json` if needed
+
+2. **Use CDN**
+   - Firebase Hosting uses global CDN automatically
+   - No additional configuration needed
+
+3. **Optimize Images**
+   - Next.js Image component works with Firebase
+   - Automatic optimization and caching
 
 ## Troubleshooting
 
-### Blank Page After Deployment
-
-**Cause**: Incorrect `basePath` configuration
-
-**Fix**: 
-- If deploying to `username.github.io/repo-name`, set `basePath: '/repo-name'`
-- If deploying to root domain, remove or comment out `basePath`
-
-### 404 on Page Refresh
-
-**Cause**: GitHub Pages doesn't support client-side routing by default
-
-**Fix**: The `.nojekyll` file is automatically added by the workflow. If issues persist, add a `404.html` that redirects to `index.html`.
-
 ### Build Fails
 
-**Cause**: TypeScript errors or missing dependencies
+**Error**: "Could not find Next.js app"
+**Fix**: Make sure `firebase.json` has `"source": "Site"`
 
-**Fix**:
-1. Run `npm run build` locally to see errors
-2. Fix TypeScript errors
-3. Ensure all dependencies are in `package.json`
+**Error**: "Functions deployment failed"
+**Fix**: Ensure you're on Blaze plan
 
-### Assets Not Loading
+### Slow Deployments
 
-**Cause**: Incorrect asset paths
+First deployment is always slow. Subsequent deployments are faster.
 
-**Fix**: Ensure `basePath` matches your deployment URL structure
+To speed up:
+```bash
+# Skip functions if you only changed frontend
+firebase deploy --only hosting:site
+```
 
-## Workflow File Location
+### 404 Errors
 
-`.github/workflows/deploy.yml`
+If you get 404s after deployment:
+1. Check Firebase Console → Hosting
+2. Verify deployment completed
+3. Clear browser cache
+4. Check function logs: `firebase functions:log`
 
-## Monitoring Deployments
+### API Routes Not Working
 
-1. Go to **Actions** tab in your repository
-2. Click on the latest workflow run
-3. View build logs and deployment status
+**Check**:
+1. Are you on Blaze plan?
+2. Did deployment complete successfully?
+3. Check function logs for errors
 
-## Custom Domain Setup
+## Comparison: Firebase vs GitHub Pages
 
-1. Go to **Settings** → **Pages**
-2. Enter your custom domain
-3. Add DNS records as instructed by GitHub
-4. Wait for DNS propagation (can take up to 24 hours)
+| Feature | Firebase Frameworks | GitHub Pages |
+|---------|-------------------|--------------|
+| **API Routes** | ✅ Yes | ❌ No |
+| **Dynamic Routes** | ✅ Yes | ❌ No |
+| **SSR** | ✅ Yes | ❌ No |
+| **Cost (100k users)** | ~$200/mo | Free (but limited) |
+| **Setup Complexity** | Medium | Easy |
+| **All Features Work** | ✅ Yes | ❌ No |
+
+## CI/CD with GitHub Actions
+
+Want automatic deployments? Create `.github/workflows/firebase-deploy.yml`:
+
+```yaml
+name: Deploy to Firebase
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g firebase-tools
+      - run: firebase deploy --only hosting --token ${{ secrets.FIREBASE_TOKEN }}
+```
+
+Get token: `firebase login:ci`
+
+## Next Steps
+
+1. **Deploy now**: `firebase deploy --only hosting`
+2. **Test your site**: Visit the URL Firebase provides
+3. **Set up custom domain** (optional): Firebase Console → Hosting
+4. **Monitor costs**: Firebase Console → Usage
+
+## Support
+
+- **Firebase Docs**: https://firebase.google.com/docs/hosting/frameworks/nextjs
+- **Next.js Docs**: https://nextjs.org/docs
+- **Firebase Support**: https://firebase.google.com/support
+
+---
+
+**Ready to deploy?** Run:
+```bash
+firebase deploy --only hosting
+```
+
+Your site will be live in ~5-10 minutes! 🚀

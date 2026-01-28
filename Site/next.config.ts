@@ -1,12 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
-  // For GitHub Pages deployment
-  basePath: '/CampusConnect',
-  images: {
-    unoptimized: true, // Required for static export
-  },
+  // Firebase Hosting with Cloud Functions supports full Next.js
+  // No need for static export - API routes and dynamic pages work!
   reactStrictMode: false,
   devIndicators: false,
   async redirects() {
