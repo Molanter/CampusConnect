@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - adding_notifications  # Deploy from this branch
+      - main
   workflow_dispatch:  # Allows manual trigger
 
 permissions:
